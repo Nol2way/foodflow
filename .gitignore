@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# build output
+dist/
+.wrangler/
+
+# environment (เก็บเฉพาะ .env.example)
+.env
+.env.*
+!.env.example
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+
+# backend secrets / wrangler
+.dev.vars
+.wrangler/
+
+# Playwright (ทดสอบหน้าเว็บ)
+frontend/e2e-report/
+frontend/e2e-results/

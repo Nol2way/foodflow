@@ -1,0 +1,31 @@
+# FoodFlow backend — Cloudflare Worker (ใช้เมื่อแยก backend ออกจาก Cloudflare Pages)
+# ถ้าดีพลอยบน Cloudflare Pages ไม่ต้องใช้ไฟล์นี้: frontend/functions/api/[[path]].ts เรียกโค้ดชุดเดียวกันให้แล้ว
+name = "foodflow-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+# URL และ anon key เปิดเผยได้ (เหมือนในหน้าเว็บ)
+SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"
+SUPABASE_ANON_KEY = "YOUR-ANON-KEY"
+ALLOWED_ORIGINS = "http://localhost:5173"
+# GEMINI_MODEL = "gemini-2.5-flash"
+
+# ความลับ ห้ามใส่ในไฟล์นี้ ตั้งด้วยคำสั่ง:
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put GEMINI_API_KEY
+#   npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN   (รายงานรายวันทาง LINE ไม่บังคับ)
+# ตอนพัฒนาในเครื่อง ใส่ใน backend/.dev.vars แทน (ไฟล์นี้อยู่ใน .gitignore)
+
+# จำกัดความถี่แบบนับรวมทุกเครื่อง (Workers Rate Limiting) ถ้าไม่ผูก backend ใช้ตัวนับในหน่วยความจำแทน
+[[ratelimits]]
+name = "AI_LIMITER"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 6
+  period = 60
+
+# ส่งรายงานรายวันทาง LINE: ตรวจทุกชั่วโมง ส่งให้ร้านที่ถึงเวลา REPORT_HOUR (ค่าเริ่มต้น 22:00 ตามเวลาร้าน)
+# หมายเหตุ: Cron ใช้ได้เฉพาะเมื่อดีพลอยเป็น Worker (Cloudflare Pages Functions ไม่มี Cron)
+[triggers]
+crons = ["0 * * * *"]

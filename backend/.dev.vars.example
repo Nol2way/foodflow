@@ -1,0 +1,4 @@
+# คัดลอกเป็น .dev.vars แล้วกรอกค่า (ใช้กับ npm run dev ใน backend/)
+SUPABASE_SERVICE_ROLE_KEY=
+GEMINI_API_KEY=
+# GEMINI_MODEL=gemini-2.5-flash
