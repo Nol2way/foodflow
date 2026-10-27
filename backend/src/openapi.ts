@@ -1,10 +1,15 @@
-// เอกสาร OpenAPI 3.1 ของ FoodFlow backend
+// เอกสาร OpenAPI 3.1 ของ Plato backend
 // เสิร์ฟที่ /api/openapi.json และหน้า Swagger UI ที่ /api/docs
 // แก้ endpoint ใน app.ts แล้วต้องแก้ที่นี่ด้วย (มีชุดทดสอบตรวจว่าทุก route มีเอกสาร)
 // ส่งออกเป็นไฟล์: npm run openapi -> docs/openapi.json
+import { accountingPaths, accountingSchemas, accountingTag } from './openapi-accounting.ts'
+import { stockPaths, stockSchemas, stockTag } from './openapi-stock.ts'
 
 const uuid = { type: 'string', format: 'uuid' } as const
 const role = { type: 'string', enum: ['owner', 'manager', 'staff', 'kitchen', 'accountant', 'stock'] } as const
+// พนักงาน 1 คนมีได้หลายบทบาท (0020)
+const roles = { type: 'array', items: role, minItems: 1, uniqueItems: true, description: 'บทบาททั้งหมดของพนักงาน (มีได้หลายบทบาท)' } as const
+const legacyRole = { ...role, deprecated: true, description: 'แบบเดิม: บทบาทเดียว (ใช้ roles แทน)' } as const
 
 const err = (description: string, codes: string[]) => ({
   description,
@@ -24,19 +29,20 @@ const authErrors = {
   '401': err('ไม่มี token หรือ token หมดอายุ', ['unauthorized']),
   '403': err('บทบาทในร้านนี้ไม่พอ', ['forbidden']),
 }
+const USER = { type: 'object', properties: { id: uuid, email: { type: 'string' }, display_name: { type: ['string', 'null'] }, phone: { type: ['string', 'null'] }, must_change_password: { type: 'boolean' } } } as const
 const restaurantQuery = { name: 'restaurant_id', in: 'query', required: true, schema: uuid, description: 'ร้านที่ทำรายการ' }
 
 export const openapi = {
   openapi: '3.1.0',
   info: {
-    title: 'FoodFlow API',
+    title: 'Plato API',
     version: '1.0.0',
     description: [
-      'Backend ของระบบบริหารร้านอาหาร FoodFlow (Hono บน Cloudflare)',
+      'Backend ของระบบบริหารร้านอาหาร Plato (Hono บน Cloudflare)',
       '',
-      '**สิทธิ์:** endpoint ที่มีรูปกุญแจต้องส่ง `Authorization: Bearer <access_token ของ Supabase>`',
-      'วิธีหา token เพื่อทดลองในหน้านี้: ล็อกอินที่หน้าเว็บ FoodFlow แล้วเปิด DevTools → Application → Local Storage',
-      'คีย์ `sb-<project>-auth-token` คัดลอกค่า `access_token` มาใส่ที่ปุ่ม **Authorize**',
+      '**สิทธิ์:** endpoint ที่มีรูปกุญแจต้องส่ง `Authorization: Bearer <access_token>` ที่ได้จาก `POST /api/auth/login`',
+      'ผู้ใช้เก็บในตาราง `app_users` ของระบบเอง (ไม่ใช้ Supabase Auth) โทเคนลงนามด้วย JWT secret ของโปรเจกต์ จึงใช้กับ RLS ของ Supabase ได้',
+      'วิธีหา token เพื่อทดลองในหน้านี้: เรียก `POST /api/auth/login` แล้วคัดลอก `access_token` มาใส่ที่ปุ่ม **Authorize**',
       '',
       '**ข้อผิดพลาด:** ตอบเป็น `{ "error": "<code>", "message": "<ข้อความไทย ถ้ามี>" }` ข้อผิดพลาดที่ไม่คาดคิดตอบ `500 internal_error` โดยไม่เปิดเผยรายละเอียด',
       '',
@@ -51,10 +57,13 @@ export const openapi = {
   ],
   tags: [
     { name: 'ระบบ', description: 'สถานะและเอกสาร' },
+    { name: 'บัญชีผู้ใช้', description: 'ล็อกอิน เปลี่ยนรหัสผ่าน โปรไฟล์ (ตาราง app_users)' },
     { name: 'นำเข้าข้อมูล', description: 'นำเข้ายอดขายย้อนหลังจาก CSV (เจ้าของร้าน, ผู้จัดการ)' },
     { name: 'AI', description: 'สรุป/ถามตอบด้วย Gemini (เจ้าของร้าน, บัญชี) · แนะนำโปร (เจ้าของร้าน, ผู้จัดการ)' },
     { name: 'รายงาน', description: 'รายงานสรุปรายวันทาง LINE (เจ้าของร้าน, ผู้จัดการ)' },
     { name: 'พนักงาน', description: 'จัดการพนักงาน (เจ้าของร้าน ทุกบทบาท · ผู้จัดการ เฉพาะ staff / kitchen / accountant / stock)' },
+    accountingTag,
+    stockTag,
   ],
   paths: {
     '/api/health': {
@@ -318,6 +327,96 @@ export const openapi = {
       },
     },
 
+    '/api/auth/login': {
+      post: {
+        tags: ['บัญชีผู้ใช้'],
+        summary: 'ล็อกอินด้วยอีเมลและรหัสผ่าน',
+        operationId: 'login',
+        requestBody: {
+          required: true,
+          content: json(
+            { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', format: 'email' }, password: { type: 'string', maxLength: 72 } } },
+            { email: 'owner@example.com', password: '********' },
+          ),
+        },
+        responses: {
+          '200': {
+            description: 'สำเร็จ: access_token ใช้ได้ตามอายุใน expires_at (ค่าเริ่มต้น 12 ชั่วโมง)',
+            content: json({
+              type: 'object',
+              properties: { access_token: { type: 'string' }, expires_at: { type: 'integer', description: 'เวลาหมดอายุ (มิลลิวินาที)' }, user: USER },
+            }),
+          },
+          '400': err('ไม่ได้กรอกอีเมล/รหัสผ่าน', ['invalid_request']),
+          '401': err('อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีถูกปิด', ['invalid_credentials']),
+          '429': err('ลองถี่เกินไป (10 ครั้งต่อนาที ต่อ IP และต่ออีเมล)', ['too_many_requests']),
+          '503': err('ยังไม่ได้ตั้ง SUPABASE_JWT_SECRET', ['auth_not_configured']),
+        },
+      },
+    },
+
+    '/api/auth/me': {
+      get: {
+        tags: ['บัญชีผู้ใช้'],
+        summary: 'โปรไฟล์ของผู้ใช้ที่ล็อกอิน',
+        operationId: 'me',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'โปรไฟล์', content: json({ type: 'object', properties: { user: USER } }) }, '401': authErrors['401'] },
+      },
+      patch: {
+        tags: ['บัญชีผู้ใช้'],
+        summary: 'แก้ชื่อและเบอร์โทรของตัวเอง',
+        operationId: 'updateMe',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: json({ type: 'object', properties: { display_name: { type: 'string', maxLength: 80 }, phone: { type: 'string', maxLength: 30 } } }),
+        },
+        responses: { '200': { description: 'บันทึกแล้ว', content: json({ type: 'object', properties: { user: USER } }) }, '401': authErrors['401'] },
+      },
+    },
+
+    '/api/auth/password': {
+      post: {
+        tags: ['บัญชีผู้ใช้'],
+        summary: 'เปลี่ยนรหัสผ่านตัวเอง (ต้องยืนยันรหัสปัจจุบัน)',
+        operationId: 'changePassword',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: json({
+            type: 'object',
+            required: ['current_password', 'new_password'],
+            properties: { current_password: { type: 'string' }, new_password: { type: 'string', minLength: 8, maxLength: 72 } },
+          }),
+        },
+        responses: {
+          '200': { description: 'เปลี่ยนแล้ว', content: json({ type: 'object', properties: { changed: { const: true } } }) },
+          '400': err('รหัสใหม่สั้น/ยาวเกิน ซ้ำรหัสเดิม หรือรหัสปัจจุบันผิด', ['weak_password', 'same_password', 'wrong_password']),
+          '401': authErrors['401'],
+          '429': err('ลองถี่เกินไป', ['too_many_requests']),
+        },
+      },
+    },
+
+    '/api/staff/{user_id}/reset-password': {
+      post: {
+        tags: ['พนักงาน'],
+        summary: 'รีเซ็ตรหัสผ่านพนักงาน (ได้รหัสชั่วคราว ต้องเปลี่ยนหลังล็อกอิน)',
+        operationId: 'resetStaffPassword',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'user_id', in: 'path', required: true, schema: uuid }],
+        requestBody: { required: true, content: json({ type: 'object', required: ['restaurant_id'], properties: { restaurant_id: uuid } }) },
+        responses: {
+          '200': { description: 'รหัสชั่วคราว (แสดงครั้งเดียว)', content: json({ type: 'object', properties: { user_id: uuid, temp_password: { type: 'string' } } }) },
+          '400': err('ข้อมูลไม่ถูกต้อง หรือรีเซ็ตรหัสตัวเอง', ['invalid_user_id', 'invalid_restaurant_id', 'use_change_password']),
+          '401': authErrors['401'],
+          '403': err('บทบาทไม่พอ หรือผู้จัดการรีเซ็ตเจ้าของ/ผู้จัดการ', ['forbidden']),
+          '404': err('ไม่พบพนักงานในร้านนี้', ['not_found']),
+        },
+      },
+    },
+
     '/api/staff': {
       get: {
         tags: ['พนักงาน'],
@@ -330,7 +429,7 @@ export const openapi = {
             description: 'รายชื่อพร้อมอีเมล',
             content: json(
               { type: 'object', required: ['staff'], properties: { staff: { type: 'array', items: { $ref: '#/components/schemas/StaffMember' } } } },
-              { staff: [{ user_id: '00000000-0000-4000-8000-000000000004', email: 'owner@example.com', role: 'owner' }] },
+              { staff: [{ user_id: '00000000-0000-4000-8000-000000000004', email: 'owner@example.com', roles: ['owner'] }] },
             ),
           },
           ...authErrors,
@@ -338,7 +437,7 @@ export const openapi = {
       },
       post: {
         tags: ['พนักงาน'],
-        summary: 'เพิ่มพนักงาน (ถ้ายังไม่มีบัญชีจะส่งอีเมลเชิญ)',
+        summary: 'เพิ่มพนักงาน (ถ้ายังไม่มีบัญชีจะสร้างให้พร้อมรหัสชั่วคราว)',
         operationId: 'addStaff',
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -346,10 +445,10 @@ export const openapi = {
           content: json(
             {
               type: 'object',
-              required: ['restaurant_id', 'email', 'role'],
-              properties: { restaurant_id: uuid, email: { type: 'string', format: 'email', maxLength: 254 }, role },
+              required: ['restaurant_id', 'email', 'roles'],
+              properties: { restaurant_id: uuid, email: { type: 'string', format: 'email', maxLength: 254 }, display_name: { type: 'string', maxLength: 80 }, roles, role: legacyRole },
             },
-            { restaurant_id: '00000000-0000-4000-8000-000000000003', email: 'cook@example.com', role: 'kitchen' },
+            { restaurant_id: '00000000-0000-4000-8000-000000000003', email: 'cook@example.com', roles: ['kitchen', 'stock'] },
           ),
         },
         responses: {
@@ -357,12 +456,13 @@ export const openapi = {
             description: 'เพิ่มแล้ว',
             content: json({
               type: 'object',
-              required: ['user_id', 'email', 'role', 'invited'],
+              required: ['user_id', 'email', 'roles', 'created'],
               properties: {
                 user_id: uuid,
                 email: { type: 'string' },
-                role,
-                invited: { type: 'boolean', description: 'true = ส่งอีเมลเชิญให้ตั้งรหัสผ่าน' },
+                roles,
+                created: { type: 'boolean', description: 'true = สร้างบัญชีใหม่' },
+                temp_password: { type: 'string', description: 'รหัสชั่วคราว (เฉพาะบัญชีใหม่ แสดงครั้งเดียว) พนักงานต้องเปลี่ยนหลังล็อกอินครั้งแรก' },
               },
             }),
           },
@@ -370,7 +470,6 @@ export const openapi = {
           '401': authErrors['401'],
           '403': err('บทบาทไม่พอ หรือผู้จัดการพยายามแต่งตั้งเจ้าของ/ผู้จัดการ', ['forbidden', 'role_not_allowed']),
           '409': err('เป็นพนักงานของร้านนี้อยู่แล้ว', ['duplicate']),
-          '502': err('ส่งอีเมลเชิญไม่สำเร็จ', ['invite_failed']),
         },
       },
     },
@@ -378,19 +477,19 @@ export const openapi = {
     '/api/staff/{user_id}': {
       patch: {
         tags: ['พนักงาน'],
-        summary: 'เปลี่ยนบทบาท',
+        summary: 'ตั้งบทบาท (แทนที่ทั้งชุด)',
         operationId: 'changeStaffRole',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'user_id', in: 'path', required: true, schema: uuid }],
         requestBody: {
           required: true,
           content: json(
-            { type: 'object', required: ['restaurant_id', 'role'], properties: { restaurant_id: uuid, role } },
-            { restaurant_id: '00000000-0000-4000-8000-000000000003', role: 'accountant' },
+            { type: 'object', required: ['restaurant_id', 'roles'], properties: { restaurant_id: uuid, roles, role: legacyRole } },
+            { restaurant_id: '00000000-0000-4000-8000-000000000003', roles: ['staff', 'accountant'] },
           ),
         },
         responses: {
-          '200': { description: 'เปลี่ยนแล้ว', content: json({ type: 'object', properties: { user_id: uuid, role } }) },
+          '200': { description: 'บทบาทหลังบันทึก', content: json({ type: 'object', properties: { user_id: uuid, roles } }) },
           '400': err('ข้อมูลไม่ถูกต้อง', ['invalid_user_id', 'invalid_role', 'invalid_restaurant_id']),
           '401': authErrors['401'],
           '403': err('บทบาทไม่พอ หรือผู้จัดการพยายามแต่งตั้งเจ้าของ/ผู้จัดการ', ['forbidden', 'role_not_allowed']),
@@ -415,6 +514,8 @@ export const openapi = {
       },
     },
 
+    ...accountingPaths,
+    ...stockPaths,
     '/api/openapi.json': {
       get: {
         tags: ['ระบบ'],
@@ -444,6 +545,8 @@ export const openapi = {
       },
     },
     schemas: {
+      ...accountingSchemas,
+      ...stockSchemas,
       Error: {
         type: 'object',
         required: ['error'],
@@ -488,8 +591,8 @@ export const openapi = {
       },
       StaffMember: {
         type: 'object',
-        required: ['user_id', 'email', 'role'],
-        properties: { user_id: uuid, email: { type: 'string' }, role },
+        required: ['user_id', 'email', 'roles'],
+        properties: { user_id: uuid, email: { type: 'string' }, display_name: { type: ['string', 'null'] }, roles },
       },
       Facts: {
         type: 'object',
@@ -536,7 +639,7 @@ export const swaggerHtml = `<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>FoodFlow API</title>
+<title>Plato API</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_VERSION}/swagger-ui.css" />
 <style>body{margin:0;background:#fff}</style>
 </head>

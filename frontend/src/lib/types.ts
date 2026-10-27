@@ -15,6 +15,9 @@ export interface MenuItem {
   // 0013: สำหรับจอแสดงผล iPad
   is_recommended?: boolean
   description?: string | null
+  // 0023: ขายตามน้ำหนักจริง (price = ราคาต่อ 1 กก.)
+  sold_by_weight?: boolean
+  weight_ingredient_id?: string | null
 }
 
 // สื่อบนจอแสดงผล (ตาราง display_media ใน 0014) · menu_item_id ว่าง = สไลด์โฆษณาร้าน
@@ -38,6 +41,7 @@ export interface CartLine {
   item: MenuItem
   quantity: number
   note: string
+  weight_g?: number // ของชั่งขาย: น้ำหนักจริง (1 บรรทัด = 1 ครั้งที่ชั่ง)
 }
 
 export type OrderType = 'dine_in' | 'takeaway'
@@ -63,20 +67,12 @@ export interface KitchenOrder {
     menu_item_id: string
     unit_price: number
     quantity: number
+    weight_g: number | null
     note: string | null
     done_at: string | null
     served_at: string | null
     menu_items: { name: string } | null
   }[]
-}
-
-export interface Ingredient {
-  id: string
-  name: string
-  unit: string
-  quantity_on_hand: number
-  reorder_level: number
-  cost_per_unit: number
 }
 
 export interface MenuCost {

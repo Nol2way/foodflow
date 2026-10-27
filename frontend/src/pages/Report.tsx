@@ -11,7 +11,7 @@ import Icon from '../components/Icon'
 
 const today = () => new Date().toLocaleDateString('sv-SE')
 
-function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role }) {
+function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[] }) {
   const [date, setDate] = useState(today)
   const [report, setReport] = useState<DailyReport | null>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -158,7 +158,7 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
               <button className="btn btn-secondary" onClick={() => void copy()}>
                 คัดลอกข้อความ
               </button>
-              {(myRole === 'owner' || myRole === 'manager') && (
+              {(myRoles.includes('owner') || myRoles.includes('manager')) && (
                 <button className="btn btn-ghost" disabled={sending} onClick={() => void send()} title="ส่งผ่าน LINE Official Account ของร้าน (ตั้งค่าที่หน้าตั้งค่าร้าน)">
                   <Icon name="report" className="h-4 w-4" />
                   {sending ? 'กำลังส่ง...' : 'ส่งเข้า LINE ร้านตอนนี้'}
@@ -174,5 +174,5 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
 }
 
 export default function Report() {
-  return <RequireRole roles={rolesFor('/report')}>{(ctx) => <Board restaurantId={ctx.restaurantId} myRole={ctx.role} />}</RequireRole>
+  return <RequireRole roles={rolesFor('/report')}>{(ctx) => <Board restaurantId={ctx.restaurantId} myRoles={ctx.roles} />}</RequireRole>
 }

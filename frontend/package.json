@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "build:pages": "npm --prefix ../backend ci && npm run build",
     "preview": "vite preview",
-    "test": "node tests/analytics.test.ts && node tests/discount.test.ts && node tests/display.test.ts && node tests/promptpay.test.ts && node tests/loyalty.test.ts && node tests/report.test.ts",
+    "test": "node tests/analytics.test.ts && node tests/discount.test.ts && node tests/display.test.ts && node tests/promptpay.test.ts && node tests/loyalty.test.ts && node tests/report.test.ts && node tests/accounting.test.ts && node tests/stock.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

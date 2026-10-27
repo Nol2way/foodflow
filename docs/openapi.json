@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "FoodFlow API",
+    "title": "Plato API",
     "version": "1.0.0",
-    "description": "Backend ของระบบบริหารร้านอาหาร FoodFlow (Hono บน Cloudflare)\n\n**สิทธิ์:** endpoint ที่มีรูปกุญแจต้องส่ง `Authorization: Bearer <access_token ของ Supabase>`\nวิธีหา token เพื่อทดลองในหน้านี้: ล็อกอินที่หน้าเว็บ FoodFlow แล้วเปิด DevTools → Application → Local Storage\nคีย์ `sb-<project>-auth-token` คัดลอกค่า `access_token` มาใส่ที่ปุ่ม **Authorize**\n\n**ข้อผิดพลาด:** ตอบเป็น `{ \"error\": \"<code>\", \"message\": \"<ข้อความไทย ถ้ามี>\" }` ข้อผิดพลาดที่ไม่คาดคิดตอบ `500 internal_error` โดยไม่เปิดเผยรายละเอียด\n\nสิทธิ์จริงบังคับที่ฐานข้อมูล (RLS) backend ตรวจซ้ำอีกชั้น\n\n**การรับออเดอร์ไม่อยู่ใน API นี้:** พนักงานที่ล็อกอินแล้วเรียกฟังก์ชัน `staff_place_order` ของ Supabase โดยตรง (ตรวจสิทธิ์และราคาในฐานข้อมูล) ออเดอร์จึงเข้าหน้าจอครัวผ่าน Realtime ทันที"
+    "description": "Backend ของระบบบริหารร้านอาหาร Plato (Hono บน Cloudflare)\n\n**สิทธิ์:** endpoint ที่มีรูปกุญแจต้องส่ง `Authorization: Bearer <access_token>` ที่ได้จาก `POST /api/auth/login`\nผู้ใช้เก็บในตาราง `app_users` ของระบบเอง (ไม่ใช้ Supabase Auth) โทเคนลงนามด้วย JWT secret ของโปรเจกต์ จึงใช้กับ RLS ของ Supabase ได้\nวิธีหา token เพื่อทดลองในหน้านี้: เรียก `POST /api/auth/login` แล้วคัดลอก `access_token` มาใส่ที่ปุ่ม **Authorize**\n\n**ข้อผิดพลาด:** ตอบเป็น `{ \"error\": \"<code>\", \"message\": \"<ข้อความไทย ถ้ามี>\" }` ข้อผิดพลาดที่ไม่คาดคิดตอบ `500 internal_error` โดยไม่เปิดเผยรายละเอียด\n\nสิทธิ์จริงบังคับที่ฐานข้อมูล (RLS) backend ตรวจซ้ำอีกชั้น\n\n**การรับออเดอร์ไม่อยู่ใน API นี้:** พนักงานที่ล็อกอินแล้วเรียกฟังก์ชัน `staff_place_order` ของ Supabase โดยตรง (ตรวจสิทธิ์และราคาในฐานข้อมูล) ออเดอร์จึงเข้าหน้าจอครัวผ่าน Realtime ทันที"
   },
   "servers": [
     {
@@ -21,6 +21,10 @@
       "description": "สถานะและเอกสาร"
     },
     {
+      "name": "บัญชีผู้ใช้",
+      "description": "ล็อกอิน เปลี่ยนรหัสผ่าน โปรไฟล์ (ตาราง app_users)"
+    },
+    {
       "name": "นำเข้าข้อมูล",
       "description": "นำเข้ายอดขายย้อนหลังจาก CSV (เจ้าของร้าน, ผู้จัดการ)"
     },
@@ -35,6 +39,14 @@
     {
       "name": "พนักงาน",
       "description": "จัดการพนักงาน (เจ้าของร้าน ทุกบทบาท · ผู้จัดการ เฉพาะ staff / kitchen / accountant / stock)"
+    },
+    {
+      "name": "บัญชี",
+      "description": "บัญชีคู่ (double-entry) ลงอัตโนมัติจากบิล สต็อก และรายจ่าย · เดบิต = เครดิต ทุกรายการ · ลงแล้วแก้ไม่ได้ ใช้กลับรายการ\nแสดงผล 3 โหมดจากข้อมูลชุดเดียวกัน (ง่าย / มาตรฐาน / มืออาชีพ)\n**ไม่ใช่เครื่องมือยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ**"
+    },
+    {
+      "name": "สต็อกวัตถุดิบ",
+      "description": "ยอดคงเหลือ = ผลรวมของ ledger (stock_movements) แก้ตรงไม่ได้ · ledger เพิ่มได้อย่างเดียว ผิดให้กลับรายการ\nสต็อกมี 3 แหล่ง: **นำเข้า** · **ตัดตามสูตร** (อัตโนมัติเมื่อครัวกดเริ่มทำ คืนเมื่อยกเลิก) · **นับสุดท้าย** (ไม่มีการบันทึกของเสียแยก)\nหยิบของแบบ **FEFO** คิดต้นทุนแบบ **FIFO** ตามล็อต · หน่วยฐานทุกตัวเลข: g / ml / pcs\nActual vs Theoretical: ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร · ส่วนต่าง = นับจริง − ยอดที่ควรเหลือ\nข้อผิดพลาดจากกฎสต็อกตอบ `{ error: \"<code>\", message: \"<ไทย>\" }` เช่น `insufficient_stock` (409), `lot_already_used` (409)"
     }
   ],
   "paths": {
@@ -831,6 +843,580 @@
         }
       }
     },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "บัญชีผู้ใช้"
+        ],
+        "summary": "ล็อกอินด้วยอีเมลและรหัสผ่าน",
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "maxLength": 72
+                  }
+                }
+              },
+              "example": {
+                "email": "owner@example.com",
+                "password": "********"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "สำเร็จ: access_token ใช้ได้ตามอายุใน expires_at (ค่าเริ่มต้น 12 ชั่วโมง)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "integer",
+                      "description": "เวลาหมดอายุ (มิลลิวินาที)"
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "display_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "must_change_password": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ไม่ได้กรอกอีเมล/รหัสผ่าน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_request": {
+                    "value": {
+                      "error": "invalid_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีถูกปิด",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_credentials": {
+                    "value": {
+                      "error": "invalid_credentials"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "ลองถี่เกินไป (10 ครั้งต่อนาที ต่อ IP และต่ออีเมล)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "too_many_requests": {
+                    "value": {
+                      "error": "too_many_requests"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ยังไม่ได้ตั้ง SUPABASE_JWT_SECRET",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "auth_not_configured": {
+                    "value": {
+                      "error": "auth_not_configured"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "บัญชีผู้ใช้"
+        ],
+        "summary": "โปรไฟล์ของผู้ใช้ที่ล็อกอิน",
+        "operationId": "me",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "โปรไฟล์",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "display_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "must_change_password": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "บัญชีผู้ใช้"
+        ],
+        "summary": "แก้ชื่อและเบอร์โทรของตัวเอง",
+        "operationId": "updateMe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "phone": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "display_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "phone": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "must_change_password": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/password": {
+      "post": {
+        "tags": [
+          "บัญชีผู้ใช้"
+        ],
+        "summary": "เปลี่ยนรหัสผ่านตัวเอง (ต้องยืนยันรหัสปัจจุบัน)",
+        "operationId": "changePassword",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "current_password",
+                  "new_password"
+                ],
+                "properties": {
+                  "current_password": {
+                    "type": "string"
+                  },
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "เปลี่ยนแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "รหัสใหม่สั้น/ยาวเกิน ซ้ำรหัสเดิม หรือรหัสปัจจุบันผิด",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "weak_password": {
+                    "value": {
+                      "error": "weak_password"
+                    }
+                  },
+                  "same_password": {
+                    "value": {
+                      "error": "same_password"
+                    }
+                  },
+                  "wrong_password": {
+                    "value": {
+                      "error": "wrong_password"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "ลองถี่เกินไป",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "too_many_requests": {
+                    "value": {
+                      "error": "too_many_requests"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/staff/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "พนักงาน"
+        ],
+        "summary": "รีเซ็ตรหัสผ่านพนักงาน (ได้รหัสชั่วคราว ต้องเปลี่ยนหลังล็อกอิน)",
+        "operationId": "resetStaffPassword",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "รหัสชั่วคราว (แสดงครั้งเดียว)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "temp_password": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง หรือรีเซ็ตรหัสตัวเอง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_user_id": {
+                    "value": {
+                      "error": "invalid_user_id"
+                    }
+                  },
+                  "invalid_restaurant_id": {
+                    "value": {
+                      "error": "invalid_restaurant_id"
+                    }
+                  },
+                  "use_change_password": {
+                    "value": {
+                      "error": "use_change_password"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือผู้จัดการรีเซ็ตเจ้าของ/ผู้จัดการ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "forbidden": {
+                    "value": {
+                      "error": "forbidden"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบพนักงานในร้านนี้",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "value": {
+                      "error": "not_found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/staff": {
       "get": {
         "tags": [
@@ -879,7 +1465,9 @@
                     {
                       "user_id": "00000000-0000-4000-8000-000000000004",
                       "email": "owner@example.com",
-                      "role": "owner"
+                      "roles": [
+                        "owner"
+                      ]
                     }
                   ]
                 }
@@ -948,7 +1536,7 @@
         "tags": [
           "พนักงาน"
         ],
-        "summary": "เพิ่มพนักงาน (ถ้ายังไม่มีบัญชีจะส่งอีเมลเชิญ)",
+        "summary": "เพิ่มพนักงาน (ถ้ายังไม่มีบัญชีจะสร้างให้พร้อมรหัสชั่วคราว)",
         "operationId": "addStaff",
         "security": [
           {
@@ -964,7 +1552,7 @@
                 "required": [
                   "restaurant_id",
                   "email",
-                  "role"
+                  "roles"
                 ],
                 "properties": {
                   "restaurant_id": {
@@ -976,6 +1564,27 @@
                     "format": "email",
                     "maxLength": 254
                   },
+                  "display_name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "manager",
+                        "staff",
+                        "kitchen",
+                        "accountant",
+                        "stock"
+                      ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "description": "บทบาททั้งหมดของพนักงาน (มีได้หลายบทบาท)"
+                  },
                   "role": {
                     "type": "string",
                     "enum": [
@@ -985,14 +1594,19 @@
                       "kitchen",
                       "accountant",
                       "stock"
-                    ]
+                    ],
+                    "deprecated": true,
+                    "description": "แบบเดิม: บทบาทเดียว (ใช้ roles แทน)"
                   }
                 }
               },
               "example": {
                 "restaurant_id": "00000000-0000-4000-8000-000000000003",
                 "email": "cook@example.com",
-                "role": "kitchen"
+                "roles": [
+                  "kitchen",
+                  "stock"
+                ]
               }
             }
           }
@@ -1007,8 +1621,8 @@
                   "required": [
                     "user_id",
                     "email",
-                    "role",
-                    "invited"
+                    "roles",
+                    "created"
                   ],
                   "properties": {
                     "user_id": {
@@ -1018,20 +1632,30 @@
                     "email": {
                       "type": "string"
                     },
-                    "role": {
-                      "type": "string",
-                      "enum": [
-                        "owner",
-                        "manager",
-                        "staff",
-                        "kitchen",
-                        "accountant",
-                        "stock"
-                      ]
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "owner",
+                          "manager",
+                          "staff",
+                          "kitchen",
+                          "accountant",
+                          "stock"
+                        ]
+                      },
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "description": "บทบาททั้งหมดของพนักงาน (มีได้หลายบทบาท)"
                     },
-                    "invited": {
+                    "created": {
                       "type": "boolean",
-                      "description": "true = ส่งอีเมลเชิญให้ตั้งรหัสผ่าน"
+                      "description": "true = สร้างบัญชีใหม่"
+                    },
+                    "temp_password": {
+                      "type": "string",
+                      "description": "รหัสชั่วคราว (เฉพาะบัญชีใหม่ แสดงครั้งเดียว) พนักงานต้องเปลี่ยนหลังล็อกอินครั้งแรก"
                     }
                   }
                 }
@@ -1120,23 +1744,6 @@
                 }
               }
             }
-          },
-          "502": {
-            "description": "ส่งอีเมลเชิญไม่สำเร็จ",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invite_failed": {
-                    "value": {
-                      "error": "invite_failed"
-                    }
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -1146,7 +1753,7 @@
         "tags": [
           "พนักงาน"
         ],
-        "summary": "เปลี่ยนบทบาท",
+        "summary": "ตั้งบทบาท (แทนที่ทั้งชุด)",
         "operationId": "changeStaffRole",
         "security": [
           {
@@ -1172,12 +1779,29 @@
                 "type": "object",
                 "required": [
                   "restaurant_id",
-                  "role"
+                  "roles"
                 ],
                 "properties": {
                   "restaurant_id": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "manager",
+                        "staff",
+                        "kitchen",
+                        "accountant",
+                        "stock"
+                      ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "description": "บทบาททั้งหมดของพนักงาน (มีได้หลายบทบาท)"
                   },
                   "role": {
                     "type": "string",
@@ -1188,20 +1812,25 @@
                       "kitchen",
                       "accountant",
                       "stock"
-                    ]
+                    ],
+                    "deprecated": true,
+                    "description": "แบบเดิม: บทบาทเดียว (ใช้ roles แทน)"
                   }
                 }
               },
               "example": {
                 "restaurant_id": "00000000-0000-4000-8000-000000000003",
-                "role": "accountant"
+                "roles": [
+                  "staff",
+                  "accountant"
+                ]
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "เปลี่ยนแล้ว",
+            "description": "บทบาทหลังบันทึก",
             "content": {
               "application/json": {
                 "schema": {
@@ -1211,16 +1840,22 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "role": {
-                      "type": "string",
-                      "enum": [
-                        "owner",
-                        "manager",
-                        "staff",
-                        "kitchen",
-                        "accountant",
-                        "stock"
-                      ]
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "owner",
+                          "manager",
+                          "staff",
+                          "kitchen",
+                          "accountant",
+                          "stock"
+                        ]
+                      },
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "description": "บทบาททั้งหมดของพนักงาน (มีได้หลายบทบาท)"
                     }
                   }
                 }
@@ -1471,6 +2106,4634 @@
         }
       }
     },
+    "/api/accounting/dashboard": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "แดชบอร์ดบัญชี (วันนี้ / 7 วัน / 30 วัน / เดือนนี้ / เดือนก่อน / ทั้งปี)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี\n\nรวมผลกระทบยอดสต็อก แจ้งเตือน (สต็อกไม่ตรงบัญชี เกณฑ์ VAT 1.8 ล้าน Food/Prime Cost เกินเป้า ยังไม่ปิดวัน) และเปรียบเทียบหักเหมา 60% vs ตามจริง (ข้อมูลประกอบ ไม่ใช่คำแนะนำภาษี)",
+        "operationId": "accountingDashboard",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ข้อมูลแดชบอร์ด",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "today": {
+                      "type": "string",
+                      "format": "date",
+                      "examples": [
+                        "2026-10-26"
+                      ]
+                    },
+                    "periods": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/AcctSummary"
+                      }
+                    },
+                    "metrics": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/AcctMetrics"
+                      }
+                    },
+                    "reconcile": {
+                      "$ref": "#/components/schemas/AcctReconcile"
+                    },
+                    "last_close": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unclosed_days": {
+                      "type": "integer"
+                    },
+                    "settings": {
+                      "$ref": "#/components/schemas/AcctSettings"
+                    },
+                    "vat_threshold": {
+                      "type": "object",
+                      "properties": {
+                        "level": {
+                          "enum": [
+                            "none",
+                            "info",
+                            "warn",
+                            "danger"
+                          ]
+                        },
+                        "pct": {
+                          "type": "number"
+                        },
+                        "remaining": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    },
+                    "tax_compare": {
+                      "type": "object",
+                      "properties": {
+                        "income": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "flatExpense": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "flatNet": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "actualExpense": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "actualNet": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "lowerNet": {
+                          "enum": [
+                            "flat",
+                            "actual",
+                            "same"
+                          ]
+                        }
+                      }
+                    },
+                    "alerts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AcctAlert"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/summary": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "สรุปช่วงวันที่ (งบกำไรขาดทุน กระแสเงินสด ตรวจ perpetual)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingSummary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาร้าน) YYYY-MM-DD"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (รวมวันนั้น) ไม่เกิน 10 ปีจาก from"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "สรุป",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "$ref": "#/components/schemas/AcctSummary"
+                    },
+                    "metrics": {
+                      "$ref": "#/components/schemas/AcctMetrics"
+                    },
+                    "stock_check": {
+                      "type": "object",
+                      "description": "ต้นทุนขายจริง (ตามสูตร + ส่วนต่าง) = ต้นงวด + รับเข้า - ปลายงวด",
+                      "properties": {
+                        "opening": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "purchases": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "closing": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "usage": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "cogsActual": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "matches": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "cash": {
+                      "type": "object",
+                      "properties": {
+                        "in": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "out": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "net": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "balance": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    },
+                    "cash_flow": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/menu-profit": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "กำไรขั้นต้นต่อเมนู",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingMenuProfit",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาร้าน) YYYY-MM-DD"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (รวมวันนั้น) ไม่เกิน 10 ปีจาก from"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "เรียงจากกำไรมากไปน้อย",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "menu_item_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "revenue": {
+                            "type": "number",
+                            "description": "บาท"
+                          },
+                          "cost": {
+                            "type": "number",
+                            "description": "บาท"
+                          },
+                          "gross_profit": {
+                            "type": "number",
+                            "description": "บาท"
+                          },
+                          "has_recipe": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/trial-balance": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "งบทดลอง + งบดุล (โหมดมืออาชีพ)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingTrialBalance",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาร้าน) YYYY-MM-DD"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (รวมวันนั้น) ไม่เกิน 10 ปีจาก from"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ยอดยกมา เดบิต เครดิต คงเหลือ ต่อบัญชี",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TrialRow"
+                      }
+                    },
+                    "balance_sheet": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/journal": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "สมุดรายวัน / บัญชีแยกประเภท (ระบุ account_id)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingJournal",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาร้าน) YYYY-MM-DD"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (รวมวันนั้น) ไม่เกิน 10 ปีจาก from"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "เฉพาะบัญชีนี้ (บัญชีแยกประเภท)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "สูงสุด 5,000 บรรทัด",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/JournalRow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/reconcile": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "กระทบยอด: มูลค่าในโมดูลสต็อก vs บัญชีสต็อก",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี พนักงานสต็อก",
+        "operationId": "accountingReconcile",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok = false ให้แจ้งเตือน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcctReconcile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/accounts": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ผังบัญชี",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingAccounts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "เรียงตามรหัส",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accounts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "เพิ่มหมวด/บัญชีของร้านเอง",
+        "description": "สิทธิ์: เจ้าของ พนักงานบัญชี",
+        "operationId": "accountingAddAccount",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "code",
+                  "name",
+                  "type",
+                  "grp"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}$",
+                    "examples": [
+                      "5300"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "examples": [
+                      "ค่าซ่อมบำรุง"
+                    ]
+                  },
+                  "type": {
+                    "enum": [
+                      "asset",
+                      "liability",
+                      "equity",
+                      "revenue",
+                      "expense"
+                    ]
+                  },
+                  "grp": {
+                    "type": "string",
+                    "description": "expense: food_cost | labor | opex · revenue: sales | other_income · ..."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สร้างแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "รหัสซ้ำ (duplicate)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/expenses": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "รายการรายจ่าย",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingExpenses",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาร้าน) YYYY-MM-DD"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (รวมวันนั้น) ไม่เกิน 10 ปีจาก from"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "สูงสุด 1,000 รายการ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "expenses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "บันทึกรายจ่าย (บังคับเลือกหมวด) ลงบัญชีอัตโนมัติ",
+        "description": "สิทธิ์: เจ้าของ พนักงานบัญชี\n\nDr หมวดรายจ่าย (+ ภาษีซื้อ) / Cr เงินสด ธนาคาร หรือเจ้าหนี้ · วันที่ที่ปิดวันแล้วบันทึกไม่ได้ (409 day_closed) · รูปใบเสร็จอัปโหลดเข้า Storage bucket expense-receipts แล้วส่ง path มาใน receipt_url",
+        "operationId": "accountingAddExpense",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "account_id",
+                  "amount"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "account_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "หมวดรายจ่าย (บัญชีประเภท expense)"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "ยอดที่จ่ายจริง (รวม VAT)"
+                  },
+                  "vat_amount": {
+                    "type": "number",
+                    "description": "บาท",
+                    "default": 0
+                  },
+                  "payment_method": {
+                    "enum": [
+                      "cash",
+                      "bank",
+                      "credit"
+                    ],
+                    "default": "cash"
+                  },
+                  "spent_on": {
+                    "type": "string",
+                    "format": "date",
+                    "examples": [
+                      "2026-10-26"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "receipt_url": {
+                    "type": "string",
+                    "description": "path รูปใบเสร็จใน bucket expense-receipts (<restaurant_id>/...)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "วันนั้นปิดวันแล้ว (day_closed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/expenses/{id}/void": {
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ยกเลิกรายจ่าย (กลับรายการ ต้องมีเหตุผล)",
+        "description": "สิทธิ์: เจ้าของ พนักงานบัญชี",
+        "operationId": "accountingVoidExpense",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "รายจ่าย"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "reason"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "กลับรายการแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "voided": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "reversal_entry_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ยกเลิกไปแล้ว (already_reversed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/supplier-payments": {
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "จ่ายเจ้าหนี้ (ใบรับของแบบเครดิต)",
+        "description": "สิทธิ์: เจ้าของ พนักงานบัญชี",
+        "operationId": "accountingPaySupplier",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "amount",
+                  "payment_method"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "payment_method": {
+                    "enum": [
+                      "cash",
+                      "bank"
+                    ]
+                  },
+                  "supplier": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "examples": [
+                      "2026-10-26"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dr เจ้าหนี้ / Cr เงินสดหรือธนาคาร",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entry_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/bills/{order_id}/cancel": {
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ยกเลิกบิลหลังจ่าย (กลับรายการรายได้ + ย้ายต้นทุนเป็นส่วนต่างสต็อก)",
+        "description": "สิทธิ์: เจ้าของเท่านั้น",
+        "operationId": "accountingCancelBill",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ออเดอร์ที่จ่ายแล้ว"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "reason"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ยกเลิกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cancelled": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบบิลที่จ่ายแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/entries/{id}/reverse": {
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "กลับรายการ (ยอดยกมา จ่ายเจ้าหนี้ ปิดวัน)",
+        "description": "สิทธิ์: เจ้าของเท่านั้น\n\nบิลใช้ยกเลิกบิล รายจ่ายใช้ยกเลิกรายจ่าย รายการสต็อกใช้ตรวจนับ (400 reverse_not_allowed)",
+        "operationId": "accountingReverseEntry",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "รายการในสมุดรายวัน"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "reason"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "กลับรายการแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reversal_entry_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "กลับรายการไปแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/opening": {
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ตั้งยอดยกมา เงินสด/ธนาคาร (Cr ทุนเจ้าของ)",
+        "description": "สิทธิ์: เจ้าของเท่านั้น",
+        "operationId": "accountingOpening",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "cash": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "bank": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "examples": [
+                      "2026-10-26"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ลงแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entry_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/day": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "สรุปยอดของวัน (ก่อน/หลังปิดวัน)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingDay",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ยอดของวัน + เงินสดตามระบบ + สถานะปิดวัน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/day-close": {
+      "post": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ปิดวัน: นับเงินสด ยืนยัน ล็อกรายการของวัน แล้วส่งสรุปเข้า LINE",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ\n\nส่วนต่างเงินสดลงบัญชีเงินสดขาด/เกิน · หลังปิดวันเพิ่มรายการในวันนั้นไม่ได้ (รายการอัตโนมัติเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ · line: sent | not_configured | failed (ส่งไม่ได้ก็ยังปิดวันสำเร็จ)",
+        "operationId": "accountingDayClose",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "date",
+                  "counted_cash"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "examples": [
+                      "2026-10-26"
+                    ]
+                  },
+                  "counted_cash": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "notify": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ปิดวันแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "close": {
+                      "type": "object"
+                    },
+                    "line": {
+                      "enum": [
+                        "sent",
+                        "not_configured",
+                        "failed"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ปิดวันนี้ไปแล้ว (already_closed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/settings": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ตั้งค่าบัญชี",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingSettings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ตั้งค่า",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": {
+                      "$ref": "#/components/schemas/AcctSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "แก้ตั้งค่าบัญชี / onboarding (โหมด จด VAT เป้า Food/Prime Cost)",
+        "description": "สิทธิ์: เจ้าของเท่านั้น",
+        "operationId": "accountingUpdateSettings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AcctSettings"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "restaurant_id"
+                    ],
+                    "properties": {
+                      "restaurant_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "onboarded": {
+                        "type": "boolean",
+                        "description": "true = ตอบคำถามเริ่มต้นแล้ว"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "saved": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/export": {
+      "get": {
+        "tags": [
+          "บัญชี"
+        ],
+        "summary": "ส่งออกให้นักบัญชี (CSV / Excel)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "accountingExport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาร้าน) YYYY-MM-DD"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (รวมวันนั้น) ไม่เกิน 10 ปีจาก from"
+          },
+          {
+            "name": "report",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "journal",
+                "trial_balance",
+                "summary",
+                "menu_profit",
+                "expenses"
+              ],
+              "default": "journal"
+            },
+            "description": "รายงาน"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "csv",
+                "xls"
+              ],
+              "default": "csv"
+            },
+            "description": "csv = UTF-8 BOM · xls = Excel XML Spreadsheet"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ไฟล์แนบ (content-disposition: attachment)",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/vnd.ms-excel": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/overview": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ภาพรวม: ใกล้หมด หมด ใกล้หมดอายุ มูลค่าสต็อก แนะนำสั่งวันนี้",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockOverview",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ภาพรวม",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/reorder": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "Par และจำนวนแนะนำสั่งทุกวัตถุดิบ",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockReorder",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365,
+              "default": 28
+            },
+            "description": "ใช้ยอดใช้ย้อนหลังกี่วันคิดใช้ต่อวัน"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการแนะนำ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockReorder"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/ingredients": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "รายการวัตถุดิบพร้อมยอดคงเหลือ",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockIngredients",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "รวมที่ปิดใช้งาน"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "วัตถุดิบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "ingredients": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockIngredient"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "เพิ่มวัตถุดิบ (ยอดยกมากลายเป็นรายการ ledger + ล็อตแรก)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockCreateIngredient",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIngredientInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สร้างแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "ingredient": {
+                      "$ref": "#/components/schemas/StockIngredient"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ชื่อซ้ำ (duplicate)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/ingredients/{id}": {
+      "patch": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "แก้ข้อมูลวัตถุดิบ (ยอด/ต้นทุนแก้ไม่ได้)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockUpdateIngredient",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "วัตถุดิบ"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockIngredientInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "ingredient": {
+                      "$ref": "#/components/schemas/StockIngredient"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "recipe_unit_locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/suppliers": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "รายชื่อผู้ขาย",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockSuppliers",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ผู้ขาย",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "suppliers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockSupplier"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "เพิ่มผู้ขาย",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockCreateSupplier",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "name"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "lead_time_days": {
+                    "type": "integer"
+                  },
+                  "delivery_days": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สร้างแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "supplier": {
+                      "$ref": "#/components/schemas/StockSupplier"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ชื่อซ้ำ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/suppliers/{id}": {
+      "patch": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "แก้ผู้ขาย",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockUpdateSupplier",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ผู้ขาย"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockSupplier"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "supplier": {
+                      "$ref": "#/components/schemas/StockSupplier"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/recipes": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "สูตรทั้งหมด (สูตรเมนู + สูตรย่อย) และเมนูที่ผูกได้",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockRecipes",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "สูตร",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockRecipe"
+                      }
+                    },
+                    "menus": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "is_available": {
+                            "type": "boolean"
+                          },
+                          "stock_disabled": {
+                            "type": "boolean"
+                          },
+                          "recipe_id": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "สร้างสูตร (บันทึกทั้งสูตรในธุรกรรมเดียว คำนวณต้นทุนให้)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockCreateRecipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockRecipeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สร้างแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "recipe": {
+                      "$ref": "#/components/schemas/StockRecipe"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "เมนูนี้มีสูตรแล้ว (duplicate)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/recipes/{id}": {
+      "put": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "แก้สูตร (แทนที่ทุกบรรทัด) · ต้นทุนสูตรนี้และสูตรแม่คำนวณใหม่",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockUpdateRecipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "สูตร"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockRecipeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "recipe": {
+                      "$ref": "#/components/schemas/StockRecipe"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "sub_recipe_in_use",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ลบสูตร (สูตรย่อยที่ถูกใช้อยู่ลบไม่ได้)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockDeleteRecipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "สูตร"
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ลบแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "deleted": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/last-purchases": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ราคา/ขนาดบรรจุครั้งล่าสุดต่อวัตถุดิบ (หน้ารับเข้าเตือนก่อนบันทึก)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockLastPurchases",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "supplier_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ผู้ขายเดียวกันก่อน"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ราคาล่าสุด",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "last": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "ingredient_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "unit_cost": {
+                            "type": "number"
+                          },
+                          "pack_size": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "pack_price": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "supplier": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "received_on": {
+                            "type": "string",
+                            "format": "date",
+                            "examples": [
+                              "2026-10-26"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/receipts": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ใบรับของในช่วงวันที่",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockReceipts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด (ไม่เกิน 366 วัน)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ใบรับของ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "receipts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "รับเข้า: เลือกผู้ขาย จำนวน ราคา วันหมดอายุ -> ล็อต + เตือนราคา/ขนาดบรรจุเปลี่ยน",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockReceive",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "lines"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "supplier_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "invoice_no": {
+                    "type": "string"
+                  },
+                  "received_on": {
+                    "type": "string",
+                    "format": "date",
+                    "examples": [
+                      "2026-10-26"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "record_expense": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "บันทึกเป็นรายจ่าย (บัญชี)"
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/StockReceiptLine"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "รับแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "receipt_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockWarning"
+                      }
+                    },
+                    "recosted_recipes": {
+                      "type": "integer",
+                      "description": "จำนวนสูตรที่คำนวณต้นทุนใหม่ (รวมสูตรแม่)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/count-sheet": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ใบนับแบบ blind (ไม่มียอดในระบบ) เรียงตามตำแหน่งจัดเก็บ",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockCountSheet",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "abc",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "examples": [
+                "A,B"
+              ]
+            },
+            "description": "กรองคลาส ABC (คั่นด้วยจุลภาค)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการที่ต้องนับ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [],
+                        "properties": {
+                          "ingredient_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "recipe_unit": {
+                            "type": "string"
+                          },
+                          "display_unit": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "display_factor": {
+                            "type": "number"
+                          },
+                          "abc_class": {
+                            "type": "string"
+                          },
+                          "storage_location": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "shelf_order": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/counts": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ใบนับล่าสุด 100 ใบ",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockCounts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ใบนับ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "counts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "บันทึกใบนับ: ปรับยอดเป็นยอดนับจริง (count_adjust) และเก็บส่วนต่าง AvT",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockSubmitCount",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "lines"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "count_type": {
+                    "type": "string",
+                    "enum": [
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "spot"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "ingredient_id",
+                        "counted_qty"
+                      ],
+                      "properties": {
+                        "ingredient_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "counted_qty": {
+                          "type": "number",
+                          "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+                        },
+                        "entered_text": {
+                          "type": "string",
+                          "examples": [
+                            "2 ถุง + 250 g"
+                          ]
+                        },
+                        "note": {
+                          "type": "string",
+                          "description": "เหตุผล (ไม่บังคับ)"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "count_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/counts/{id}/verify": {
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ผู้ตรวจรับรองใบนับ (ผู้จัดการรับรองใบที่ตัวเองนับไม่ได้)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ",
+        "operationId": "stockVerifyCount",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ใบนับ"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "รับรองแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "verified": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "already_verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/counts/{id}/variance": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "รายงานส่วนต่างของใบนับ เรียงตามมูลค่า (หน่วย / บาท / % / สี)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockVariance",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ใบนับ"
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ส่วนต่าง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockVarianceLine"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/yield-tests": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ผล yield test ย้อนหลัง",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockYieldTests",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "ingredient_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "เฉพาะวัตถุดิบ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ผลทดสอบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "tests": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "Yield test: ชั่งก่อน-หลัง 3 ครั้ง บันทึกค่าเฉลี่ย (เลือกนำไปใช้กับวัตถุดิบได้)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก",
+        "operationId": "stockRecordYieldTest",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "ingredient_id",
+                  "kind",
+                  "trials"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "ingredient_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "trim",
+                      "cook"
+                    ]
+                  },
+                  "trials": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "before",
+                        "after"
+                      ],
+                      "properties": {
+                        "before": {
+                          "type": "number",
+                          "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+                        },
+                        "after": {
+                          "type": "number",
+                          "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+                        }
+                      }
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "apply": {
+                    "type": "boolean",
+                    "description": "ตั้งค่าเฉลี่ยเป็น yield ของวัตถุดิบ -> ต้นทุนสูตรคำนวณใหม่"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "avg_pct": {
+                      "type": "number"
+                    },
+                    "applied": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/history": {
+      "get": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "ประวัติ ledger: กรองตามวัตถุดิบ วันที่ ผู้ทำรายการ ประเภท",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานสต็อก พนักงานบัญชี (อ่านอย่างเดียว)",
+        "operationId": "stockHistory",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่เริ่ม (เวลาไทย)"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่สิ้นสุด รวมวันนั้น (ไม่เกิน 366 วัน)"
+          },
+          {
+            "name": "ingredient_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "วัตถุดิบ"
+          },
+          {
+            "name": "actor_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ผู้ทำรายการ"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "receive",
+                "recipe_deduct",
+                "recipe_return",
+                "count_adjust",
+                "legacy"
+              ]
+            },
+            "description": "ประเภท"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200
+            },
+            "description": "จำนวนสูงสุด"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "movements": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockMovement"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock/movements/{id}/reverse": {
+      "post": {
+        "tags": [
+          "สต็อกวัตถุดิบ"
+        ],
+        "summary": "กลับรายการนำเข้า/ปรับจากการนับ (ledger แก้ย้อนหลังไม่ได้)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ",
+        "operationId": "stockReverseMovement",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "รายการ ledger"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "reason"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 180
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สร้างรายการกลับแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [],
+                  "properties": {
+                    "reversal_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (invalid_field + field, invalid_lines, invalid_range ...)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ หรือเป็นข้อมูลของร้านอื่น",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "already_reversed / lot_already_used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/openapi.json": {
       "get": {
         "tags": [
@@ -1526,6 +6789,1297 @@
       }
     },
     "schemas": {
+      "AcctSummary": {
+        "type": "object",
+        "description": "ยอดดิบของช่วงวันที่จากสมุดรายวัน (acct_summary_data)",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "examples": [
+              "2026-10-26"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "examples": [
+              "2026-10-26"
+            ]
+          },
+          "sales": {
+            "type": "number",
+            "description": "ยอดขายก่อนหักส่วนลด (ไม่รวม VAT)"
+          },
+          "sales_by_account": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AcctAmount"
+            }
+          },
+          "discounts": {
+            "type": "number",
+            "description": "ส่วนลดโปรโมชัน + แต้ม"
+          },
+          "other_income": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cogs_recipe": {
+            "type": "number",
+            "description": "ต้นทุนขายตามสูตร (5010)"
+          },
+          "stock_variance": {
+            "type": "number",
+            "description": "ส่วนต่างสต็อก: นับ ของเสีย ผลิต ปรับมูลค่า (5020)"
+          },
+          "food_cost": {
+            "type": "number",
+            "description": "ต้นทุนอาหารที่ใช้จริงรวม (กลุ่ม food_cost)"
+          },
+          "labor": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "opex": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "expenses_by_account": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AcctAmount"
+            }
+          },
+          "cash_open": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_close": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_in": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_out": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_drawer": {
+            "type": "number",
+            "description": "เงินสดในลิ้นชักตามบัญชี (ไม่รวมธนาคาร)"
+          },
+          "cash_by_source": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_type": {
+                  "type": "string"
+                },
+                "in": {
+                  "type": "number",
+                  "description": "บาท"
+                },
+                "out": {
+                  "type": "number",
+                  "description": "บาท"
+                }
+              }
+            }
+          },
+          "stock_open": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "stock_close": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "stock_in": {
+            "type": "number",
+            "description": "รับเข้า (ใบรับของ + ยอดยกมา)"
+          },
+          "vat_output": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "vat_input": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "bills": {
+            "type": "integer"
+          },
+          "cancelled_bills": {
+            "type": "integer"
+          }
+        }
+      },
+      "AcctAmount": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "grp": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "บาท"
+          }
+        }
+      },
+      "AcctMetrics": {
+        "type": "object",
+        "properties": {
+          "netSales": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "foodCost": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cogsActual": {
+            "type": "number",
+            "description": "ตามสูตร + ส่วนต่างสต็อก"
+          },
+          "grossProfit": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "labor": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "opex": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "expenses": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "netProfit": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "foodCostPct": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "ต้นทุนอาหาร / ยอดขายสุทธิ x 100 (เป้า 28–35%)"
+          },
+          "primeCostPct": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "(ต้นทุนอาหาร + ค่าแรง) / ยอดขายสุทธิ x 100 (เป้า 60–65%)"
+          },
+          "netMarginPct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "AcctAlert": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "enum": [
+              "info",
+              "warn",
+              "danger"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "AcctReconcile": {
+        "type": "object",
+        "properties": {
+          "stock_value": {
+            "type": "number",
+            "description": "มูลค่าสต็อกจากโมดูลสต็อก Σ round(คงเหลือ x ต้นทุนต่อหน่วย, 2)"
+          },
+          "ledger_value": {
+            "type": "number",
+            "description": "ยอดบัญชีสต็อกวัตถุดิบ (1130)"
+          },
+          "difference": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AcctSettings": {
+        "type": "object",
+        "properties": {
+          "accounting_mode": {
+            "enum": [
+              "simple",
+              "standard",
+              "pro"
+            ]
+          },
+          "business_type": {
+            "enum": [
+              "individual",
+              "company"
+            ]
+          },
+          "vat_registered": {
+            "type": "boolean"
+          },
+          "vat_rate": {
+            "type": "number"
+          },
+          "receipt_payment_default": {
+            "enum": [
+              "cash",
+              "bank",
+              "credit"
+            ],
+            "description": "ใบรับของจ่ายด้วยอะไร (credit = ค้างเจ้าหนี้)"
+          },
+          "food_cost_target_min": {
+            "type": "number"
+          },
+          "food_cost_target_max": {
+            "type": "number"
+          },
+          "prime_cost_target_min": {
+            "type": "number"
+          },
+          "prime_cost_target_max": {
+            "type": "number"
+          },
+          "onboarded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "JournalRow": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entry_no": {
+            "type": "integer"
+          },
+          "entry_date": {
+            "type": "string",
+            "format": "date",
+            "examples": [
+              "2026-10-26"
+            ]
+          },
+          "source_type": {
+            "enum": [
+              "bill",
+              "stock_receipt",
+              "recipe_deduct",
+              "count_adjust",
+              "expense",
+              "reversal",
+              "day_close",
+              "waste",
+              "production",
+              "stock_revalue",
+              "supplier_claim",
+              "supplier_payment",
+              "opening"
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reverses_entry_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "created_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line_id": {
+            "type": "integer"
+          },
+          "account_code": {
+            "type": "string"
+          },
+          "account_name": {
+            "type": "string"
+          },
+          "debit": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "credit": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "line_memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TrialRow": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "asset",
+              "liability",
+              "equity",
+              "revenue",
+              "expense"
+            ]
+          },
+          "grp": {
+            "type": "string"
+          },
+          "opening": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "debit": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "credit": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "closing": {
+            "type": "number",
+            "description": "เดบิต - เครดิต (บวก = ยอดดุลเดบิต)"
+          }
+        }
+      },
+      "StockIngredient": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "recipe_unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml",
+              "pcs"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "description": "ชื่อหน่วยฐานที่แสดง (pcs ใช้ชื่อร้าน เช่น ฟอง)"
+          },
+          "quantity_on_hand": {
+            "type": "number",
+            "description": "คงเหลือ = ผลรวม ledger (อ่านอย่างเดียว)"
+          },
+          "cost_per_unit": {
+            "type": "number",
+            "description": "ต้นทุนเฉลี่ยของชั้น FIFO ที่เหลือ ต่อหน่วยฐาน (อ่านอย่างเดียว)"
+          },
+          "last_unit_cost": {
+            "type": "number",
+            "description": "ราคาซื้อล่าสุดต่อหน่วยฐาน ใช้คิดต้นทุนสูตร (อ่านอย่างเดียว)"
+          },
+          "purchase_unit": {
+            "type": "string",
+            "examples": [
+              "kg"
+            ]
+          },
+          "conversion_factor": {
+            "type": "number",
+            "description": "1 หน่วยซื้อ = ? หน่วยฐาน"
+          },
+          "display_unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "ถุง"
+            ]
+          },
+          "display_factor": {
+            "type": "number",
+            "description": "1 หน่วยครัว = ? หน่วยฐาน"
+          },
+          "trim_yield_pct": {
+            "type": "number"
+          },
+          "cook_yield_pct": {
+            "type": "number",
+            "description": "หลังปรุง (ข้าวหุงสุกเกิน 100 ได้)"
+          },
+          "abc_class": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ]
+          },
+          "storage_location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shelf_order": {
+            "type": "integer"
+          },
+          "reorder_level": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "par_level": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "ว่าง = คำนวณให้"
+          },
+          "safety_stock": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "supplier_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StockIngredientInput": {
+        "type": "object",
+        "required": [
+          "restaurant_id"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "recipe_unit": {
+            "type": "string",
+            "enum": [
+              "g",
+              "ml",
+              "pcs"
+            ],
+            "description": "สร้างใหม่เท่านั้น (เปลี่ยนไม่ได้หลังมีประวัติ)"
+          },
+          "unit": {
+            "type": "string",
+            "description": "ชื่อหน่วยของ pcs เช่น ฟอง"
+          },
+          "quantity_on_hand": {
+            "type": "number",
+            "description": "สร้างใหม่เท่านั้น: ยอดยกมา -> บันทึกเป็นรายการ count_adjust + ล็อตแรก"
+          },
+          "cost_per_unit": {
+            "type": "number",
+            "description": "สร้างใหม่เท่านั้น: ราคาเริ่มต้นต่อหน่วยฐาน"
+          },
+          "purchase_unit": {
+            "type": "string"
+          },
+          "conversion_factor": {
+            "type": "number"
+          },
+          "display_unit": {
+            "type": "string"
+          },
+          "display_factor": {
+            "type": "number"
+          },
+          "trim_yield_pct": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 100
+          },
+          "cook_yield_pct": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 400
+          },
+          "abc_class": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ]
+          },
+          "storage_location": {
+            "type": "string"
+          },
+          "shelf_order": {
+            "type": "integer"
+          },
+          "reorder_level": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "par_level": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "safety_stock": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "supplier_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StockSupplier": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lead_time_days": {
+            "type": "integer"
+          },
+          "delivery_days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "description": "0 = อาทิตย์ .. 6 = เสาร์"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StockRecipe": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "menu_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "ว่าง = สูตรย่อย"
+          },
+          "output_qty": {
+            "type": "number"
+          },
+          "output_unit": {
+            "type": "string"
+          },
+          "cost_per_output": {
+            "type": "number",
+            "description": "ต้นทุนต่อ 1 หน่วยที่ได้ = Σ สุทธิ x ราคาซื้อ ÷ (trim x cook) รวมสูตรย่อย"
+          },
+          "recipe_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "ingredient_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "sub_recipe_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "qty": {
+                  "type": "number",
+                  "description": "สุทธิที่ใช้จริง (หน่วยฐาน) หรือหน่วยที่ได้ของสูตรย่อย"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StockRecipeInput": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "name",
+          "lines"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "menu_item_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "output_qty": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "output_unit": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "ingredient_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "sub_recipe_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "qty": {
+                  "type": "number",
+                  "description": "สุทธิที่ใช้จริง (หน่วยฐาน) หรือหน่วยที่ได้ของสูตรย่อย"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StockReceiptLine": {
+        "type": "object",
+        "required": [
+          "ingredient_id"
+        ],
+        "properties": {
+          "ingredient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pack_qty": {
+            "type": "number",
+            "description": "แบบแพ็ค: จำนวนแพ็ค/ลัง"
+          },
+          "pack_size": {
+            "type": "number",
+            "description": "1 แพ็ค = ? หน่วยฐาน"
+          },
+          "pack_price": {
+            "type": "number",
+            "description": "ราคาต่อแพ็ค"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "หรือกรอกเป็นหน่วยฐานตรงๆ"
+          },
+          "unit_cost": {
+            "type": "number",
+            "description": "บาทต่อหน่วยฐาน"
+          },
+          "expiry_date": {
+            "type": "string",
+            "format": "date",
+            "examples": [
+              "2026-10-26"
+            ]
+          },
+          "invoice_qty": {
+            "type": "number",
+            "description": "ตามบิล (ถ้าไม่ตรงกับที่รับจริง)"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "StockWarning": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "ingredient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "price_change_pct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "prev_unit_cost": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit_cost": {
+            "type": "number"
+          },
+          "pack_changed": {
+            "type": "boolean"
+          },
+          "prev_pack_size": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "pack_size": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "StockVarianceLine": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "ingredient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "display_unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_factor": {
+            "type": "number"
+          },
+          "abc_class": {
+            "type": "string"
+          },
+          "opening_qty": {
+            "type": "number",
+            "description": "นับรอบก่อน"
+          },
+          "received_qty": {
+            "type": "number",
+            "description": "นำเข้าระหว่างรอบ"
+          },
+          "deducted_qty": {
+            "type": "number",
+            "description": "ตัดตามสูตรสุทธิ (หักคืนแล้ว)"
+          },
+          "expected_qty": {
+            "type": "number",
+            "description": "ยอดที่ควรเหลือ"
+          },
+          "counted_qty": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "variance_qty": {
+            "type": "number",
+            "description": "นับจริง − ควรเหลือ (ติดลบ = ของหายไม่ทราบสาเหตุ)"
+          },
+          "variance_value": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "variance_pct": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "green",
+              "yellow",
+              "red"
+            ],
+            "description": "เขียว < 2% · เหลือง 2-5% · แดง > 5% ของยอดที่ควรเหลือ"
+          },
+          "negative_streak": {
+            "type": "integer"
+          },
+          "recipe_alert": {
+            "type": "boolean",
+            "description": "ติดลบต่อเนื่อง 3 รอบ: สูตรหรือ yield อาจไม่ตรง"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entered_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "StockMovement": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ingredient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ingredient_name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "receive",
+              "recipe_deduct",
+              "recipe_return",
+              "count_adjust",
+              "legacy"
+            ]
+          },
+          "change": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "balance_after": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "cost": {
+            "type": "number",
+            "description": "มูลค่าตามต้นทุน FIFO"
+          },
+          "unit_cost": {
+            "type": "number"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "actor_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ref_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "order_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reverses_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "reversed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "StockReorder": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "ingredient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "on_hand": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "daily_usage": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "lead_time_days": {
+            "type": "integer"
+          },
+          "cycle_days": {
+            "type": "number",
+            "description": "7 ÷ จำนวนวันที่ผู้ขายมาส่งต่อสัปดาห์"
+          },
+          "safety_stock": {
+            "type": "number",
+            "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+          },
+          "par": {
+            "type": "number",
+            "description": "ใช้ต่อวัน x (lead time + รอบสั่ง) + safety stock"
+          },
+          "par_source": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
+          },
+          "suggested_qty": {
+            "type": "number",
+            "description": "par − คงเหลือ"
+          },
+          "purchase_unit": {
+            "type": "string"
+          },
+          "conversion_factor": {
+            "type": "number"
+          },
+          "suggested_purchase_qty": {
+            "type": "number",
+            "description": "ปัดขึ้นเป็นหน่วยซื้อ"
+          },
+          "supplier_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "supplier_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order_today": {
+            "type": "boolean",
+            "description": "สั่งวันนี้แล้วของมาถึงในวันที่ผู้ขายมาส่ง"
+          },
+          "next_delivery": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "StockOverview": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "today": {
+            "type": "string",
+            "format": "date",
+            "examples": [
+              "2026-10-26"
+            ]
+          },
+          "stock_value": {
+            "type": "number",
+            "description": "ผลรวมล็อต x ต้นทุน FIFO"
+          },
+          "ingredient_count": {
+            "type": "integer"
+          },
+          "out": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "low": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "on_hand": {
+                  "type": "number",
+                  "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+                },
+                "threshold": {
+                  "type": "number",
+                  "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+                }
+              }
+            }
+          },
+          "expiring": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "lot_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "number",
+                  "description": "หน่วยฐานของวัตถุดิบ (g / ml / pcs)"
+                },
+                "expiry_date": {
+                  "type": "string",
+                  "format": "date",
+                  "examples": [
+                    "2026-10-26"
+                  ]
+                },
+                "days_left": {
+                  "type": "integer"
+                },
+                "value": {
+                  "type": "number",
+                  "description": "บาท"
+                }
+              }
+            }
+          },
+          "reorder_today": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockReorder"
+            }
+          },
+          "recipe_alerts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "ingredient_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "streak": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "stock_disabled_menus": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "last_count": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      },
       "Error": {
         "type": "object",
         "required": [
@@ -1680,7 +8234,7 @@
         "required": [
           "user_id",
           "email",
-          "role"
+          "roles"
         ],
         "properties": {
           "user_id": {
@@ -1690,16 +8244,28 @@
           "email": {
             "type": "string"
           },
-          "role": {
-            "type": "string",
-            "enum": [
-              "owner",
-              "manager",
-              "staff",
-              "kitchen",
-              "accountant",
-              "stock"
+          "display_name": {
+            "type": [
+              "string",
+              "null"
             ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "manager",
+                "staff",
+                "kitchen",
+                "accountant",
+                "stock"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "บทบาททั้งหมดของพนักงาน (มีได้หลายบทบาท)"
           }
         }
       },

@@ -1,4 +1,4 @@
-# FoodFlow backend — Cloudflare Worker (ใช้เมื่อแยก backend ออกจาก Cloudflare Pages)
+# Plato backend — Cloudflare Worker (ใช้เมื่อแยก backend ออกจาก Cloudflare Pages)
 # ถ้าดีพลอยบน Cloudflare Pages ไม่ต้องใช้ไฟล์นี้: frontend/functions/api/[[path]].ts เรียกโค้ดชุดเดียวกันให้แล้ว
 name = "foodflow-api"
 main = "src/index.ts"
@@ -13,6 +13,7 @@ ALLOWED_ORIGINS = "http://localhost:5173"
 
 # ความลับ ห้ามใส่ในไฟล์นี้ ตั้งด้วยคำสั่ง:
 #   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put SUPABASE_JWT_SECRET          (ลงนามโทเคนล็อกอิน: ต้องมี)
 #   npx wrangler secret put GEMINI_API_KEY
 #   npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN   (รายงานรายวันทาง LINE ไม่บังคับ)
 # ตอนพัฒนาในเครื่อง ใส่ใน backend/.dev.vars แทน (ไฟล์นี้อยู่ใน .gitignore)

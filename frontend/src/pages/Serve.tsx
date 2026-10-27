@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrders } from '../lib/useOrders'
 import { rolesFor } from '../lib/roles'
-import { orderLabel } from '../lib/format'
+import { orderLabel, itemQty } from '../lib/format'
 import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
 import type { KitchenOrder, OrderStatus } from '../lib/types'
@@ -103,7 +103,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                             {it.served_at && <Icon name="check" className="h-3.5 w-3.5" />}
                           </span>
                           <span className={it.served_at ? 'text-gray-400 line-through' : ''}>
-                            {it.quantity} × {it.menu_items?.name ?? '-'}
+                            {itemQty(it)} {it.menu_items?.name ?? '-'}
                             {it.note && <span className="block text-xs text-brand-600">หมายเหตุ: {it.note}</span>}
                           </span>
                         </button>
@@ -143,7 +143,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
               {d.orders.flatMap((o) =>
                 o.order_items.map((it) => (
                   <li key={it.id}>
-                    {it.quantity} × {it.menu_items?.name ?? '-'}
+                    {itemQty(it)} {it.menu_items?.name ?? '-'}
                   </li>
                 )),
               )}

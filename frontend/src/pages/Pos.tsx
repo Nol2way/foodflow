@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor } from '../lib/roles'
-import { baht, orderLabel } from '../lib/format'
+import { baht, kg, orderLabel } from '../lib/format'
 import { useOrders } from '../lib/useOrders'
 import RequireRole from '../components/RequireRole'
 import PromoPicker, { usePromoSelection, usePromotions } from '../components/PromoPicker'
@@ -18,6 +18,10 @@ interface DiningTable {
 }
 
 const OPEN: OrderStatus[] = ['received', 'preparing', 'ready', 'served']
+
+// ราคาของบรรทัด: ของชั่งขาย = ราคาต่อ กก. x น้ำหนัก (ฐานข้อมูลคิดซ้ำเองตอนส่ง)
+const lineAmount = (l: CartLine) =>
+  l.weight_g ? Math.round(l.item.price * l.weight_g / 10) / 100 : l.quantity * l.item.price
 const STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
   received: 'รอครัว',
   preparing: 'กำลังทำ',
@@ -37,6 +41,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const [category, setCategory] = useState<string | 'all'>('all')
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<Record<string, CartLine>>({})
+  const [weighing, setWeighing] = useState<MenuItem | null>(null)
+  const [weightKg, setWeightKg] = useState('')
   const [orderNote, setOrderNote] = useState('')
   const [sending, setSending] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -47,7 +53,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const loadMenu = useCallback(async () => {
     const [c, m, t] = await Promise.all([
       supabase.from('menu_categories').select('id,name,sort_order').eq('restaurant_id', restaurantId).order('sort_order'),
-      supabase.from('menu_items').select('id,category_id,name,price,is_available').eq('restaurant_id', restaurantId).order('name'),
+      supabase.from('menu_items').select('id,category_id,name,price,is_available,sold_by_weight').eq('restaurant_id', restaurantId).order('name'),
       supabase.from('dining_tables').select('id,label').eq('restaurant_id', restaurantId).order('label'),
     ])
     if (c.error || m.error || t.error) {
@@ -75,9 +81,10 @@ function Board({ restaurantId }: { restaurantId: string }) {
     return items.filter((i) => (category === 'all' || i.category_id === category) && (!q || i.name.toLowerCase().includes(q)))
   }, [items, category, search])
 
-  const lines = Object.values(cart)
+  const entries = Object.entries(cart)
+  const lines = entries.map(([, l]) => l)
   const count = lines.reduce((s, l) => s + l.quantity, 0)
-  const total = lines.reduce((s, l) => s + l.quantity * l.item.price, 0)
+  const total = lines.reduce((s, l) => s + lineAmount(l), 0)
   const openByTable = useMemo(() => {
     const m = new Map<string, number>()
     for (const o of orders) if (o.table_id) m.set(o.table_id, (m.get(o.table_id) ?? 0) + 1)
@@ -96,6 +103,24 @@ function Board({ restaurantId }: { restaurantId: string }) {
     })
   }
 
+  // ของชั่งขาย: ชั่งแล้วกรอกน้ำหนัก 1 ครั้ง = 1 บรรทัด
+  function addWeighed() {
+    const grams = Math.round(Number(weightKg) * 10000) / 10
+    if (!weighing || !(grams > 0) || grams > 100000) return
+    const item = weighing
+    setCart((prev) => ({ ...prev, [`w:${item.id}:${Date.now()}`]: { item, quantity: 1, note: '', weight_g: grams } }))
+    setWeighing(null)
+    setWeightKg('')
+  }
+
+  function removeLine(key: string) {
+    setCart((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
   function setNote(id: string, note: string) {
     setCart((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], note } } : prev))
   }
@@ -104,7 +129,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
     orderType === 'takeaway' ? (customer.trim() ? `กลับบ้าน · ${customer.trim()}` : 'กลับบ้าน') : tables.find((t) => t.id === tableId)?.label
   // โปรที่ใช้ได้ตอนนี้ เลือกให้อัตโนมัติ (ใช้หลายโปรได้ถ้าไม่ชนกัน) พนักงานติ๊กเปลี่ยนได้
   const livePromos = promotions.all.filter((p) => promotions.liveIds.has(p.id))
-  const promoLines = lines.map((l) => ({ menuItemId: l.item.id, amount: l.quantity * l.item.price }))
+  const promoLines = lines.map((l) => ({ menuItemId: l.item.id, amount: lineAmount(l) }))
   const promoSel = usePromoSelection(livePromos, promotions.itemsOf, promoLines)
   const discount = promoSel.discounts.total
   const ready = count > 0 && (orderType === 'takeaway' || tableId !== null) && !sending
@@ -115,7 +140,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
     setMessage(null)
     const { data: orderId, error } = await supabase.rpc('staff_place_order', {
       p_restaurant_id: restaurantId,
-      p_items: lines.map((l) => ({ menu_item_id: l.item.id, quantity: l.quantity, note: l.note.trim() || null })),
+      p_items: lines.map((l) => ({ menu_item_id: l.item.id, quantity: l.quantity, weight_g: l.weight_g ?? null, note: l.note.trim() || null })),
       p_table_id: orderType === 'dine_in' ? tableId : null,
       p_order_type: orderType,
       p_customer_label: orderType === 'takeaway' ? customer.trim() || null : null,
@@ -125,10 +150,13 @@ function Board({ restaurantId }: { restaurantId: string }) {
     setSending(false)
     if (error) {
       const unavailable = error.message.match(/item_unavailable: (.+)/)
+      const badWeight = error.message.match(/invalid_weight: (.+)/)
       setMessage({
         ok: false,
         text: unavailable
           ? `${unavailable[1]} หมดแล้ว เอาออกจากรายการก่อนส่ง`
+          : badWeight
+            ? `${badWeight[1]} ต้องใส่น้ำหนักที่ชั่ง`
           : error.message.includes('promotion_')
             ? promotionError(error.message)
             : 'ส่งออเดอร์ไม่สำเร็จ กรุณาลองใหม่',
@@ -219,16 +247,17 @@ function Board({ restaurantId }: { restaurantId: string }) {
         </div>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
           {visible.map((item) => {
-            const qty = cart[item.id]?.quantity ?? 0
+            const qty = item.sold_by_weight ? lines.filter((l) => l.item.id === item.id).length : (cart[item.id]?.quantity ?? 0)
             return (
               <button
                 key={item.id}
                 disabled={!item.is_available}
-                onClick={() => change(item, 1)}
+                onClick={() => (item.sold_by_weight ? setWeighing(item) : change(item, 1))}
                 className={`relative min-h-20 rounded-xl border-2 p-3 text-left shadow-xs transition active:scale-[.98] ${item.is_available ? (qty > 0 ? 'border-brand-400 bg-brand-50' : 'border-transparent bg-white hover:border-brand-300') : 'cursor-not-allowed border-transparent bg-gray-100 text-gray-400'}`}
               >
                 <div className="pr-6 font-medium leading-snug">{item.name}</div>
-                <div className={`mt-1 text-sm ${item.is_available ? 'font-semibold text-brand-600' : ''}`}>{item.is_available ? baht(item.price) : 'หมด'}</div>
+                <div className={`mt-1 text-sm ${item.is_available ? 'font-semibold text-brand-600' : ''}`}>{item.is_available ? `${baht(item.price)}${item.sold_by_weight ? '/กก.' : ''}` : 'หมด'}</div>
+                {item.sold_by_weight && item.is_available && <div className="text-xs text-gray-500">ชั่งน้ำหนัก</div>}
                 {qty > 0 && (
                   <span className="absolute right-2 top-2 grid h-6 min-w-6 place-items-center rounded-full bg-brand-500 px-1.5 text-xs font-bold text-white shadow-sm">{qty}</span>
                 )}
@@ -249,21 +278,34 @@ function Board({ restaurantId }: { restaurantId: string }) {
           <p className="empty py-8">แตะเมนูเพื่อเพิ่มรายการ</p>
         ) : (
           <ul className="divide-y text-sm">
-            {lines.map((l) => (
-              <li key={l.item.id} className="py-2">
+            {entries.map(([key, l]) => (
+              <li key={key} className="py-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex-1 font-medium">{l.item.name}</span>
-                  <button className="grid h-8 w-8 place-items-center rounded-full border bg-white text-gray-600 hover:bg-gray-50" onClick={() => change(l.item, -1)} aria-label="ลด">−</button>
-                  <span className="w-6 text-center font-semibold tabular-nums">{l.quantity}</span>
-                  <button className="grid h-8 w-8 place-items-center rounded-full border bg-white text-gray-600 hover:bg-gray-50" onClick={() => change(l.item, 1)} aria-label="เพิ่ม">+</button>
-                  <span className="w-16 text-right tabular-nums">{baht(l.quantity * l.item.price)}</span>
+                  <span className="flex-1 font-medium">
+                    {l.item.name}
+                    {l.weight_g && (
+                      <span className="block text-xs font-normal text-gray-500">
+                        {kg(l.weight_g)} × {baht(l.item.price)}/กก.
+                      </span>
+                    )}
+                  </span>
+                  {l.weight_g ? (
+                    <button className="link-danger text-xs" onClick={() => removeLine(key)}>เอาออก</button>
+                  ) : (
+                    <>
+                      <button className="grid h-8 w-8 place-items-center rounded-full border bg-white text-gray-600 hover:bg-gray-50" onClick={() => change(l.item, -1)} aria-label="ลด">−</button>
+                      <span className="w-6 text-center font-semibold tabular-nums">{l.quantity}</span>
+                      <button className="grid h-8 w-8 place-items-center rounded-full border bg-white text-gray-600 hover:bg-gray-50" onClick={() => change(l.item, 1)} aria-label="เพิ่ม">+</button>
+                    </>
+                  )}
+                  <span className="w-16 text-right tabular-nums">{baht(lineAmount(l))}</span>
                 </div>
                 <input
                   className="input mt-1.5 w-full py-1.5 text-xs"
                   maxLength={200}
                   placeholder="หมายเหตุ เช่น ไม่เผ็ด ไม่ใส่ผัก"
                   value={l.note}
-                  onChange={(e) => setNote(l.item.id, e.target.value)}
+                  onChange={(e) => setNote(key, e.target.value)}
                 />
               </li>
             ))}
@@ -327,6 +369,49 @@ function Board({ restaurantId }: { restaurantId: string }) {
           </div>
         )}
       </aside>
+
+      {weighing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-gray-900/40 p-4" onClick={() => setWeighing(null)}>
+          <form
+            className="card w-full max-w-sm space-y-4 p-5"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              addWeighed()
+            }}
+          >
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">{weighing.name}</h2>
+              <p className="text-sm text-gray-500">ราคา {baht(weighing.price)} ต่อ กก. · ชั่งแล้วกรอกน้ำหนักจริง</p>
+            </div>
+            <label className="block">
+              <span className="label">น้ำหนัก (กก.)</span>
+              <input
+                className="input w-full py-3 text-right text-2xl font-semibold tabular-nums"
+                type="number"
+                inputMode="decimal"
+                min="0.001"
+                max="100"
+                step="0.001"
+                placeholder="0.000"
+                autoFocus
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+              />
+            </label>
+            <div className="flex items-baseline justify-between border-t pt-3">
+              <span className="text-sm text-gray-500">ราคา</span>
+              <span className="text-2xl font-bold text-gray-900 tabular-nums">
+                {Number(weightKg) > 0 ? baht(Math.round(weighing.price * Number(weightKg) * 100) / 100) : '-'}
+              </span>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn btn-secondary" onClick={() => setWeighing(null)}>ยกเลิก</button>
+              <button className="btn btn-primary" disabled={!(Number(weightKg) > 0 && Number(weightKg) <= 100)}>เพิ่มรายการ</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

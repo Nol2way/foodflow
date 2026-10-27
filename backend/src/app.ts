@@ -2,7 +2,8 @@ import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import { createMiddleware } from 'hono/factory'
 import { MANAGER_CANNOT_ASSIGN, ROLES, type AppEnv, type Env, type Role } from './env.ts'
-import { DbError, asService, asUser, getUserId, inviteUser, type Db } from './supabase.ts'
+import { DbError, asService, asUser, type Db } from './supabase.ts'
+import { signJwt, verifyJwt } from './jwt.ts'
 import { allow } from './guards.ts'
 import { parseSales } from './csv.ts'
 import { AiError, MAX_QUESTION, askGemini, collectFacts } from './ai.ts'
@@ -11,8 +12,14 @@ import { LineError, pushLine } from './reports.ts'
 import { askGeminiPromos } from './promo.ts'
 import { reportText, type DailyReport } from '../../frontend/src/lib/report.ts'
 import { ruleSuggestions, type Insights } from '../../frontend/src/lib/promoSuggest.ts'
+import { ACCOUNTING_ERRORS, accountingErrorCode } from '../../frontend/src/lib/accounting.ts'
+import { registerAccounting } from './accounting.ts'
+import { registerStock } from './stock.ts'
+import { STOCK_CONFLICTS, stockError, stockErrorCode } from '../../frontend/src/lib/stockMath.ts'
 
 export const AI_PER_MINUTE = 6
+export const LOGIN_PER_MINUTE = 10
+export const MIN_PASSWORD = 8
 // ฟังก์ชันวิเคราะห์ในฐานข้อมูลดูย้อนหลังได้สูงสุด 120 วัน (0004) ถ้ารับมากกว่านี้ AI จะถูกบอกช่วงเวลาผิด
 export const MAX_AI_DAYS = 120
 const MAX_CSV_CHARS = 3_000_000
@@ -33,17 +40,42 @@ async function body(c: Ctx): Promise<Record<string, unknown>> {
   }
 }
 
+// รหัสผ่านชั่วคราว 10 ตัว (ตัดตัวที่สับสนง่าย เช่น 0/O 1/l)
+function tempPassword(): string {
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(10))
+  return Array.from(bytes, (b) => chars[b % chars.length]).join('')
+}
+
+interface LoginRow {
+  id: string
+  email: string
+  display_name: string | null
+  must_change_password: boolean
+}
+
 function allowedOrigins(env: Env): string[] {
   return (env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
 }
 
-// บทบาทของผู้ใช้ในร้าน (อ่านด้วย JWT ของผู้ใช้เอง ผ่าน RLS staff_read_self)
-async function roleOf(db: Db, userId: string, restaurantId: string): Promise<Role | null> {
+// บทบาทของผู้ใช้ในร้าน 1 แถวต่อ 1 บทบาท (อ่านด้วย JWT ของผู้ใช้เอง ผ่าน RLS staff_read_self)
+async function rolesOf(db: Db, userId: string, restaurantId: string): Promise<Role[]> {
   const rows = await db.select<{ role: Role }>(
     `staff_members?select=role&user_id=eq.${userId}&restaurant_id=eq.${restaurantId}`,
   )
-  return rows[0]?.role ?? null
+  return rows.map((r) => r.role)
 }
+
+// รับ roles (array) หรือ role (ค่าเดียว แบบเดิม) · ตัดซ้ำ ต้องมีอย่างน้อย 1 บทบาทและเป็นบทบาทที่รู้จัก
+function parseRoles(b: Record<string, unknown>): Role[] | null {
+  const raw = Array.isArray(b.roles) ? b.roles : b.role === undefined ? [] : [b.role]
+  const roles = [...new Set(raw.map((r) => String(r)))] as Role[]
+  return roles.length > 0 && roles.every((r) => ROLES.includes(r)) ? roles : null
+}
+
+// ผู้จัดการ (ที่ไม่ใช่เจ้าของ) มอบบทบาทเจ้าของ/ผู้จัดการไม่ได้
+const managerBlocked = (mine: Role[], wanted: Role[]) =>
+  !mine.includes('owner') && wanted.some((r) => MANAGER_CANNOT_ASSIGN.includes(r))
 
 export function createApp() {
   const app = new Hono<AppEnv>().basePath('/api')
@@ -63,6 +95,18 @@ export function createApp() {
       const msg = err.message
       if (msg === 'forbidden') return fail(c, 403, 'forbidden')
       if (msg === 'last_owner') return fail(c, 409, 'last_owner', { message: 'ร้านต้องมีเจ้าของอย่างน้อย 1 คน' })
+      if (msg === 'weak_password') return fail(c, 400, 'weak_password', { message: `รหัสผ่านต้องยาว ${MIN_PASSWORD}-72 ตัวอักษร` })
+      // สต็อก (0027-0029): ข้อความไทยจากรหัสข้อผิดพลาด (เช่น "insufficient_stock: กุ้ง") · สถานะชนกันตอบ 409
+      const stock = stockErrorCode(msg)
+      if (stock && c.req.path.startsWith('/api/stock') && (err.code === 'P0001' || err.code === '')) {
+        return fail(c, STOCK_CONFLICTS.has(stock) ? 409 : 400, stock, { message: stockError(msg) })
+      }
+      // บัญชี (0026): ข้อความไทยจากรหัสข้อผิดพลาดของฐานข้อมูล · สถานะชนกันตอบ 409
+      const acct = accountingErrorCode(msg)
+      if (acct && (err.code === 'P0001' || err.code === '')) {
+        const conflict = ['day_closed', 'already_closed', 'already_reversed', 'expense_posted_use_void', 'order_posted_use_cancel', 'journal_immutable']
+        return fail(c, conflict.includes(acct) ? 409 : 400, acct, { message: ACCOUNTING_ERRORS[acct] })
+      }
       if (err.code === '23505') return fail(c, 409, 'duplicate')
       if (err.code === '42501') return fail(c, 403, 'forbidden')
       if (err.status === 401 || err.code === 'PGRST301') return fail(c, 401, 'unauthorized')
@@ -83,22 +127,91 @@ export function createApp() {
   )
 
   // ===== ต้องล็อกอิน =====
+  // ตรวจลายเซ็น JWT ที่ backend ออกเอง แล้วเช็กว่าบัญชียังเปิดใช้งาน (ปิดบัญชีแล้วโทเคนเดิมใช้ต่อไม่ได้)
   const auth = createMiddleware<AppEnv>(async (c, next) => {
+    if (!c.env.SUPABASE_JWT_SECRET) return fail(c, 503, 'auth_not_configured', { message: 'ยังไม่ได้ตั้ง SUPABASE_JWT_SECRET ที่ backend' })
     const h = c.req.header('Authorization') ?? ''
     const token = h.startsWith('Bearer ') ? h.slice(7).trim() : ''
-    const userId = token ? await getUserId(c.env, token) : null
-    if (!userId) return fail(c, 401, 'unauthorized')
-    c.set('userId', userId)
+    const claims = token ? await verifyJwt(token, c.env.SUPABASE_JWT_SECRET) : null
+    if (!claims || !UUID.test(claims.sub)) return fail(c, 401, 'unauthorized')
+    if (!(await asService(c.env).rpc<boolean>('app_user_active', { p_user_id: claims.sub }))) return fail(c, 401, 'unauthorized')
+    c.set('userId', claims.sub)
+    c.set('email', claims.email ?? '')
     c.set('token', token)
     await next()
+  })
+
+  // ----- ล็อกอิน / บัญชีผู้ใช้ (ตาราง app_users ของระบบเอง) -----
+  app.post('/auth/login', async (c) => {
+    if (!c.env.SUPABASE_JWT_SECRET) return fail(c, 503, 'auth_not_configured', { message: 'ยังไม่ได้ตั้ง SUPABASE_JWT_SECRET ที่ backend' })
+    const b = await body(c)
+    const email = String(b.email ?? '').trim().toLowerCase()
+    const password = String(b.password ?? '')
+    if (!EMAIL.test(email) || email.length > 254 || !password || password.length > 72) {
+      return fail(c, 400, 'invalid_request', { message: 'กรอกอีเมลและรหัสผ่าน' })
+    }
+    // กันสุ่มรหัส: จำกัดต่อ IP และต่ออีเมล
+    const ip = c.req.header('CF-Connecting-IP') ?? 'local'
+    const okIp = await allow(undefined, `login-ip:${ip}`, LOGIN_PER_MINUTE)
+    const okEmail = await allow(undefined, `login-email:${email}`, LOGIN_PER_MINUTE)
+    if (!okIp || !okEmail) return fail(c, 429, 'too_many_requests', { message: 'ลองเข้าสู่ระบบถี่เกินไป รอ 1 นาทีแล้วลองใหม่' })
+
+    const rows = await asService(c.env).rpc<LoginRow[]>('app_login', { p_email: email, p_password: password })
+    const user = rows[0]
+    if (!user) return fail(c, 401, 'invalid_credentials', { message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+
+    const hours = Math.min(Math.max(Number(c.env.SESSION_HOURS) || 12, 1), 24 * 30)
+    const iat = Math.floor(Date.now() / 1000)
+    const exp = iat + hours * 3600
+    const access_token = await signJwt(
+      { sub: user.id, email: user.email, role: 'authenticated', aud: 'authenticated', iat, exp },
+      c.env.SUPABASE_JWT_SECRET,
+    )
+    return c.json({ access_token, expires_at: exp * 1000, user })
+  })
+
+  app.get('/auth/me', auth, async (c) => {
+    const rows = await asService(c.env).rpc<unknown[]>('app_user_profile', { p_user_id: c.var.userId })
+    if (!rows[0]) return fail(c, 401, 'unauthorized')
+    return c.json({ user: rows[0] })
+  })
+
+  app.patch('/auth/me', auth, async (c) => {
+    const b = await body(c)
+    await asService(c.env).rpc('app_update_profile', {
+      p_user_id: c.var.userId,
+      p_display_name: String(b.display_name ?? ''),
+      p_phone: String(b.phone ?? ''),
+    })
+    const rows = await asService(c.env).rpc<unknown[]>('app_user_profile', { p_user_id: c.var.userId })
+    return c.json({ user: rows[0] })
+  })
+
+  // เปลี่ยนรหัสผ่านตัวเอง: ต้องยืนยันรหัสปัจจุบัน (รวมรหัสชั่วคราวที่ได้จากเจ้าของร้าน)
+  app.post('/auth/password', auth, async (c) => {
+    const b = await body(c)
+    const current = String(b.current_password ?? '')
+    const next = String(b.new_password ?? '')
+    if (next.length < MIN_PASSWORD || next.length > 72) {
+      return fail(c, 400, 'weak_password', { message: `รหัสผ่านต้องยาว ${MIN_PASSWORD}-72 ตัวอักษร` })
+    }
+    if (next === current) return fail(c, 400, 'same_password', { message: 'รหัสผ่านใหม่ต้องไม่ซ้ำรหัสเดิม' })
+    if (!(await allow(undefined, `password:${c.var.userId}`, LOGIN_PER_MINUTE))) return fail(c, 429, 'too_many_requests')
+    const svc = asService(c.env)
+    const ok = await svc.rpc<LoginRow[]>('app_login', { p_email: c.var.email, p_password: current })
+    if (!ok[0] || ok[0].id !== c.var.userId) {
+      return fail(c, 400, 'wrong_password', { message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' })
+    }
+    await svc.rpc('app_set_password', { p_user_id: c.var.userId, p_password: next, p_must_change: false })
+    return c.json({ changed: true })
   })
 
   async function requireRole(c: Ctx, restaurantId: unknown, roles: Role[]): Promise<string | Response> {
     const rid = String(restaurantId ?? '')
     if (!UUID.test(rid)) return fail(c, 400, 'invalid_restaurant_id')
-    const role = await roleOf(asUser(c.env, c.var.token), c.var.userId, rid)
-    if (!role || !roles.includes(role)) return fail(c, 403, 'forbidden')
-    c.set('role', role)
+    const mine = await rolesOf(asUser(c.env, c.var.token), c.var.userId, rid)
+    if (!mine.some((r) => roles.includes(r))) return fail(c, 403, 'forbidden')
+    c.set('roles', mine)
     return rid
   }
 
@@ -232,31 +345,31 @@ export function createApp() {
     const rid = await requireRole(c, b.restaurant_id, ['owner', 'manager'])
     if (typeof rid !== 'string') return rid
     const email = String(b.email ?? '').trim().toLowerCase()
-    const role = String(b.role ?? '') as Role
+    const roles = parseRoles(b)
     if (!EMAIL.test(email) || email.length > 254) return fail(c, 400, 'invalid_email')
-    if (!ROLES.includes(role)) return fail(c, 400, 'invalid_role')
-    if (c.var.role === 'manager' && MANAGER_CANNOT_ASSIGN.includes(role)) {
+    if (!roles) return fail(c, 400, 'invalid_role')
+    if (managerBlocked(c.var.roles, roles)) {
       return fail(c, 403, 'role_not_allowed', { message: 'ผู้จัดการแต่งตั้งเจ้าของหรือผู้จัดการไม่ได้' })
     }
 
+    // ยังไม่มีบัญชี: สร้างให้พร้อมรหัสชั่วคราว (แสดงให้ผู้เพิ่มครั้งเดียว พนักงานต้องเปลี่ยนหลังล็อกอินครั้งแรก)
+    const displayName = typeof b.display_name === 'string' ? b.display_name : null
     let userId = await asService(c.env).rpc<string | null>('staff_find_user', { p_email: email })
-    let invited = false
+    let temp: string | undefined
     if (!userId) {
-      // ลิงก์ในอีเมลเชิญพากลับมาหน้าตั้งรหัสผ่านของเว็บที่เจ้าของใช้อยู่ (โดเมนเดียวกัน หรือที่อยู่ใน ALLOWED_ORIGINS)
-      const origin = c.req.header('Origin') ?? ''
-      const trusted = origin === new URL(c.req.url).origin || allowedOrigins(c.env).includes(origin)
-      const redirect = trusted ? `${origin}/set-password` : undefined
-      try {
-        userId = await inviteUser(c.env, email, redirect)
-      } catch (e) {
-        console.error('invite failed', e)
-        return fail(c, 502, 'invite_failed', { message: 'ส่งอีเมลเชิญไม่สำเร็จ ตรวจการตั้งค่าอีเมลใน Supabase' })
-      }
-      invited = true
+      temp = tempPassword()
+      userId = await asService(c.env).rpc<string>('app_create_user', {
+        p_email: email,
+        p_password: temp,
+        p_display_name: displayName,
+        p_must_change: true,
+      })
     }
-    // เพิ่มด้วย JWT ของเจ้าของ: RLS owner_manage_staff ตรวจซ้ำอีกชั้น
-    await asUser(c.env, c.var.token).insert('staff_members', { user_id: userId, restaurant_id: rid, role })
-    return c.json({ user_id: userId, email, role, invited }, 201)
+    // เพิ่มด้วย JWT ของผู้เรียก: RLS owner_manage_staff / manager_manage_staff ตรวจซ้ำอีกชั้น
+    const db = asUser(c.env, c.var.token)
+    if (!temp && (await rolesOf(db, userId, rid)).length > 0) return fail(c, 409, 'duplicate')
+    await db.insert('staff_members', roles.map((role) => ({ user_id: userId, restaurant_id: rid, role })))
+    return c.json({ user_id: userId, email, roles, created: Boolean(temp), ...(temp ? { temp_password: temp } : {}) }, 201)
   })
 
   app.patch('/staff/:userId', auth, async (c) => {
@@ -264,18 +377,42 @@ export function createApp() {
     const rid = await requireRole(c, b.restaurant_id, ['owner', 'manager'])
     if (typeof rid !== 'string') return rid
     const target = c.req.param('userId')
-    const role = String(b.role ?? '') as Role
+    const roles = parseRoles(b)
     if (!UUID.test(target)) return fail(c, 400, 'invalid_user_id')
-    if (!ROLES.includes(role)) return fail(c, 400, 'invalid_role')
-    if (c.var.role === 'manager' && MANAGER_CANNOT_ASSIGN.includes(role)) {
+    if (!roles) return fail(c, 400, 'invalid_role')
+    if (managerBlocked(c.var.roles, roles)) {
       return fail(c, 403, 'role_not_allowed', { message: 'ผู้จัดการแต่งตั้งเจ้าของหรือผู้จัดการไม่ได้' })
     }
-    const rows = await asUser(c.env, c.var.token).update(
-      `staff_members?user_id=eq.${target}&restaurant_id=eq.${rid}`,
-      { role },
-    )
-    if (rows.length === 0) return fail(c, 404, 'not_found')
-    return c.json({ user_id: target, role })
+    // ตั้งบทบาททั้งชุดในธุรกรรมเดียว (0020) ด้วย JWT ของผู้เรียก
+    try {
+      const saved = await asUser(c.env, c.var.token).rpc<Role[]>('staff_set_roles', {
+        p_restaurant_id: rid,
+        p_user_id: target,
+        p_roles: roles,
+      })
+      return c.json({ user_id: target, roles: saved })
+    } catch (e) {
+      if (e instanceof DbError && e.message === 'not_found') return fail(c, 404, 'not_found')
+      throw e
+    }
+  })
+
+  // รีเซ็ตรหัสผ่านพนักงาน (ลืมรหัส): ได้รหัสชั่วคราวใหม่ พนักงานต้องเปลี่ยนหลังล็อกอิน
+  // ผู้จัดการรีเซ็ตได้เฉพาะพนักงานที่ไม่มีบทบาทเจ้าของ/ผู้จัดการ · รีเซ็ตของตัวเองไม่ได้ (ใช้เปลี่ยนรหัสแทน)
+  app.post('/staff/:userId/reset-password', auth, async (c) => {
+    const b = await body(c)
+    const rid = await requireRole(c, b.restaurant_id, ['owner', 'manager'])
+    if (typeof rid !== 'string') return rid
+    const target = c.req.param('userId')
+    if (!UUID.test(target)) return fail(c, 400, 'invalid_user_id')
+    if (target === c.var.userId) return fail(c, 400, 'use_change_password', { message: 'เปลี่ยนรหัสของตัวเองที่เมนู "เปลี่ยนรหัสผ่าน"' })
+    const staff = await asService(c.env).rpc<{ user_id: string; roles: Role[] }[]>('staff_list', { p_restaurant_id: rid })
+    const member = staff.find((m) => m.user_id === target)
+    if (!member) return fail(c, 404, 'not_found')
+    if (managerBlocked(c.var.roles, member.roles)) return fail(c, 403, 'forbidden')
+    const temp = tempPassword()
+    await asService(c.env).rpc('app_set_password', { p_user_id: target, p_password: temp, p_must_change: true })
+    return c.json({ user_id: target, temp_password: temp })
   })
 
   app.delete('/staff/:userId', auth, async (c) => {
@@ -287,6 +424,12 @@ export function createApp() {
     if (rows.length === 0) return fail(c, 404, 'not_found')
     return c.json({ removed: target })
   })
+
+  // ----- บัญชี (0026) -----
+  registerAccounting(app, { auth, requireRole, fail, body })
+
+  // ----- สต็อกวัตถุดิบ (0027-0030) -----
+  registerStock(app, { auth, requireRole, fail, body })
 
   // ----- เอกสาร API (Swagger) -----
   app.get('/openapi.json', (c) => c.json(openapi))

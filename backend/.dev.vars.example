@@ -1,4 +1,10 @@
 # คัดลอกเป็น .dev.vars แล้วกรอกค่า (ใช้กับ npm run dev ใน backend/)
 SUPABASE_SERVICE_ROLE_KEY=
+# JWT secret ของโปรเจกต์ (Supabase > Project Settings > API > JWT Settings > Legacy JWT secret) ใช้ลงนามโทเคนล็อกอิน
+SUPABASE_JWT_SECRET=
+# ค่าของโปรเจกต์ (ทับค่าตัวอย่างใน wrangler.toml ตอนรันในเครื่อง)
+# SUPABASE_URL=https://<project>.supabase.co
+# SUPABASE_ANON_KEY=
+# SESSION_HOURS=12
 GEMINI_API_KEY=
 # GEMINI_MODEL=gemini-2.5-flash

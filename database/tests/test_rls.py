@@ -1,4 +1,4 @@
-"""ทดสอบ migration + RLS ของ FoodFlow บน Postgres จริง (จำลอง auth ของ Supabase ด้วย stub)
+"""ทดสอบ migration + RLS ของ Plato บน Postgres จริง (จำลอง auth ของ Supabase ด้วย stub)
 
 วิธีรัน:
   pip install pixeltable-pgserver "psycopg[binary]"
@@ -37,6 +37,12 @@ create table auth.users (id uuid primary key, email text);
 create function auth.uid() returns uuid language sql stable as
   $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 create publication supabase_realtime;
+-- pgcrypto ไม่มีในบิลด์ทดสอบ: จำลอง crypt/gen_salt ใน schema extensions (บน Supabase ใช้ bcrypt จริง)
+create schema extensions;
+create function extensions.gen_salt(text, int default 10) returns text language sql volatile as
+  $$ select '$stub$' || substr(md5(random()::text), 1, 8) $$;
+create function extensions.crypt(text, text) returns text language sql immutable as
+  $$ select left($2, 14) || md5(left($2, 14) || $1) $$;
 grant usage on schema public, auth to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated;
@@ -62,6 +68,18 @@ FILES = [
     'migrations/0016_manager_accounting.sql',
     'migrations/0017_payment_loyalty.sql',
     'migrations/0018_reports_insights.sql',
+    'migrations/0019_stock_history.sql',
+    'migrations/0020_multi_roles.sql',
+    'migrations/0021_app_users.sql',
+    'migrations/0022_stock_counts.sql',
+    'migrations/0023_seafood_inventory.sql',
+    'migrations/0024_units.sql',
+    'migrations/0025_receiving_check.sql',
+    'migrations/0026_accounting.sql',
+    'migrations/0027_stock_ledger.sql',
+    'migrations/0028_stock_recipes.sql',
+    'migrations/0029_stock_operations.sql',
+    'migrations/0030_stock_rls.sql',
     'seed/seed.sql',
     'seed/seed_demo.sql',
 ]
@@ -70,6 +88,7 @@ for f in FILES:
         text = (ROOT / f).read_text(encoding='utf-8')
         # pgcrypto ไม่มีในบิลด์ทดสอบ (gen_random_uuid เป็นฟังก์ชันหลักตั้งแต่ PG13 อยู่แล้ว)
         text = text.replace('create extension if not exists "pgcrypto";', '')
+        text = text.replace('create extension if not exists pgcrypto with schema extensions;', '')
         admin.execute(text)
         print('LOADED', f)
     except psycopg.Error as e:
@@ -127,7 +146,7 @@ KAPRAO = menu['ผัดกะเพราหมูสับ']
 
 U = {k: uuid.uuid4() for k in ['owner', 'staff', 'kitchen', 'acc', 'stock', 'other', 'newbie', 'nobody', 'mgr', 'cook2']}
 for u in U.values():
-    q('su', 'insert into auth.users(id) values (%s)', (u,))
+    q('su', 'insert into app_users(id, email) values (%s, %s)', (u, f'{u}@test.local'))
 r2 = one("insert into restaurants(name) values ('ร้านอื่น') returning id")
 ing2 = one("insert into ingredients(restaurant_id,name,unit,quantity_on_hand) values (%s,'น้ำตาล','g',100) returning id", (r2,))
 for k, rid, role in [('owner', r1, 'owner'), ('staff', r1, 'staff'), ('kitchen', r1, 'kitchen'),
@@ -226,6 +245,7 @@ check('accountant: ติ๊กเสร็จรายเมนูไม่ไ�
 check('ร้านอื่น: ติ๊กเสร็จรายเมนูไม่ได้', q(U['other'], 'select kitchen_set_item_done(%s, true)', (item1,))[0] == 'err')
 check('orders: started_at ถูกบันทึกอัตโนมัติ', one('select started_at is not null from orders where id=%s', (oid,)))
 check('stock: stock_deducted_at ถูกตั้งค่า', one('select stock_deducted_at is not null from orders where id=%s', (oid,)))
+check('ประวัติสต็อก: ตัดขายจำออเดอร์ที่ตัดไว้', one("select count(*) from stock_movements where reason='sale' and order_id=%s", (oid,)) > 0)
 sales_before = one("select count(*) from stock_movements where reason='sale'")
 q(U['kitchen'], "update orders set status='ready' where id=%s", (oid,))
 check('kitchen: ติ๊กเสร็จรายเมนูได้เฉพาะตอนกำลังทำ', q(U['kitchen'], 'select kitchen_set_item_done(%s, true)', (item1,))[0] == 'err')
@@ -250,15 +270,19 @@ check('accountant: แก้ออเดอร์ไม่ได้ (0 แถว
       q(U['acc'], "update orders set status='cancelled' where id=%s", (oid,))[2] == 0)
 check('stock role: อ่านออเดอร์ไม่ได้', q(U['stock'], 'select count(*) from orders')[1][0][0] == 0)
 
-# ---------- 3) ตัดสต็อกเมื่อของไม่พอ: ตัดเท่าที่มี ไม่ขวางครัว ----------
-q('su', "update ingredients set quantity_on_hand=10 where restaurant_id=%s and name='ใบกะเพรา'", (r1,))
-oid2 = place(1)[1][0][0]
+# ---------- 3) ของไม่พอ: ตัดไม่ได้ (สต็อกไม่ติดลบ) และปิดเมนูที่เกี่ยวข้องอัตโนมัติ (0027/0028) ----------
+basil = one("select id from ingredients where restaurant_id=%s and name='ใบกะเพรา'", (r1,))
+oid2 = place(1)[1][0][0]   # รับออเดอร์ไว้ก่อนของจะหมด
+q(U['stock'], "select submit_stock_count(%s, %s::jsonb)", (r1, json.dumps([{'ingredient_id': str(basil), 'counted_qty': 10}])))
+check('stock: นับแล้วเหลือไม่พอ 1 จาน (ต้องใช้ดิบ 15g) -> ปิดเมนูอัตโนมัติ',
+      one('select not is_available and stock_disabled from menu_items where id=%s', (KAPRAO,)))
 r = q(U['kitchen'], "update orders set status='preparing' where id=%s", (oid2,))
-check('stock: ของไม่พอไม่ขวางครัว', r[0] == 'ok' and r[2] == 1, r)
-check('stock: ตัดเท่าที่มี (ใบกะเพรา เหลือ 0 ไม่ติดลบ)', qty('ใบกะเพรา') == 0)
-oid3 = place(1)[1][0][0]
-r = q(U['kitchen'], "update orders set status='preparing' where id=%s", (oid3,))
-check('stock: ของเป็น 0 แล้วยังเริ่มทำได้', r[0] == 'ok' and qty('ใบกะเพรา') == 0, r)
+check('stock: ของไม่พอ เริ่มทำไม่ได้ ยอดไม่ติดลบ', r[0] == 'err' and 'insufficient_stock' in r[1] and qty('ใบกะเพรา') == 10, r)
+check('stock: เมนูที่ระบบปิด รับออเดอร์ใหม่ไม่ได้', place(1)[0] == 'err')
+q(U['stock'], "select submit_stock_receipt(%s, %s::jsonb, null, null, null, null, false)", (r1, json.dumps([{'ingredient_id': str(basil), 'quantity': 500, 'unit_cost': 0.15}])))
+check('stock: ของกลับมาพอ -> เปิดเมนูให้อัตโนมัติ', one('select is_available and not stock_disabled from menu_items where id=%s', (KAPRAO,)))
+r = q(U['kitchen'], "update orders set status='preparing' where id=%s", (oid2,))
+check('stock: รับของแล้วเริ่มทำได้ ตัดดิบตาม trim yield (510 - 15)', r[0] == 'ok' and qty('ใบกะเพรา') == 495, r)
 
 # ---------- 3.5) ลำดับสถานะออเดอร์ (0008) ----------
 def upd(uid, oid_, status, reason=None):
@@ -313,33 +337,81 @@ check('staff: บันทึกรายจ่ายไม่ได้',
 # ---------- 5) สต็อก ----------
 pork = one("select id from ingredients where restaurant_id=%s and name='หมูสับ'", (r1,))
 p0 = qty('หมูสับ')
-check('stock role: รับเข้าได้และยอดเพิ่ม',
-      q(U['stock'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,500,'purchase')", (r1, pork))[0] == 'ok'
+check('stock role: รับเข้าผ่านใบรับของได้และยอดเพิ่ม',
+      q(U['stock'], "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{'ingredient_id': str(pork), 'quantity': 500, 'unit_cost': 0.18}])))[0] == 'ok'
       and qty('หมูสับ') == p0 + 500)
-check('stock role: ตัดจนติดลบไม่ได้',
+check('stock role: เขียน ledger ตรงไม่ได้ (ต้องผ่านฟังก์ชัน)',
       q(U['stock'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,-999999,'waste')", (r1, pork))[0] == 'err')
 r = q(U['stock'], "update ingredients set quantity_on_hand=1 where id=%s", (pork,))
 check('stock role: แก้ยอดคงเหลือตรงๆ ไม่ได้', r[0] == 'err', r)
 check('stock role: แก้ชื่อวัตถุดิบได้', q(U['stock'], "update ingredients set name='หมูสับ' where id=%s", (pork,))[2] == 1)
 check('stock role: ผูกวัตถุดิบข้ามร้านไม่ได้ (movement)',
       q(U['stock'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,5,'purchase')", (r1, ing2))[0] == 'err')
+TEA_RECIPE = one("select id from recipes where menu_item_id=%s", (menu['ชาเย็น'],))
 check('stock role: สูตรอาหารข้ามร้านไม่ได้',
-      q(U['stock'], "insert into recipes(menu_item_id,ingredient_id,quantity_used) values (%s,%s,1)", (menu['ชาเย็น'], ing2))[0] == 'err')
-check('stock role: เพิ่มสูตรในร้านตัวเองได้',
-      q(U['stock'], "insert into recipes(menu_item_id,ingredient_id,quantity_used) values (%s,%s,5) on conflict (menu_item_id,ingredient_id) do update set quantity_used=5",
-        (menu['ชาเย็น'], pork))[0] == 'ok')
-q('su', "delete from recipes where menu_item_id=%s and ingredient_id=%s", (menu['ชาเย็น'], pork))
+      q(U['stock'], "insert into recipe_lines(recipe_id,ingredient_id,qty) values (%s,%s,1)", (TEA_RECIPE, ing2))[0] == 'err')
+check('stock role: เพิ่มบรรทัดสูตรในร้านตัวเองได้',
+      q(U['stock'], "insert into recipe_lines(recipe_id,ingredient_id,qty) values (%s,%s,5)", (TEA_RECIPE, pork))[0] == 'ok')
+q('su', "delete from recipe_lines where recipe_id=%s and ingredient_id=%s", (TEA_RECIPE, pork))
+check('ร้านอื่น: อ่านสูตรของร้านนี้ไม่ได้', q(U['other'], 'select count(*) from recipe_lines where recipe_id=%s', (TEA_RECIPE,))[1][0][0] == 0)
 check('accountant: อ่านวัตถุดิบได้', q(U['acc'], 'select count(*) from ingredients')[1][0][0] > 0)
 check('accountant: เพิ่มประวัติสต็อกไม่ได้',
       q(U['acc'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,1,'purchase')", (r1, pork))[0] == 'err')
 check('staff: อ่านวัตถุดิบไม่เห็น', q(U['staff'], 'select count(*) from ingredients')[1][0][0] == 0)
-check('kitchen: บันทึกของเสียได้',
-      q(U['kitchen'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,-5,'waste')", (r1, pork))[0] == 'ok')
+check('kitchen: บันทึกของเสียแยกไม่ได้ (ไม่มีของเสียแยก ไปโผล่เป็นส่วนต่างตอนนับ)',
+      q(U['kitchen'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,-5,'waste')", (r1, pork))[0] == 'err')
 check('kitchen: บันทึกรับเข้าไม่ได้',
       q(U['kitchen'], "insert into stock_movements(restaurant_id,ingredient_id,change,reason) values (%s,%s,5,'purchase')", (r1, pork))[0] == 'err')
 check('ประวัติสต็อกแก้ไขไม่ได้ (update)',
       q(U['stock'], "update stock_movements set change=0", None)[2] == 0)
 check('ประวัติสต็อกลบไม่ได้ (delete)', q(U['stock'], "delete from stock_movements", None)[2] == 0)
+
+# ประวัติสต็อก (0019)
+q(U['stock'], "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{'ingredient_id': str(pork), 'quantity': 7, 'unit_cost': 0.18}])))
+last = one("select created_by::text || '|' || balance_after::text from stock_movements where ingredient_id=%s order by created_at desc, balance_after desc limit 1", (pork,))
+check('ประวัติสต็อก: บันทึกคนทำจากผู้ล็อกอินและคงเหลือจริง', last == f"{U['stock']}|{qty('หมูสับ'):.3f}", last)
+hist = q(U['stock'], "select ingredient_name, type, actor_name from stock_history(%s, now() - interval '1 day', now() + interval '1 day', %s, null, 'receive', 50)", (r1, pork))
+check('ประวัติสต็อก: พนักงานสต็อกดึงประวัติได้พร้อมชื่อวัตถุดิบ', hist[0] == 'ok' and len(hist[1]) > 0 and hist[1][0][0] == 'หมูสับ', hist)
+check('ประวัติสต็อก: บัญชีดูได้', q(U['acc'], "select count(*) from stock_history(%s, now() - interval '1 day', now() + interval '1 day')", (r1,))[0] == 'ok')
+check('ประวัติสต็อก: พนักงานหน้าร้านดูไม่ได้', q(U['staff'], "select count(*) from stock_history(%s, now() - interval '1 day', now() + interval '1 day')", (r1,))[0] == 'err')
+check('ประวัติสต็อก: ร้านอื่นดูไม่ได้', q(U['other'], "select count(*) from stock_history(%s, now() - interval '1 day', now() + interval '1 day')", (r1,))[0] == 'err')
+
+# ใบตรวจนับสต็อก (0022)
+import json as _json
+ings = q('su', "select id, name, quantity_on_hand, cost_per_unit from ingredients where restaurant_id=%s order by name limit 2", (r1,))[1]
+(i1, n1, q1, c1), (i2, n2, q2, c2) = ings
+lines = _json.dumps([{'ingredient_id': str(i1), 'counted_qty': float(q1) - 3}, {'ingredient_id': str(i2), 'counted_qty': float(q2)}])
+sc = q(U['stock'], "select submit_stock_count(%s, %s::jsonb, 'นับสิ้นเดือน')", (r1, lines))
+check('ตรวจนับ: พนักงานสต็อกบันทึกใบตรวจนับได้', sc[0] == 'ok', sc)
+CID = sc[1][0][0] if sc[0] == 'ok' else None
+head = q('su', "select item_count, diff_count, diff_value, counted_by from stock_counts where id=%s", (CID,))[1][0]
+check('ตรวจนับ: สรุปจำนวนรายการ / รายการที่ไม่ตรง / มูลค่าส่วนต่าง', head[0] == 2 and head[1] == 1
+      and float(head[2]) == round(-3 * float(c1), 2) and head[3] == U['stock'], head)
+check('ตรวจนับ: ปรับยอดในระบบเป็นยอดนับจริง', float(qty(n1)) == float(q1) - 3 and float(qty(n2)) == float(q2))
+adj = q('su', "select change, reason::text, created_by from stock_movements where count_id=%s", (CID,))[1]
+check('ตรวจนับ: ลงประวัติสต็อกเฉพาะรายการที่ไม่ตรง (ปรับยอด, ใครทำ)', len(adj) == 1 and float(adj[0][0]) == -3
+      and adj[0][1] == 'adjustment' and adj[0][2] == U['stock'], adj)
+ln = q('su', "select system_qty, counted_qty, diff from stock_count_lines where count_id=%s and ingredient_id=%s", (CID, i1))[1][0]
+check('ตรวจนับ: เก็บยอดระบบตอนนับ ยอดจริง ส่วนต่าง', float(ln[0]) == float(q1) and float(ln[2]) == -3, ln)
+check('ตรวจนับ: บัญชีอ่านใบตรวจนับได้', q(U['acc'], 'select count(*) from stock_counts where id=%s', (CID,))[1][0][0] == 1
+      and q(U['acc'], 'select count(*) from stock_count_lines where count_id=%s', (CID,))[1][0][0] == 2)
+check('ตรวจนับ: บัญชีบันทึกใบตรวจนับไม่ได้', q(U['acc'], "select submit_stock_count(%s, %s::jsonb)", (r1, lines))[0] == 'err')
+check('ตรวจนับ: หน้าร้านอ่านไม่ได้', q(U['staff'], 'select count(*) from stock_counts')[1][0][0] == 0)
+check('ตรวจนับ: ร้านอื่นบันทึกให้ร้านนี้ไม่ได้', q(U['other'], "select submit_stock_count(%s, %s::jsonb)", (r1, lines))[0] == 'err')
+check('ตรวจนับ: แก้ใบที่บันทึกแล้วไม่ได้', q(U['stock'], 'update stock_counts set diff_value=0 where id=%s', (CID,))[0] == 'err')
+check('ตรวจนับ: ลบใบที่บันทึกแล้วไม่ได้', q(U['owner'], 'delete from stock_counts where id=%s', (CID,))[0] == 'err')
+check('ตรวจนับ: เพิ่มแถวเองโดยตรงไม่ได้', q(U['stock'], "insert into stock_counts(restaurant_id) values (%s)", (r1,))[0] == 'err')
+check('ตรวจนับ: จำนวนติดลบไม่ได้',
+      q(U['stock'], "select submit_stock_count(%s, %s::jsonb)", (r1, _json.dumps([{'ingredient_id': str(i1), 'counted_qty': -1}])))[0] == 'err')
+check('ตรวจนับ: วัตถุดิบร้านอื่นไม่ได้',
+      q(U['stock'], "select submit_stock_count(%s, %s::jsonb)", (r1, _json.dumps([{'ingredient_id': str(ing2), 'counted_qty': 1}])))[0] == 'err')
+check('ตรวจนับ: วัตถุดิบซ้ำในใบเดียวไม่ได้',
+      q(U['stock'], "select submit_stock_count(%s, %s::jsonb)", (r1, _json.dumps([{'ingredient_id': str(i1), 'counted_qty': 1}] * 2)))[0] == 'err')
+check('ตรวจนับ: ใบว่างไม่ได้', q(U['stock'], "select submit_stock_count(%s, '[]'::jsonb)", (r1,))[0] == 'err')
+hist = q(U['stock'], "select note, type from stock_history(%s, now() - interval '1 day', now() + interval '1 day', %s, %s, 'count_adjust', 5)", (r1, i1, U['stock']))
+check('ตรวจนับ: ประวัติสต็อกแสดงว่ามาจากการนับ (กรองตามผู้ทำรายการได้)', hist[0] == 'ok' and hist[1] and hist[1][0] == ('นับสต็อก', 'count_adjust'), hist)
+check('ประวัติสต็อก: กรองผู้ทำรายการคนอื่นไม่เจอรายการนี้',
+      q(U['stock'], "select count(*) from stock_history(%s, now() - interval '1 day', now() + interval '1 day', %s, %s, 'count_adjust', 5)", (r1, i1, U['owner']))[1][0][0] == 0)
 
 # ---------- 6) เมนูหมด ----------
 check('set_menu_availability: ครัวทำได้', q(U['kitchen'], "select set_menu_availability(%s, false)", (KAPRAO,))[0] == 'ok')
@@ -468,7 +540,7 @@ check('import: ไฟล์ตัวอย่าง sample-sales.csv ผ่า�
       parsed['errors'] == [] and sp[0] == 'ok' and sp[1][0][0]['orders'] == 3 and not sp[1][0][0]['blocked'], (parsed, sp))
 
 # ---------- 9.55) จัดการพนักงาน ----------
-q('su', "update auth.users set email = 'kitchen@example.com' where id=%s", (U['kitchen'],))
+q('su', "update app_users set email = 'kitchen@example.com' where id=%s", (U['kitchen'],))
 check('staff_find_user: service_role หาได้ (ไม่สนตัวพิมพ์)',
       q('service', 'select staff_find_user(%s)', (' Kitchen@Example.com',))[1][0][0] == U['kitchen'])
 check('staff_find_user: ผู้ใช้ล็อกอินเรียกไม่ได้', q(U['owner'], 'select staff_find_user(%s)', ('kitchen@example.com',))[0] == 'err')
@@ -511,6 +583,77 @@ check('owner: แต่งตั้งผู้จัดการได้',
       q(U['owner'], "insert into staff_members(user_id, restaurant_id, role) values (%s,%s,'manager')", (U['cook2'], r1))[0] == 'ok')
 q('su', "delete from staff_members where user_id=%s", (U['cook2'],))
 
+# ---------- 9.75) ผู้ใช้ของระบบเอง (0021) ----------
+nu = q('service', "select app_create_user(' New.Cook@Example.com ', 'temp-pass-1', 'ต้น', true)")
+check('app_users: service สร้างผู้ใช้ได้ (อีเมลเก็บเป็นตัวเล็ก)', nu[0] == 'ok'
+      and one("select email from app_users where id=%s", (nu[1][0][0],)) == 'new.cook@example.com', nu)
+NU = nu[1][0][0]
+lg = q('service', "select id, must_change_password from app_login('NEW.cook@example.com', 'temp-pass-1')")
+check('app_login: รหัสถูก -> ได้ผู้ใช้ และบอกว่าต้องเปลี่ยนรหัส', lg[0] == 'ok' and len(lg[1]) == 1 and lg[1][0] == (NU, True), lg)
+check('app_login: รหัสผิด -> ไม่มีแถว', q('service', "select * from app_login('new.cook@example.com', 'wrong-pass')")[1] == [])
+check('app_login: ไม่มีอีเมลนี้ -> ไม่มีแถว', q('service', "select * from app_login('none@example.com', 'temp-pass-1')")[1] == [])
+check('app_login: บันทึกเวลาล็อกอินล่าสุด', one("select last_login_at is not null from app_users where id=%s", (NU,)))
+check('app_set_password: รหัสสั้นกว่า 8 ไม่ได้', q('service', "select app_set_password(%s, 'short')", (NU,))[0] == 'err')
+q('service', "select app_set_password(%s, 'my-new-pass', false)", (NU,))
+check('app_set_password: รหัสใหม่ใช้ได้ รหัสเก่าใช้ไม่ได้',
+      len(q('service', "select * from app_login('new.cook@example.com', 'my-new-pass')")[1]) == 1
+      and q('service', "select * from app_login('new.cook@example.com', 'temp-pass-1')")[1] == [])
+check('app_set_password: ไม่ต้องเปลี่ยนรหัสแล้ว', one("select must_change_password from app_users where id=%s", (NU,)) is False)
+check('app_set_password: เก็บแบบเข้ารหัส ไม่ใช่ข้อความตรงๆ', one("select password_hash <> 'my-new-pass' from app_users where id=%s", (NU,)))
+q('su', "update app_users set is_active=false where id=%s", (NU,))
+check('app_login: บัญชีที่ปิดแล้วล็อกอินไม่ได้', q('service', "select * from app_login('new.cook@example.com', 'my-new-pass')")[1] == [])
+check('app_user_active: บัญชีที่ปิดแล้ว = false', q('service', 'select app_user_active(%s)', (NU,))[1][0][0] is False)
+check('app_user_active: บัญชีปกติ = true', q('service', 'select app_user_active(%s)', (U['owner'],))[1][0][0] is True)
+check('app_users: อีเมลซ้ำไม่ได้', q('service', "select app_create_user('new.cook@example.com', 'temp-pass-2')")[0] == 'err')
+check('app_users: ผู้ใช้ที่ล็อกอินอ่านตารางไม่ได้ (เห็นรหัสผ่านไม่ได้)', q(U['owner'], 'select count(*) from app_users')[0] == 'err')
+check('app_users: anon อ่านตารางไม่ได้', q(None, 'select count(*) from app_users')[0] == 'err')
+check('app_login: ผู้ใช้ที่ล็อกอินเรียกไม่ได้', q(U['owner'], "select * from app_login('a@b.c', 'x')")[0] == 'err')
+check('app_login: anon เรียกไม่ได้', q(None, "select * from app_login('a@b.c', 'x')")[0] == 'err')
+check('app_create_user: ผู้ใช้ที่ล็อกอินเรียกไม่ได้', q(U['owner'], "select app_create_user('x@y.z', 'temp-pass-1')")[0] == 'err')
+check('app_set_password: ผู้ใช้ที่ล็อกอินเรียกไม่ได้', q(U['owner'], "select app_set_password(%s, 'hacked-pass')", (U['owner'],))[0] == 'err')
+check('app_users: foreign key ของ staff_members ชี้ app_users',
+      one("select confrelid::regclass::text from pg_constraint where conrelid='staff_members'::regclass and contype='f' and conkey = array[(select attnum from pg_attribute where attrelid='staff_members'::regclass and attname='user_id')]::smallint[]") == 'app_users')
+check('app_users: ไม่มี foreign key ชี้ auth.users เหลืออยู่',
+      one("select count(*) from pg_constraint where contype='f' and confrelid='auth.users'::regclass") == 0)
+q('su', 'delete from app_users where id=%s', (NU,))
+
+# ---------- 9.8) พนักงานหลายบทบาท (0020) ----------
+C2 = U['cook2']
+check('หลายบทบาท: เจ้าของตั้งบทบาท หน้าร้าน + สต็อก ให้คนเดียวได้',
+      q(U['owner'], "insert into staff_members(user_id, restaurant_id, role) values (%s,%s,'staff'),(%s,%s,'stock')", (C2, r1, C2, r1))[0] == 'ok')
+check('หลายบทบาท: ได้สิทธิ์ของทุกบทบาทรวมกัน (อ่านวัตถุดิบได้ เพราะมีบทบาทสต็อก)',
+      q(C2, 'select count(*) from ingredients')[1][0][0] > 0)
+check('หลายบทบาท: ได้สิทธิ์หน้าร้านด้วย (เห็นออเดอร์)',
+      q(C2, 'select count(*) from orders where restaurant_id=%s', (r1,))[0] == 'ok'
+      and q(C2, 'select count(*) from orders where restaurant_id=%s', (r1,))[1][0][0] > 0)
+check('หลายบทบาท: ยังไม่ได้สิทธิ์บทบาทที่ไม่มี (บันทึกรายจ่ายไม่ได้)',
+      q(C2, "insert into expenses(restaurant_id,category,amount) values (%s,'other',1)", (r1,))[0] == 'err')
+sl = q('su', 'select roles from staff_list(%s) where user_id=%s', (r1, C2))
+check('staff_list: คืนบทบาทเป็น array 1 แถวต่อคน', sl[0] == 'ok' and len(sl[1]) == 1 and sl[1][0][0] == ['staff', 'stock'], sl)
+sr = q(U['owner'], "select staff_set_roles(%s, %s, array['kitchen','stock'])", (r1, C2))
+check('staff_set_roles: แทนที่ทั้งชุด (เพิ่มครัว เอาหน้าร้านออก)', sr[0] == 'ok' and sr[1][0][0] == ['kitchen', 'stock'], sr)
+check('staff_set_roles: บทบาทว่างไม่ได้', q(U['owner'], "select staff_set_roles(%s, %s, array[]::text[])", (r1, C2))[0] == 'err')
+check('staff_set_roles: คนที่ไม่อยู่ในร้านไม่ได้', q(U['owner'], "select staff_set_roles(%s, %s, array['staff'])", (r1, U['nobody']))[0] == 'err')
+check('staff_set_roles: บทบาทที่ไม่รู้จักไม่ได้', q(U['owner'], "select staff_set_roles(%s, %s, array['chef'])", (r1, C2))[0] == 'err')
+check('staff_set_roles: ผู้จัดการตั้งบทบาทพนักงานได้', q(M, "select staff_set_roles(%s, %s, array['staff','accountant'])", (r1, C2))[0] == 'ok')
+check('staff_set_roles: ผู้จัดการเพิ่มบทบาทผู้จัดการให้คนอื่นไม่ได้',
+      q(M, "select staff_set_roles(%s, %s, array['staff','manager'])", (r1, C2))[0] == 'err')
+check('staff_set_roles: ผู้จัดการเพิ่มบทบาทให้ตัวเองไม่ได้',
+      q(M, "select staff_set_roles(%s, %s, array['manager','stock'])", (r1, M))[0] == 'err')
+check('staff_set_roles: พนักงานทั่วไปใช้ไม่ได้', q(U['staff'], "select staff_set_roles(%s, %s, array['staff'])", (r1, C2))[0] == 'err')
+# ผู้จัดการห้ามแตะคนที่มีบทบาทเจ้าของ แม้แถวที่แก้จะเป็นบทบาทต่ำกว่า
+q(U['owner'], "insert into staff_members(user_id, restaurant_id, role) values (%s,%s,'kitchen')", (U['owner'], r1))
+check('ผู้จัดการ: ลบบทบาทครัวของเจ้าของไม่ได้ (0 แถว)',
+      q(M, "delete from staff_members where user_id=%s and restaurant_id=%s and role='kitchen'", (U['owner'], r1))[2] == 0)
+check('ผู้จัดการ: เพิ่มบทบาทให้เจ้าของไม่ได้',
+      q(M, "insert into staff_members(user_id, restaurant_id, role) values (%s,%s,'stock')", (U['owner'], r1))[0] == 'err')
+check('เจ้าของคนสุดท้าย: เปลี่ยนเป็นครัวอย่างเดียวไม่ได้',
+      q(U['owner'], "select staff_set_roles(%s, %s, array['kitchen'])", (r1, U['owner']))[0] == 'err'
+      and one("select count(*) from staff_members where user_id=%s and role='owner'", (U['owner'],)) == 1)
+check('เจ้าของ: ลบบทบาทเสริมของตัวเองได้ (ยังเป็นเจ้าของ)',
+      q(U['owner'], "select staff_set_roles(%s, %s, array['owner'])", (r1, U['owner']))[0] == 'ok')
+q('su', "delete from staff_members where user_id=%s", (C2,))
+
 # 2) เมนู
 cat = q(M, "insert into menu_categories(restaurant_id, name, sort_order) values (%s,'ของหวาน',9) returning id", (r1,))
 check('manager: เพิ่มหมวดเมนูได้', cat[0] == 'ok', cat)
@@ -544,7 +687,7 @@ check('manager: แก้รายจ่ายไม่ได้ (0 แถว)',
 check('manager: ลบรายจ่ายไม่ได้ (0 แถว)', q(M, 'delete from expenses where restaurant_id=%s', (r1,))[2] == 0)
 check('manager: เห็นต้นทุนต่อเมนู (มีสูตร)',
       q(M, 'select count(*) from menu_item_costs where restaurant_id=%s and ingredient_count > 0', (r1,))[1][0][0] > 0)
-check('manager: แก้วัตถุดิบไม่ได้ (0 แถว)', q(M, "update ingredients set name='x' where restaurant_id=%s", (r1,))[2] == 0)
+check('manager: จัดการวัตถุดิบได้ (0030: owner / manager / stock)', q(M, "update ingredients set storage_location='ตู้แช่ 1' where restaurant_id=%s and name='หมูสับ'", (r1,))[2] == 1)
 check('manager: ร้านอื่นยังไม่เห็นรายจ่ายร้านเรา',
       q(U['other'], 'select count(*) from expenses where restaurant_id=%s', (r1,))[1][0][0] == 0)
 
@@ -870,6 +1013,257 @@ ij = ins[1][0][0] if ins[0] == 'ok' else {}
 check('แนะนำโปร: มียอดตามชั่วโมงและกำไรต่อเมนู', ins[0] == 'ok' and len(ij['hours']) > 0 and 'unit_cost' in ij['items'][0], ins)
 check('แนะนำโปร: พนักงานเปิดไม่ได้', q(U['staff'], 'select promo_insights(%s, 28)', (r1,))[0] == 'err')
 
+# ---------- 9.9) สต็อก: yield · ชั่งขาย · สูตรย่อย · ใบรับของ · ส่วนต่าง (0023 -> 0027-0029) ----------
+O, K, S_ = U['owner'], U['kitchen'], U['stock']
+def ing(name, unit, qty, cost, trim=100, cook=100):
+    return one("""insert into ingredients(restaurant_id,name,recipe_unit,unit,quantity_on_hand,cost_per_unit,trim_yield_pct,cook_yield_pct)
+                  values (%s,%s,%s,%s,%s,%s,%s,%s) returning id""", (r1, name, unit, unit, qty, cost, trim, cook))
+def qty_of(i):
+    return float(one('select quantity_on_hand from ingredients where id=%s', (i,)))
+def cook(order_id):
+    return q(K, "update orders set status='preparing' where id=%s", (order_id,))
+def recipe_for(menu_id, name, lines, output=1, unit='จาน'):
+    rid_ = one("insert into recipes(restaurant_id,name,menu_item_id,output_qty,output_unit) values (%s,%s,%s,%s,%s) returning id",
+               (r1, name, menu_id, output, unit))
+    for i_, sub_, qn in lines:
+        q('su', 'insert into recipe_lines(recipe_id,ingredient_id,sub_recipe_id,qty) values (%s,%s,%s,%s)', (rid_, i_, sub_, qn))
+    return rid_
+def menu_cost(menu_id):
+    return float(one('select unit_cost from menu_item_costs where menu_item_id=%s', (menu_id,)))
+
+# 1) yield: สูตรกรอกน้ำหนักสุทธิ ระบบตัดดิบ = สุทธิ ÷ (trim x cook)
+SHRIMP = ing('กุ้งสด', 'g', 10000, 0.4, 60)
+GARLIC_DISH = one("insert into menu_items(restaurant_id,name,price) values (%s,'กุ้งกระเทียม',180) returning id", (r1,))
+recipe_for(GARLIC_DISH, 'กุ้งกระเทียม', [(SHRIMP, None, 150)])
+o1 = order_as(U['staff'], items(2, GARLIC_DISH))[1][0][0]
+cook(o1)
+check('yield: ตัดน้ำหนักดิบ = สุทธิ ÷ trim yield (150g x 2 / 60% = 500g)', qty_of(SHRIMP) == 9500, qty_of(SHRIMP))
+check('yield: ต้นทุนต่อเมนู = ราคาซื้อ ÷ yield (150 / 60% x 0.4 = 100 บาท)', menu_cost(GARLIC_DISH) == 100, menu_cost(GARLIC_DISH))
+check('yield: ตั้ง yield 0 ไม่ได้', q(S_, 'update ingredients set yield_pct=0 where id=%s', (SHRIMP,))[0] == 'err')
+check('yield: ตั้ง trim yield เกิน 100 ไม่ได้', q(S_, 'update ingredients set trim_yield_pct=120 where id=%s', (SHRIMP,))[0] == 'err')
+check('yield: พนักงานสต็อกแก้ yield ได้ (ค่าแบบเดิม = trim yield)',
+      q(S_, 'update ingredients set yield_pct=60, variance_threshold_pct=5 where id=%s', (SHRIMP,))[2] == 1
+      and one('select (trim_yield_pct, cook_yield_pct) = (60, 100) from ingredients where id=%s', (SHRIMP,)))
+RICE = ing('ข้าวสาร', 'g', 5000, 0.04, 100, 250)
+RICE_DISH = one("insert into menu_items(restaurant_id,name,price) values (%s,'ข้าวเปล่า',10) returning id", (r1,))
+recipe_for(RICE_DISH, 'ข้าวเปล่า', [(RICE, None, 250)])
+cook(order_as(U['staff'], items(1, RICE_DISH))[1][0][0])
+check('cook yield: ข้าวสุก 250g / 250% = ข้าวสาร 100g · ต้นทุน 4 บาท', qty_of(RICE) == 4900 and menu_cost(RICE_DISH) == 4,
+      (qty_of(RICE), menu_cost(RICE_DISH)))
+
+# 2) ขายตามน้ำหนักจริง (หน่วยฐานกรัม)
+CRAB = ing('ปูม้าเป็น', 'g', 20000, 0.35)
+CRAB_MENU = one("insert into menu_items(restaurant_id,name,price,sold_by_weight,weight_ingredient_id) values (%s,'ปูม้านึ่ง (ชั่ง)',800,true,%s) returning id", (r1, CRAB))
+wo = order_as(U['staff'], json.dumps([{"menu_item_id": str(CRAB_MENU), "quantity": 3, "weight_g": 1250}]))
+check('ชั่งขาย: รับออเดอร์พร้อมน้ำหนักได้', wo[0] == 'ok', wo)
+WO = wo[1][0][0]
+li = q('su', 'select quantity, unit_price, weight_g from order_items where order_id=%s', (WO,))[1][0]
+check('ชั่งขาย: ราคา = ราคาต่อ กก. x น้ำหนัก (800 x 1.25 = 1000) และนับเป็น 1 บรรทัด', li[0] == 1 and float(li[1]) == 1000 and float(li[2]) == 1250, li)
+check('ชั่งขาย: ยอดออเดอร์ถูกต้อง', float(one('select total from orders where id=%s', (WO,))) == 1000)
+cook(WO)
+check('ชั่งขาย: ตัดสต็อกตามน้ำหนักจริง ไม่หาร yield (20000 - 1250 = 18750 g)', qty_of(CRAB) == 18750, qty_of(CRAB))
+check('ชั่งขาย: ไม่ใส่น้ำหนักไม่ได้',
+      order_as(U['staff'], json.dumps([{"menu_item_id": str(CRAB_MENU), "quantity": 1}]))[0] == 'err')
+check('ชั่งขาย: น้ำหนักติดลบไม่ได้',
+      order_as(U['staff'], json.dumps([{"menu_item_id": str(CRAB_MENU), "quantity": 1, "weight_g": -5}]))[0] == 'err')
+nw = order_as(U['staff'], json.dumps([{"menu_item_id": str(GARLIC_DISH), "quantity": 1, "weight_g": 999}]))
+check('ชั่งขาย: เมนูปกติไม่สนน้ำหนักที่ส่งมา', nw[0] == 'ok'
+      and one('select weight_g is null and unit_price = 180 from order_items where order_id=%s', (nw[1][0][0],)))
+
+# 3) สูตรย่อย (สูตรซ้อน) แทนของเตรียมแบบผลิตทีละถัง
+LIME = ing('มะนาว', 'g', 5000, 0.08, 40)
+CHILI = ing('พริกขี้หนู', 'g', 2000, 0.2)
+sr = q(S_, "insert into recipes(restaurant_id,name,output_qty,output_unit) values (%s,'น้ำจิ้มซีฟู้ด',5000,'g') returning id", (r1,))
+check('สูตรย่อย: พนักงานสต็อกสร้างได้ (output 5000 g ต่อหม้อ)', sr[0] == 'ok', sr)
+SAUCE = sr[1][0][0]
+check('สูตรย่อย: ใส่วัตถุดิบได้',
+      q(S_, 'insert into recipe_lines(recipe_id,ingredient_id,qty) values (%s,%s,1000),(%s,%s,300)', (SAUCE, LIME, SAUCE, CHILI))[0] == 'ok')
+check('สูตรย่อย: วัตถุดิบข้ามร้านไม่ได้', q(S_, 'insert into recipe_lines(recipe_id,ingredient_id,qty) values (%s,%s,1)', (SAUCE, ing2))[0] == 'err')
+check('สูตรย่อย: บรรทัดต้องเป็นวัตถุดิบหรือสูตรย่อยอย่างใดอย่างหนึ่ง',
+      q(S_, 'insert into recipe_lines(recipe_id,ingredient_id,sub_recipe_id,qty) values (%s,%s,%s,1)', (SAUCE, LIME, SAUCE))[0] == 'err')
+BASE = one("insert into recipes(restaurant_id,name,output_qty,output_unit) values (%s,'ซอสฐาน',1000,'g') returning id", (r1,))
+q(S_, 'insert into recipe_lines(recipe_id,sub_recipe_id,qty) values (%s,%s,100)', (BASE, SAUCE))
+check('สูตรซ้อน: วนกลับหาตัวเองไม่ได้', q(S_, 'insert into recipe_lines(recipe_id,sub_recipe_id,qty) values (%s,%s,1)', (SAUCE, BASE))[0] == 'err')
+check('สูตรซ้อน: ใช้สูตรของเมนูเป็นสูตรย่อยไม่ได้',
+      q(S_, 'insert into recipe_lines(recipe_id,sub_recipe_id,qty) values (%s,%s,1)',
+        (SAUCE, one('select id from recipes where menu_item_id=%s', (GARLIC_DISH,))))[0] == 'err')
+check('ของเตรียม: ผลิตแยกไม่ได้แล้ว (ใช้สูตรย่อย)', q(K, "select produce_prep(%s, 2500, 'ถังเช้า')", (LIME,))[0] == 'err')
+check('ของเตรียม: บันทึกรอบผลิตเองไม่ได้', q(K, "insert into prep_batches(restaurant_id,prep_id,output_qty) values (%s,%s,1)", (r1, LIME))[0] == 'err')
+CRAB_RECIPE = recipe_for(CRAB_MENU, 'ปูม้านึ่ง (ชั่ง)', [(None, SAUCE, 30)], unit='ถ้วย')
+# ต้นทุนน้ำจิ้มต่อ g = (1000 / 40% x 0.08 + 300 x 0.2) / 5000 = 0.052 · ต่อถ้วย 30 g = 1.56
+check('สูตรซ้อน: ต้นทุนสูตรแม่รวมสูตรย่อย (30 g x 0.052 = 1.56)', menu_cost(CRAB_MENU) == 1.56, menu_cost(CRAB_MENU))
+wo2 = order_as(U['staff'], json.dumps([{"menu_item_id": str(CRAB_MENU), "quantity": 1, "weight_g": 800}]))[1][0][0]
+cook(wo2)
+# ตัดดิบตอนขาย: มะนาว 30/5000 x 1000 / 40% = 15 g · พริก 30/5000 x 300 = 1.8 g · ปูตามน้ำหนัก 800 g
+check('สูตรซ้อน: ขายแล้วตัดวัตถุดิบดิบผ่านสูตรย่อย และตัดปูตามน้ำหนัก',
+      (qty_of(LIME), qty_of(CHILI), qty_of(CRAB)) == (4985, 1998.2, 17950), (qty_of(LIME), qty_of(CHILI), qty_of(CRAB)))
+
+# 4) ใบรับของ -> ล็อต (FIFO) + ราคาซื้อล่าสุด -> คำนวณต้นทุนสูตรใหม่ รวมสูตรแม่
+rc = q(S_, "select submit_stock_receipt(%s, %s::jsonb, 'แพปลาสมชาย', 'INV-001', current_date, null, true)",
+       (r1, json.dumps([{"ingredient_id": str(CRAB), "pack_qty": 2, "pack_size": 5000, "pack_price": 2000, "expiry_date": "2099-01-01"}])))
+check('รับของ: พนักงานสต็อกบันทึกใบรับของแบบแพ็คได้', rc[0] == 'ok', rc)
+RC = rc[1][0][0]
+check('รับของ: เพิ่มสต็อก 2 แพ็ค x 5000 g', qty_of(CRAB) == 27950, qty_of(CRAB))
+check('รับของ: สร้างล็อตพร้อมวันหมดอายุและต้นทุนต่อหน่วย (2000 / 5000 = 0.4)',
+      one("select (qty, raw_unit_cost, expiry_date::text) = (10000, 0.4, '2099-01-01') from stock_lots where receipt_id=%s", (RC,)))
+fifo = round((17950 * 0.35 + 10000 * 0.4) / 27950, 7)
+check('รับของ: ต้นทุนในระบบ = เฉลี่ยของชั้น FIFO ที่เหลือ', float(one('select cost_per_unit from ingredients where id=%s', (CRAB,))) == fifo)
+check('รับของ: บันทึกเป็นรายจ่ายค่าวัตถุดิบ 4,000 บาท',
+      float(one("select e.amount from stock_receipts r join expenses e on e.id = r.expense_id where r.id=%s", (RC,))) == 4000)
+check('รับของ: ประวัติสต็อกผูกกับใบรับของ (ประเภท receive)', one("select count(*) from stock_movements where receipt_id=%s and type='receive'", (RC,)) == 1)
+check('รับของ: บัญชีบันทึกไม่ได้แต่อ่านได้',
+      q(U['acc'], "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(CRAB), "quantity": 1, "unit_cost": 1}])))[0] == 'err'
+      and q(U['acc'], 'select count(*) from stock_receipt_lines where receipt_id=%s', (RC,))[1][0][0] == 1)
+check('รับของ: จำนวน 0 ไม่ได้',
+      q(S_, "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(CRAB), "quantity": 0, "unit_cost": 1}])))[0] == 'err')
+check('รับของ: ราคาติดลบไม่ได้',
+      q(S_, "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(CRAB), "quantity": 1, "unit_cost": -1}])))[0] == 'err')
+check('รับของ: วันหมดอายุก่อนวันรับไม่ได้',
+      q(S_, "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(CRAB), "quantity": 1, "unit_cost": 1, "expiry_date": "2000-01-01"}])))[0] == 'err')
+check('รับของ: วัตถุดิบร้านอื่นไม่ได้',
+      q(S_, "select submit_stock_receipt(%s, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(ing2), "quantity": 1, "unit_cost": 1}])))[0] == 'err')
+check('รับของ: แก้ใบรับของไม่ได้', q(S_, 'update stock_receipts set total_cost=0 where id=%s', (RC,))[0] == 'err')
+check('รับของ: แก้ล็อตตรงไม่ได้', q(S_, 'update stock_lots set qty_remaining=0 where receipt_id=%s', (RC,))[2] == 0)
+rl = q(S_, "select stock_receive(%s, null, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(LIME), "quantity": 1000, "unit_cost": 0.1}])))
+# มะนาว 0.08 -> 0.10: น้ำจิ้มต่อ g = (1000 / 40% x 0.10 + 60) / 5000 = 0.062 · ปูนึ่ง 30 g = 1.86 · ซอสฐาน (ใช้น้ำจิ้ม) ก็คำนวณใหม่
+check('ราคาเปลี่ยน: คำนวณต้นทุนสูตรย่อยและสูตรแม่ใหม่ (1.56 -> 1.86)', rl[0] == 'ok' and menu_cost(CRAB_MENU) == 1.86, (rl, menu_cost(CRAB_MENU)))
+check('ราคาเปลี่ยน: รายงานจำนวนสูตรที่คำนวณใหม่ (น้ำจิ้ม ซอสฐาน ปูนึ่ง)', rl[0] == 'ok' and rl[1][0][0]['recosted_recipes'] == 3, rl)
+check('รับเข้าครั้งแรก: ยังไม่มีใบรับก่อนหน้า จึงไม่เตือน', rl[0] == 'ok' and rl[1][0][0]['warnings'] == [], rl)
+rl2 = q(S_, "select stock_receive(%s, null, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(LIME), "pack_qty": 1, "pack_size": 500, "pack_price": 60}])))
+w2 = rl2[1][0][0]['warnings'] if rl2[0] == 'ok' else []
+check('รับเข้า: เตือนเมื่อราคาต่อหน่วยเปลี่ยนจากครั้งก่อน (0.10 -> 0.12 = +20%)',
+      len(w2) == 1 and float(w2[0]['price_change_pct']) == 20, rl2)
+
+# 5) ไม่มีของเสียแยก
+check('ของเสีย: บันทึกแยกไม่ได้ (ไปโผล่เป็นส่วนต่างตอนนับ)',
+      q(K, "insert into stock_movements(restaurant_id,ingredient_id,change,reason,waste_type,note) values (%s,%s,-500,'waste','spoiled','ปูตาย')", (r1, CRAB))[0] == 'err')
+
+# 6) ส่วนต่างตอนนับ (Actual vs Theoretical)
+def count_now(lines):
+    return q(S_, "select submit_stock_count(%s, %s::jsonb)", (r1, json.dumps(lines)))[1][0][0]
+# ในชุดทดสอบ now() เท่ากันทั้งธุรกรรม: ย้อนเวลารายการก่อนหน้าให้อยู่ก่อนใบต้นงวด (ledger แก้ไม่ได้ ปิด guard ชั่วคราว)
+q('su', 'alter table stock_movements disable trigger stock_movements_guard')
+q('su', "update stock_movements set created_at = now() - interval '8 days' where restaurant_id=%s", (r1,))
+q('su', 'alter table stock_movements enable trigger stock_movements_guard')
+C_A = count_now([{"ingredient_id": str(CRAB), "counted_qty": 27000}, {"ingredient_id": str(SHRIMP), "counted_qty": 9500}])
+q('su', "update stock_counts set created_at = now() - interval '7 days' where id=%s", (C_A,))
+# ระหว่างรอบ: รับปู 10000 g · ชั่งขายปู 2000 + 1000 g · กุ้งกระเทียม 4 จาน (ดิบ 1000 g)
+q(S_, "select submit_stock_receipt(%s, %s::jsonb, 'แพปลา', 'INV-002', current_date, null, false)",
+  (r1, json.dumps([{"ingredient_id": str(CRAB), "quantity": 10000, "unit_cost": 0.4}])))
+for g in (2000, 1000):
+    cook(order_as(U['staff'], json.dumps([{"menu_item_id": str(CRAB_MENU), "quantity": 1, "weight_g": g}]))[1][0][0])
+cook(order_as(U['staff'], items(4, GARLIC_DISH))[1][0][0])
+# นับรอบนี้ (blind): ปูเหลือ 30000 g · กุ้งเหลือ 8450 g
+C_B = count_now([{"ingredient_id": str(CRAB), "counted_qty": 30000, "note": "ปูตายระหว่างสัปดาห์"},
+                 {"ingredient_id": str(SHRIMP), "counted_qty": 8450}])
+var = q(U['acc'], """select ingredient_name, opening_qty, received_qty, deducted_qty, expected_qty, counted_qty,
+                            variance_qty, variance_pct, color, note from stock_variance_report(%s,%s)""", (r1, C_B))
+check('ส่วนต่าง: บัญชีเปิดรายงานได้', var[0] == 'ok' and len(var[1]) == 2, var)
+vr = {r[0]: r for r in var[1]} if var[0] == 'ok' else {}
+crab = vr.get('ปูม้าเป็น')
+# ปู: ควรเหลือ = นับรอบก่อน 27000 + นำเข้า 10000 − ตัดตามสูตร 3000 = 34000 · นับจริง 30000 -> ส่วนต่าง −4000 (−11.76%) แดง
+check('ส่วนต่าง: ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร (27000 + 10000 − 3000)',
+      crab and [float(x) for x in crab[1:5]] == [27000, 10000, 3000, 34000], crab)
+check('ส่วนต่าง: นับจริง − ควรเหลือ = −4000 (−11.76%) -> แดง พร้อมเหตุผลที่กรอก',
+      crab and float(crab[6]) == -4000 and float(crab[7]) == -11.76 and crab[8] == 'red' and crab[9] == 'ปูตายระหว่างสัปดาห์', crab)
+shrimp = vr.get('กุ้งสด')
+# กุ้ง: ควรเหลือ 9500 − 1000 = 8500 · นับ 8450 -> −50 (−0.59%) เขียว
+check('ส่วนต่าง: กุ้ง −50 g (−0.59%) -> เขียว', shrimp and float(shrimp[4]) == 8500 and float(shrimp[6]) == -50 and shrimp[8] == 'green', shrimp)
+check('ส่วนต่าง: เรียงตามมูลค่า (ปูมาก่อน)', var[0] == 'ok' and var[1][0][0] == 'ปูม้าเป็น')
+check('ส่วนต่าง: หน้าร้านเปิดไม่ได้', q(U['staff'], 'select count(*) from stock_variance_report(%s,%s)', (r1, C_B))[0] == 'err')
+check('ส่วนต่าง: ใช้ใบนับร้านอื่นไม่ได้', q(U['other'], 'select count(*) from stock_variance_report(%s,%s)', (r2, C_B))[0] == 'err')
+check('ใบนับ: ผู้นับรับรองใบของตัวเองไม่ได้ (พนักงานสต็อกไม่มีสิทธิ์รับรอง)', q(S_, 'select verify_stock_count(%s)', (C_B,))[0] == 'err')
+check('ใบนับ: ผู้จัดการรับรองได้', q(M, 'select verify_stock_count(%s)', (C_B,))[0] == 'ok'
+      and one('select verified_by from stock_counts where id=%s', (C_B,)) == M)
+check('ใบนับ: รับรองซ้ำไม่ได้', q(O, 'select verify_stock_count(%s)', (C_B,))[0] == 'err')
+
+# ---------- 9.95) หน่วยนับ (0024) ----------
+check('หน่วย: ร้านมีหน่วยเริ่มต้น (kg, ลัง ...)', one("select count(*) from units where restaurant_id=%s and name in ('kg','ลัง','ตัว')", (r1,)) == 3)
+r3 = one("insert into restaurants(name) values ('ร้านใหม่ทดสอบหน่วย') returning id")
+check('หน่วย: ร้านใหม่ได้หน่วยเริ่มต้นอัตโนมัติ', one("select count(*) from units where restaurant_id=%s", (r3,)) == 12)
+q('su', 'delete from restaurants where id=%s', (r3,))
+check('หน่วย: พนักงานสต็อกเพิ่มหน่วยได้', q(S_, "insert into units(restaurant_id,name) values (%s,'เข่ง')", (r1,))[0] == 'ok')
+check('หน่วย: ชื่อซ้ำไม่ได้ (ไม่สนตัวพิมพ์)', q(S_, "insert into units(restaurant_id,name) values (%s,' KG ')", (r1,))[0] == 'err')
+check('หน่วย: หน้าร้านเพิ่มไม่ได้', q(U['staff'], "insert into units(restaurant_id,name) values (%s,'ถาด')", (r1,))[0] == 'err')
+check('หน่วย: ผู้จัดการอ่านได้', q(M, 'select count(*) from units where restaurant_id=%s', (r1,))[1][0][0] > 0)
+check('หน่วยแปลง: กุ้ง 1 ลัง = 10000 g', q(S_, "insert into ingredient_units(ingredient_id,unit_name,factor) values (%s,'ลัง',10000)", (SHRIMP,))[0] == 'ok')
+check('หน่วยแปลง: ซ้ำกับหน่วยหลักไม่ได้', q(S_, "insert into ingredient_units(ingredient_id,unit_name,factor) values (%s,'g',1)", (SHRIMP,))[0] == 'err')
+check('หน่วยแปลง: ตัวคูณ 0 ไม่ได้', q(S_, "insert into ingredient_units(ingredient_id,unit_name,factor) values (%s,'ถุง',0)", (SHRIMP,))[0] == 'err')
+check('หน่วยแปลง: ร้านอื่นแก้ไม่ได้', q(U['other'], "insert into ingredient_units(ingredient_id,unit_name,factor) values (%s,'ถุง',1)", (SHRIMP,))[0] == 'err')
+check('หน่วยแปลง: ครัวอ่านไม่ได้ (0030: ข้อมูลสต็อกเฉพาะ owner / manager / stock / บัญชี)', q(K, 'select count(*) from ingredient_units where ingredient_id=%s', (SHRIMP,))[1][0][0] == 0)
+ru = q(S_, "select submit_stock_receipt(%s, %s::jsonb, 'แพ', 'INV-U', current_date, null, false)",
+       (r1, json.dumps([{"ingredient_id": str(SHRIMP), "quantity": 30000, "unit_cost": 0.04, "entered_unit": "ลัง", "entered_qty": 3, "entered_unit_cost": 400}])))
+check('รับของด้วยหน่วยแปลง: บันทึกได้', ru[0] == 'ok', ru)
+rl = q('su', 'select quantity, entered_unit, entered_qty, entered_unit_cost from stock_receipt_lines where receipt_id=%s', (ru[1][0][0],))[1][0]
+check('รับของด้วยหน่วยแปลง: เก็บทั้งหน่วยหลัก (30000 g) และที่กรอก (3 ลัง @ 400)',
+      float(rl[0]) == 30000 and rl[1] == 'ลัง' and float(rl[2]) == 3 and float(rl[3]) == 400, rl)
+cu = q(S_, "select submit_stock_count(%s, %s::jsonb)", (r1, json.dumps([{"ingredient_id": str(SHRIMP), "counted_qty": 23500, "entered_text": "2 ลัง + 3500 g"}])))
+check('ตรวจนับด้วยหน่วยแปลง: เก็บข้อความที่กรอก',
+      cu[0] == 'ok' and one('select entered_text from stock_count_lines where count_id=%s', (cu[1][0][0],)) == '2 ลัง + 3500 g', cu)
+
+# ---------- 9.97) นับตอนรับเข้า (0025) ----------
+FROZEN = ing('กุ้งแช่แข็ง', 'g', 0, 0)   # 0027: หน่วยฐานเป็นกรัม
+LEMON = ing('มะนาวลูก', 'g', 0, 0)
+def receive(lines, supplier='แพปลาสมชาย', inv='INV-0412', expense=True, who=None):
+    return q(who or S_, "select submit_stock_receipt(%s, %s::jsonb, %s, %s, current_date, null, %s)",
+             (r1, json.dumps(lines), supplier, inv, expense))
+rv = receive([
+    {"ingredient_id": str(FROZEN), "quantity": 25400, "unit_cost": 0.04, "invoice_qty": 30000, "invoice_unit": "ลัง", "invoice_unit_qty": 3, "gross_qty": 30200},
+    {"ingredient_id": str(CRAB), "quantity": 19700, "unit_cost": 0.35, "invoice_qty": 20000},
+    {"ingredient_id": str(LEMON), "quantity": 0, "unit_cost": 0.03, "invoice_qty": 10000, "note": "เน่า ตีกลับ"},
+])
+check('รับเข้า: บันทึกใบรับของแบบตามบิล/รับจริงได้', rv[0] == 'ok', rv)
+RV = rv[1][0][0]
+def line(i):
+    return q('su', "select status, claim_value, claim_status, invoice_qty, gross_qty from stock_receipt_lines where receipt_id=%s and ingredient_id=%s", (RV, i))[1][0]
+fl, cl, ll = line(FROZEN), line(CRAB), line(LEMON)
+check('รับเข้า: กุ้งขาด 4.6 kg เกินเกณฑ์ 2% -> ขาด รอทวง 184 บาท', fl[0] == 'short' and float(fl[1]) == 184 and fl[2] == 'pending', fl)
+check('รับเข้า: ปูขาด 1.5% อยู่ในเกณฑ์ -> ตรง ไม่มียอดทวง', cl[0] == 'ok' and float(cl[1]) == 0 and cl[2] == 'none', cl)
+check('รับเข้า: รับ 0 = ตีกลับ ทวงเต็มบิล 300 บาท', ll[0] == 'rejected' and float(ll[1]) == 300, ll)
+check('รับเข้า: สต็อกเพิ่มตามรับจริง (กุ้ง 25400g · มะนาว 0)', qty_of(FROZEN) == 25400 and qty_of(LEMON) == 0)
+check('รับเข้า: ตีกลับไม่ลงประวัติสต็อก', one("select count(*) from stock_movements where receipt_id=%s and ingredient_id=%s", (RV, LEMON)) == 0)
+hd = q('su', "select invoice_total, total_cost, claim_total, (select amount from expenses where id=expense_id) from stock_receipts where id=%s", (RV,))[1][0]
+check('รับเข้า: ยอดบิล 8,500 · รับจริง 7,911 · รอทวง 484 · รายจ่ายตามบิล',
+      float(hd[0]) == 8500 and float(hd[1]) == round(25400 * 0.04 + 19700 * 0.35, 2) and float(hd[2]) == 484 and float(hd[3]) == 8500, hd)
+check('รับเข้า: ต้นทุนวัตถุดิบ = ราคาบิลต่อหน่วยที่รับจริง', float(one('select cost_per_unit from ingredients where id=%s', (FROZEN,))) == 0.04)
+check('รับเข้า: น้ำหนักรวมน้อยกว่าสุทธิไม่ได้',
+      receive([{"ingredient_id": str(FROZEN), "quantity": 10000, "unit_cost": 0.04, "gross_qty": 9000}])[0] == 'err')
+check('รับเข้า: ตามบิล 0 และรับ 0 ไม่ได้',
+      receive([{"ingredient_id": str(FROZEN), "quantity": 0, "unit_cost": 0.04, "invoice_qty": 0}])[0] == 'err')
+check('ทวง: ได้ลดหนี้ -> หักรายจ่ายและยอดรอทวง',
+      q(S_, "select set_receipt_claim(%s, %s, 'credited')", (RV, FROZEN))[0] == 'ok'
+      and float(one('select amount from expenses where id=(select expense_id from stock_receipts where id=%s)', (RV,))) == 8316
+      and float(one('select claim_total from stock_receipts where id=%s', (RV,))) == 300)
+check('ทวง: ยอมรับ ไม่ทวง -> ยอดรอทวงหมด',
+      q(U['acc'], "select set_receipt_claim(%s, %s, 'accepted')", (RV, LEMON))[0] == 'ok'
+      and float(one('select claim_total from stock_receipts where id=%s', (RV,))) == 0)
+check('ทวง: บรรทัดที่ไม่มียอดขาดเปลี่ยนไม่ได้', q(S_, "select set_receipt_claim(%s, %s, 'credited')", (RV, CRAB))[0] == 'err')
+check('ทวง: หน้าร้านเปลี่ยนไม่ได้', q(U['staff'], "select set_receipt_claim(%s, %s, 'pending')", (RV, LEMON))[0] == 'err')
+# ราคาขึ้นจากครั้งก่อน (ผู้ขายเดิม)
+rv2 = receive([{"ingredient_id": str(FROZEN), "quantity": 10000, "unit_cost": 0.046, "invoice_qty": 10000, "gross_qty": 11000}], inv='INV-0413')
+check('รับเข้า: จำราคาครั้งก่อนของผู้ขายเดิม', rv2[0] == 'ok'
+      and float(one('select prev_unit_cost from stock_receipt_lines where receipt_id=%s', (rv2[1][0][0],))) == 0.04
+      and float(one('select price_change_pct from stock_receipt_lines where receipt_id=%s', (rv2[1][0][0],))) == 15)
+rep_s = q(U['acc'], "select supplier, invoice_value, claim_pending, claim_credited, gap_pct, short_lines, rejected_lines, glaze_pct, glaze_over_lines, price_up_lines from supplier_receiving_report(%s, current_date - 1, current_date) where supplier='แพปลาสมชาย'", (r1,))
+check('รายงานผู้ขาย: บัญชีเปิดได้', rep_s[0] == 'ok' and len(rep_s[1]) == 1, rep_s)
+sr = rep_s[1][0] if rep_s[0] == 'ok' and rep_s[1] else None
+# กุ้ง: รวม 30.2+11 = 41.2 สุทธิ 25.4+10 = 35.4 -> น้ำแข็ง 14.08% · ใบแรก 15.89% เกิน 12% · ใบสอง 9.09%
+check('รายงานผู้ขาย: % น้ำแข็งถ่วงน้ำหนัก และนับครั้งที่เกินเกณฑ์', sr and float(sr[7]) == 14.08 and sr[8] == 1, sr)
+check('รายงานผู้ขาย: นับครั้งที่ขาด/ตีกลับ/ราคาขึ้นเกิน 10%', sr and sr[5] == 1 and sr[6] == 1 and sr[9] == 1, sr)
+check('รายงานผู้ขาย: หน้าร้านเปิดไม่ได้', q(U['staff'], "select count(*) from supplier_receiving_report(%s, current_date - 1, current_date)", (r1,))[0] == 'err')
+# ใบตรวจนับ รายสัปดาห์ / รายเดือน
+wk = q(S_, "select submit_stock_count(%s, %s::jsonb, 'สัปดาห์ที่ 4', 'weekly')", (r1, json.dumps([{"ingredient_id": str(FROZEN), "counted_qty": 35000}])))
+check('ตรวจนับ: บันทึกแบบรายสัปดาห์ได้', wk[0] == 'ok' and one('select count_type from stock_counts where id=%s', (wk[1][0][0],)) == 'weekly', wk)
+check('ตรวจนับ: ประเภทที่ไม่รู้จักไม่ได้', q(S_, "select submit_stock_count(%s, %s::jsonb, null, 'hourly')", (r1, json.dumps([{"ingredient_id": str(FROZEN), "counted_qty": 35000}])))[0] == 'err')
+check('วัตถุดิบ: ติ๊กนับทุกสัปดาห์ได้', q(S_, 'update ingredients set count_weekly=true where id=%s', (FROZEN,))[2] == 1)
+q('su', "update stock_receipts set created_at = now() - interval '1 hour' where id=%s", (RV,))  # now() เท่ากันทั้งธุรกรรม
+la = q(S_, 'select received_qty, received_invoice_qty, received_status, counted_qty, count_diff from ingredient_last_activity(%s) where ingredient_id=%s', (r1, FROZEN))
+check('สรุป: รับเข้าล่าสุด / นับล่าสุดต่อวัตถุดิบ', la[0] == 'ok' and float(la[1][0][0]) == 10000 and la[1][0][2] == 'ok'
+      and float(la[1][0][3]) == 35000 and float(la[1][0][4]) == -400, la)
+check('สรุป: หน้าร้านไม่เห็นวัตถุดิบ', q(U['staff'], 'select count(*) from ingredient_last_activity(%s)', (r1,))[1][0][0] == 0)
+check('ตั้งค่า: เจ้าของตั้งเกณฑ์รับของและ % น้ำแข็งได้',
+      q(O, "insert into shop_settings(restaurant_id, receive_tolerance_pct, glaze_max_pct) values (%s, 3, 10) on conflict (restaurant_id) do update set receive_tolerance_pct=3, glaze_max_pct=10", (r1,))[0] == 'ok')
+
 # ---------- 10) Realtime ----------
 check('realtime: ตาราง menu_items อยู่ใน publication (หน้ารับออเดอร์เห็นเมนูหมดทันที)',
       one("select count(*) from pg_publication_tables where pubname='supabase_realtime' and tablename='menu_items'") == 1)
@@ -878,6 +1272,12 @@ check('realtime: ตาราง orders อยู่ใน publication',
 
 check('realtime: ตาราง order_items อยู่ใน publication (ครัวหลายเครื่องเห็นติ๊กเสร็จตรงกัน)',
       one("select count(*) from pg_publication_tables where pubname='supabase_realtime' and tablename='order_items'") == 1)
+# ---------- 11) บัญชีคู่ (0026): ทุกเหตุการณ์ข้างบนลงบัญชีอัตโนมัติ ----------
+r = q('su', 'set constraints all immediate')
+check('บัญชี: ทุกรายการที่ลงอัตโนมัติระหว่างทดสอบ เดบิต = เครดิต', r[0] == 'ok', r)
+rec = one('select acct_stock_reconcile_data(%s)', (r1,))
+check('บัญชี: บัญชีสต็อก = มูลค่าในโมดูลสต็อก หลังทดสอบสต็อกทั้งหมด', rec['ok'], rec)
+
 tx.rollback()
 passed, total = sum(results), len(results)
 print(f'\nสรุป: ผ่าน {passed}/{total}')

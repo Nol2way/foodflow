@@ -1,38 +1,40 @@
 import { useEffect, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { api } from './api'
+import { getSession, onSessionChange, setSession, type Session } from './session'
 import type { Role } from './roles'
 
+// เซสชันจากตาราง app_users ของระบบเอง (อ่านจาก localStorage ทันที ไม่ต้องรอโหลด)
 export function useSession() {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [session, set] = useState<Session | null>(getSession)
+  useEffect(() => onSessionChange(set), [])
+  return { session, loading: false }
+}
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
-    return () => sub.subscription.unsubscribe()
-  }, [])
+export async function signIn(email: string, password: string): Promise<Session> {
+  const s = await api<Session>('/auth/login', { auth: false, body: { email, password } })
+  setSession(s)
+  return s
+}
 
-  return { session, loading }
+export function signOut() {
+  setSession(null)
 }
 
 interface StaffState {
   loading: boolean
-  role: Role | null
+  roles: Role[] // ว่าง = ยังไม่ได้ผูกกับร้าน
   restaurantId: string | null
   error: string | null
 }
 
-// อ่านบทบาทและร้านของผู้ใช้ที่ล็อกอิน (ตอนนี้รองรับ 1 ผู้ใช้ต่อ 1 ร้าน)
+// อ่านบทบาทและร้านของผู้ใช้ที่ล็อกอิน: 1 แถวต่อ 1 บทบาท (0020) · ตอนนี้รองรับ 1 ผู้ใช้ต่อ 1 ร้าน
 export function useStaff(userId: string | undefined): StaffState {
-  const [state, setState] = useState<StaffState>({ loading: true, role: null, restaurantId: null, error: null })
+  const [state, setState] = useState<StaffState>({ loading: true, roles: [], restaurantId: null, error: null })
 
   useEffect(() => {
     if (!userId) {
-      setState({ loading: false, role: null, restaurantId: null, error: null })
+      setState({ loading: false, roles: [], restaurantId: null, error: null })
       return
     }
     let cancelled = false
@@ -41,19 +43,19 @@ export function useStaff(userId: string | undefined): StaffState {
       .from('staff_members')
       .select('restaurant_id,role')
       .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle()
       .then(({ data, error }) => {
         if (cancelled) return
-        if (error || !data) {
+        if (error || !data || data.length === 0) {
           setState({
             loading: false,
-            role: null,
+            roles: [],
             restaurantId: null,
             error: 'บัญชีนี้ยังไม่ได้ผูกกับร้านใด ให้เจ้าของร้านเพิ่มสิทธิ์ก่อน',
           })
         } else {
-          setState({ loading: false, role: data.role as Role, restaurantId: data.restaurant_id as string, error: null })
+          const restaurantId = data[0].restaurant_id as string
+          const roles = data.filter((r) => r.restaurant_id === restaurantId).map((r) => r.role as Role)
+          setState({ loading: false, roles, restaurantId, error: null })
         }
       })
     return () => {

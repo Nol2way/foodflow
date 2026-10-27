@@ -1,5 +1,5 @@
 // เรียก backend (Cloudflare Pages Functions /api หรือ Worker แยก ถ้าตั้ง VITE_API_URL)
-import { supabase } from './supabase'
+import { getToken, setSession } from './session'
 
 const BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? '').replace(/\/+$/, '')
 
@@ -21,8 +21,8 @@ export async function api<T = Record<string, unknown>>(
 ): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (opts.auth !== false) {
-    const { data } = await supabase.auth.getSession()
-    if (data.session) headers.Authorization = `Bearer ${data.session.access_token}`
+    const token = getToken()
+    if (token) headers.Authorization = `Bearer ${token}`
   }
   let res: Response
   try {
@@ -35,8 +35,33 @@ export async function api<T = Record<string, unknown>>(
     throw new ApiError(0, { error: 'network', message: 'เชื่อมต่อ backend ไม่ได้' })
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  // โทเคนหมดอายุหรือบัญชีถูกปิด: ออกจากระบบ หน้าเว็บจะพาไปหน้าล็อกอินเอง
+  if (res.status === 401 && opts.auth !== false) setSession(null)
   if (!res.ok) throw new ApiError(res.status, data)
   return data as T
+}
+
+// ดาวน์โหลดไฟล์จาก backend (เช่น ส่งออก CSV/Excel ของบัญชี) ด้วยโทเคนของผู้ใช้
+export async function apiDownload(path: string, filename: string): Promise<void> {
+  const token = getToken()
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  } catch {
+    throw new ApiError(0, { error: 'network', message: 'เชื่อมต่อ backend ไม่ได้' })
+  }
+  if (!res.ok) {
+    if (res.status === 401) setSession(null)
+    throw new ApiError(res.status, (await res.json().catch(() => ({}))) as Record<string, unknown>)
+  }
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 // ข้อความภาษาไทยสำหรับข้อผิดพลาดทั่วไป

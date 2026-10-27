@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useOrders } from '../lib/useOrders'
 import { rolesFor } from '../lib/roles'
-import { baht, orderLabel } from '../lib/format'
+import { baht, orderLabel, itemQty } from '../lib/format'
 import { promotionError } from '../lib/promotions'
 import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
@@ -193,7 +193,7 @@ function BillCard({
               <li key={it.id} className={`flex justify-between gap-2 ${o.status === 'ready' && it.served_at ? 'text-gray-400 line-through' : ''}`}>
                 <span>
                   {o.status === 'ready' && it.served_at && <span className="mr-1 text-emerald-600">✓</span>}
-                  {it.quantity} × {it.menu_items?.name ?? '-'}
+                  {itemQty(it)} {it.menu_items?.name ?? '-'}
                 </span>
                 <span className="tabular-nums text-gray-500">{baht(it.quantity * Number(it.unit_price))}</span>
               </li>

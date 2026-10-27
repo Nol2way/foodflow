@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { createApp } from '../src/app.ts'
 import { resetMemoryLimiter } from '../src/guards.ts'
 import { sendDueReports } from '../src/reports.ts'
+import { signJwt, verifyJwt } from '../src/jwt.ts'
 import type { Env } from '../src/env.ts'
 
 const SB = 'https://proj.supabase.co'
@@ -14,6 +15,14 @@ const NEWUSER = '55555555-5555-4555-8555-555555555555'
 const MANAGER = '66666666-6666-4666-8666-666666666666'
 const TOKENS: Record<string, string> = { 'tok-owner': OWNER, 'tok-kitchen': KITCHEN, 'tok-manager': MANAGER }
 const ROLE: Record<string, string> = { [OWNER]: 'owner', [KITCHEN]: 'kitchen', [MANAGER]: 'manager' }
+const JWT_SECRET = 'jwt-test-secret'
+const now = () => Math.floor(Date.now() / 1000)
+const sign = (sub: string, exp = now() + 3600, secret = JWT_SECRET) =>
+  signJwt({ sub, email: `${sub.slice(0, 4)}@x.com`, role: 'authenticated', aud: 'authenticated', iat: now(), exp }, secret)
+// ชื่อย่อ tok-* -> JWT จริงที่ลงนามด้วย secret ทดสอบ
+const JWT: Record<string, string> = {}
+for (const [t, id] of Object.entries(TOKENS)) JWT[t] = await sign(id)
+const bearer = (t: string) => `Bearer ${JWT[t]}`
 
 const baseEnv: Env = {
   SUPABASE_URL: SB,
@@ -21,6 +30,7 @@ const baseEnv: Env = {
   SUPABASE_SERVICE_ROLE_KEY: 'service-secret',
   GEMINI_API_KEY: 'gm-test',
   ALLOWED_ORIGINS: 'https://shop.example',
+  SUPABASE_JWT_SECRET: JWT_SECRET,
 }
 
 interface Call {
@@ -37,10 +47,7 @@ const json = (data: unknown, status = 200) =>
 // การตอบสนองพื้นฐานของบริการภายนอก
 function defaults(c: Call): Response {
   const u = new URL(c.url)
-  if (u.href === `${SB}/auth/v1/user`) {
-    const id = TOKENS[(c.headers.authorization ?? '').replace('Bearer ', '')]
-    return id ? json({ id }) : json({ msg: 'invalid' }, 401)
-  }
+  if (u.pathname === '/rest/v1/rpc/app_user_active') return json(true)
   if (u.pathname === '/rest/v1/staff_members' && c.method === 'GET') {
     const uid = u.searchParams.get('user_id')?.replace('eq.', '') ?? ''
     return json(ROLE[uid] ? [{ role: ROLE[uid] }] : [])
@@ -65,7 +72,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => 
 const app = createApp()
 function req(path: string, opts: { method?: string; body?: unknown; token?: string; headers?: Record<string, string> } = {}, env: Env = baseEnv) {
   const headers: Record<string, string> = { 'content-type': 'application/json', ...opts.headers }
-  if (opts.token) headers.authorization = `Bearer ${opts.token}`
+  if (opts.token) headers.authorization = `Bearer ${JWT[opts.token] ?? opts.token}`
   return app.request(path, {
     method: opts.method ?? (opts.body ? 'POST' : 'GET'),
     headers,
@@ -115,13 +122,98 @@ test('auth: บทบาทไม่พอ -> 403', async () => {
 test('auth: ตรวจบทบาทด้วย JWT ของผู้ใช้ ไม่ใช่ service role', async () => {
   await req('/api/staff?restaurant_id=' + RID, { token: 'tok-owner' })
   const check = callsTo('/rest/v1/staff_members')[0]
-  assert.equal(check.headers.authorization, 'Bearer tok-owner')
+  assert.equal(check.headers.authorization, bearer('tok-owner'))
   assert.equal(check.headers.apikey, 'anon')
 })
 
 test('auth: restaurant_id ไม่ใช่ UUID -> 400 (กัน query injection)', async () => {
   const r = await req('/api/staff?restaurant_id=x%26role=eq.owner', { token: 'tok-owner' })
   assert.equal(r.status, 400)
+})
+
+// ===== ล็อกอิน (app_users ของระบบเอง) =====
+const LOGIN_ROW = { id: OWNER, email: 'o@x.com', display_name: 'เจ้าของ', must_change_password: false }
+
+test('login: รหัสถูก -> ได้ JWT ที่ลงนามด้วย secret ของโปรเจกต์ (sub = id ผู้ใช้)', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/app_login') ? json([LOGIN_ROW]) : undefined))
+  const r = await req('/api/auth/login', { body: { email: ' O@X.com ', password: 'secret-pass' }, headers: { 'CF-Connecting-IP': '10.0.0.1' } })
+  assert.equal(r.status, 200)
+  const b = await body(r)
+  assert.deepEqual(b.user, LOGIN_ROW)
+  const claims = await verifyJwt(b.access_token, JWT_SECRET)
+  assert.equal(claims?.sub, OWNER)
+  assert.equal(claims?.role, 'authenticated')
+  assert.ok(b.expires_at > Date.now() + 11 * 3600_000)
+  const call = callsTo('/rpc/app_login')[0]
+  assert.equal(call.headers.authorization, 'Bearer service-secret')
+  assert.deepEqual(call.body, { p_email: 'o@x.com', p_password: 'secret-pass' })
+})
+
+test('login: รหัสผิด -> 401 ไม่บอกว่าผิดที่อีเมลหรือรหัส', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/app_login') ? json([]) : undefined))
+  const r = await req('/api/auth/login', { body: { email: 'o@x.com', password: 'bad' }, headers: { 'CF-Connecting-IP': '10.0.0.2' } })
+  assert.equal(r.status, 401)
+  assert.equal((await body(r)).error, 'invalid_credentials')
+})
+
+test('login: ลองถี่เกิน -> 429', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/app_login') ? json([]) : undefined))
+  let last = 0
+  for (let i = 0; i < 11; i++) {
+    last = (await req('/api/auth/login', { body: { email: 'o@x.com', password: 'bad' }, headers: { 'CF-Connecting-IP': '10.0.0.3' } })).status
+  }
+  assert.equal(last, 429)
+})
+
+test('login: ไม่ได้ตั้ง JWT secret -> 503', async () => {
+  const r = await req('/api/auth/login', { body: { email: 'o@x.com', password: 'x' } }, { ...baseEnv, SUPABASE_JWT_SECRET: '' })
+  assert.equal(r.status, 503)
+})
+
+test('auth: โทเคนหมดอายุ / ลงนามด้วย secret อื่น -> 401', async () => {
+  const expired = await sign(OWNER, now() - 10)
+  const forged = await sign(OWNER, now() + 3600, 'other-secret')
+  for (const t of [expired, forged]) {
+    assert.equal((await req('/api/staff?restaurant_id=' + RID, { token: t })).status, 401)
+  }
+})
+
+test('auth: บัญชีที่ถูกปิด -> 401 แม้โทเคนยังไม่หมดอายุ', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/app_user_active') ? json(false) : undefined))
+  assert.equal((await req('/api/staff?restaurant_id=' + RID, { token: 'tok-owner' })).status, 401)
+})
+
+test('password: เปลี่ยนรหัสต้องยืนยันรหัสปัจจุบัน', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/app_login') ? json((c.body as { p_password: string }).p_password === 'old-pass-1' ? [LOGIN_ROW] : []) : undefined))
+  handlers.push((c) => (c.url.endsWith('/rpc/app_set_password') ? json(null) : undefined))
+  const bad = await req('/api/auth/password', { token: 'tok-owner', body: { current_password: 'nope', new_password: 'new-pass-12' } })
+  assert.equal(bad.status, 400)
+  assert.equal(callsTo('/rpc/app_set_password').length, 0)
+  const ok = await req('/api/auth/password', { token: 'tok-owner', body: { current_password: 'old-pass-1', new_password: 'new-pass-12' } })
+  assert.equal(ok.status, 200)
+  assert.deepEqual(callsTo('/rpc/app_set_password')[0].body, { p_user_id: OWNER, p_password: 'new-pass-12', p_must_change: false })
+})
+
+test('password: รหัสใหม่สั้นเกิน -> 400', async () => {
+  const r = await req('/api/auth/password', { token: 'tok-owner', body: { current_password: 'old-pass-1', new_password: 'short' } })
+  assert.equal(r.status, 400)
+  assert.equal((await body(r)).error, 'weak_password')
+})
+
+test('reset-password: เจ้าของรีเซ็ตรหัสพนักงานได้ (ได้รหัสชั่วคราว ต้องเปลี่ยน)', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_list') ? json([{ user_id: KITCHEN, roles: ['kitchen'] }]) : undefined))
+  handlers.push((c) => (c.url.endsWith('/rpc/app_set_password') ? json(null) : undefined))
+  const r = await req(`/api/staff/${KITCHEN}/reset-password`, { token: 'tok-owner', body: { restaurant_id: RID } })
+  assert.equal(r.status, 200)
+  const b = await body(r)
+  assert.deepEqual(callsTo('/rpc/app_set_password')[0].body, { p_user_id: KITCHEN, p_password: b.temp_password, p_must_change: true })
+})
+
+test('reset-password: ผู้จัดการรีเซ็ตเจ้าของไม่ได้ / คนนอกร้าน 404', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_list') ? json([{ user_id: OWNER, roles: ['owner', 'kitchen'] }]) : undefined))
+  assert.equal((await req(`/api/staff/${OWNER}/reset-password`, { token: 'tok-manager', body: { restaurant_id: RID } })).status, 403)
+  assert.equal((await req(`/api/staff/${NEWUSER}/reset-password`, { token: 'tok-owner', body: { restaurant_id: RID } })).status, 404)
+  assert.equal(callsTo('/rpc/app_set_password').length, 0)
 })
 
 // ===== import =====
@@ -132,7 +224,7 @@ test('import: ส่งแถวที่ตรวจแล้วไป import_s
   const r = await req('/api/import/sales', { token: 'tok-owner', body: { restaurant_id: RID, csv: CSV, dry_run: true } })
   assert.equal(r.status, 200)
   const rpc = callsTo('/rpc/import_sales_history')[0]
-  assert.equal(rpc.headers.authorization, 'Bearer tok-owner')
+  assert.equal(rpc.headers.authorization, bearer('tok-owner'))
   assert.deepEqual(rpc.body, {
     p_restaurant_id: RID,
     p_rows: [{ line: 2, ref: 'B1', at: '2026-09-01 12:00:00', item: 'ข้าวผัด', qty: 2, price: '' }],
@@ -163,7 +255,7 @@ test('import: ลบรอบนำเข้า', async () => {
   assert.deepEqual(await body(r), { deleted_orders: 2 })
   const del = callsTo('/rest/v1/orders')[0]
   assert.ok(del.url.includes(`import_batch=eq.${batch}`) && del.url.includes(`restaurant_id=eq.${RID}`))
-  assert.equal(del.headers.authorization, 'Bearer tok-owner')
+  assert.equal(del.headers.authorization, bearer('tok-owner'))
 })
 
 // ===== AI =====
@@ -209,7 +301,7 @@ test('ai: ส่งเฉพาะตัวเลขที่คำนวณแ�
   assert.match(prompt, /<question>ควรเพิ่มคนช่วงไหน<\/question>/)
   assert.ok(!prompt.includes('service-secret'))
   // ดึงตัวเลขด้วย JWT ของผู้ใช้ (RLS + has_role ในฐานข้อมูล)
-  assert.equal(callsTo('/rpc/analytics_hourly')[0].headers.authorization, 'Bearer tok-owner')
+  assert.equal(callsTo('/rpc/analytics_hourly')[0].headers.authorization, bearer('tok-owner'))
 })
 
 test('ai: ไม่มีออเดอร์ -> ไม่เรียก Gemini', async () => {
@@ -248,7 +340,7 @@ test('ai: จำกัด 6 ครั้งต่อนาทีต่อผู�
 
 // ===== staff =====
 test('staff: รายชื่อใช้ staff_list ผ่าน service role หลังตรวจว่าเป็นเจ้าของ', async () => {
-  handlers.push((c) => (c.url.endsWith('/rpc/staff_list') ? json([{ user_id: OWNER, email: 'o@x.com', role: 'owner' }]) : undefined))
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_list') ? json([{ user_id: OWNER, email: 'o@x.com', roles: ['owner'] }]) : undefined))
   const r = await req('/api/staff?restaurant_id=' + RID, { token: 'tok-owner' })
   assert.equal((await body(r)).staff[0].email, 'o@x.com')
   assert.equal(callsTo('/rpc/staff_list')[0].headers.authorization, 'Bearer service-secret')
@@ -259,38 +351,25 @@ test('staff: เพิ่มผู้ใช้ที่มีอยู่แล�
   handlers.push((c) => (c.method === 'POST' && c.url.endsWith('/rest/v1/staff_members') ? json([{}], 201) : undefined))
   const r = await req('/api/staff', { token: 'tok-owner', body: { restaurant_id: RID, email: ' New@X.com ', role: 'kitchen' } })
   assert.equal(r.status, 201)
-  assert.deepEqual(await body(r), { user_id: NEWUSER, email: 'new@x.com', role: 'kitchen', invited: false })
+  assert.deepEqual(await body(r), { user_id: NEWUSER, email: 'new@x.com', roles: ['kitchen'], created: false })
   const ins = callsTo('/rest/v1/staff_members').find((c) => c.method === 'POST')!
-  assert.equal(ins.headers.authorization, 'Bearer tok-owner')
-  assert.deepEqual(ins.body, { user_id: NEWUSER, restaurant_id: RID, role: 'kitchen' })
-  assert.equal(callsTo('/auth/v1/invite').length, 0)
+  assert.equal(ins.headers.authorization, bearer('tok-owner'))
+  assert.deepEqual(ins.body, [{ user_id: NEWUSER, restaurant_id: RID, role: 'kitchen' }])
+  assert.equal(callsTo('/rpc/app_create_user').length, 0)
 })
 
-test('staff: อีเมลใหม่ -> ส่งคำเชิญ แล้วเพิ่มเข้าร้าน', async () => {
+test('staff: อีเมลใหม่ -> สร้างบัญชีพร้อมรหัสชั่วคราว (ต้องเปลี่ยนหลังล็อกอิน)', async () => {
   handlers.push((c) => (c.url.endsWith('/rpc/staff_find_user') ? json(null) : undefined))
-  handlers.push((c) => (c.url.includes('/auth/v1/invite') ? json({ id: NEWUSER }) : undefined))
+  handlers.push((c) => (c.url.endsWith('/rpc/app_create_user') ? json(NEWUSER) : undefined))
   handlers.push((c) => (c.method === 'POST' && c.url.endsWith('/rest/v1/staff_members') ? json([{}], 201) : undefined))
-  const r = await req('/api/staff', {
-    token: 'tok-owner',
-    body: { restaurant_id: RID, email: 'new@x.com', role: 'staff' },
-    headers: { origin: 'https://shop.example' },
-  })
-  assert.equal((await body(r)).invited, true)
-  const inv = callsTo('/auth/v1/invite')[0]
-  assert.equal(new URL(inv.url).searchParams.get('redirect_to'), 'https://shop.example/set-password')
-  assert.equal(inv.headers.authorization, 'Bearer service-secret')
-})
-
-test('staff: อีเมลเชิญไม่พาไปโดเมนที่ไม่น่าเชื่อถือ', async () => {
-  handlers.push((c) => (c.url.endsWith('/rpc/staff_find_user') ? json(null) : undefined))
-  handlers.push((c) => (c.url.includes('/auth/v1/invite') ? json({ id: NEWUSER }) : undefined))
-  handlers.push((c) => (c.method === 'POST' && c.url.endsWith('/rest/v1/staff_members') ? json([{}], 201) : undefined))
-  await req('/api/staff', {
-    token: 'tok-owner',
-    body: { restaurant_id: RID, email: 'new@x.com', role: 'staff' },
-    headers: { origin: 'https://evil.example' },
-  })
-  assert.equal(new URL(callsTo('/auth/v1/invite')[0].url).searchParams.get('redirect_to'), null)
+  const r = await req('/api/staff', { token: 'tok-owner', body: { restaurant_id: RID, email: 'new@x.com', role: 'staff', display_name: 'ต้น' } })
+  assert.equal(r.status, 201)
+  const b = await body(r)
+  assert.equal(b.created, true)
+  assert.match(b.temp_password, /^[A-Za-z2-9]{10}$/)
+  const create = callsTo('/rpc/app_create_user')[0]
+  assert.equal(create.headers.authorization, 'Bearer service-secret')
+  assert.deepEqual(create.body, { p_email: 'new@x.com', p_password: b.temp_password, p_display_name: 'ต้น', p_must_change: true })
 })
 
 test('staff: เป็นพนักงานร้านนี้อยู่แล้ว -> 409', async () => {
@@ -305,8 +384,59 @@ test('staff: ตรวจอีเมลและบทบาท', async () => {
   assert.equal((await req('/api/staff', { token: 'tok-owner', body: { restaurant_id: RID, email: 'a@b.co', role: 'admin' } })).status, 400)
 })
 
+test('staff: เพิ่มพนักงานหลายบทบาทพร้อมกัน (1 แถวต่อบทบาท)', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_find_user') ? json(NEWUSER) : undefined))
+  handlers.push((c) => (c.method === 'POST' && c.url.endsWith('/rest/v1/staff_members') ? json([{}, {}], 201) : undefined))
+  const r = await req('/api/staff', { token: 'tok-owner', body: { restaurant_id: RID, email: 'a@b.co', roles: ['staff', 'stock', 'staff'] } })
+  assert.equal(r.status, 201)
+  assert.deepEqual((await body(r)).roles, ['staff', 'stock'])
+  const ins = callsTo('/rest/v1/staff_members').find((c) => c.method === 'POST')!
+  assert.deepEqual(ins.body, [
+    { user_id: NEWUSER, restaurant_id: RID, role: 'staff' },
+    { user_id: NEWUSER, restaurant_id: RID, role: 'stock' },
+  ])
+})
+
+test('staff: เพิ่มคนที่เป็นพนักงานอยู่แล้ว (บทบาทอื่น) -> 409 ไม่เพิ่มบทบาทเงียบๆ', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_find_user') ? json(KITCHEN) : undefined))
+  const r = await req('/api/staff', { token: 'tok-owner', body: { restaurant_id: RID, email: 'k@x.com', roles: ['stock'] } })
+  assert.equal(r.status, 409)
+  assert.equal(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/rest/v1/staff_members')).length, 0)
+})
+
+test('staff: บทบาทว่าง -> 400', async () => {
+  assert.equal((await req('/api/staff', { token: 'tok-owner', body: { restaurant_id: RID, email: 'a@b.co', roles: [] } })).status, 400)
+  assert.equal((await req(`/api/staff/${KITCHEN}`, { token: 'tok-owner', method: 'PATCH', body: { restaurant_id: RID, roles: [] } })).status, 400)
+})
+
+test('staff: ตั้งบทบาททั้งชุดผ่าน staff_set_roles ด้วย JWT ผู้เรียก', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_set_roles') ? json(['kitchen', 'stock']) : undefined))
+  const r = await req(`/api/staff/${KITCHEN}`, { token: 'tok-owner', method: 'PATCH', body: { restaurant_id: RID, roles: ['kitchen', 'stock'] } })
+  assert.equal(r.status, 200)
+  assert.deepEqual(await body(r), { user_id: KITCHEN, roles: ['kitchen', 'stock'] })
+  const call = callsTo('/rpc/staff_set_roles')[0]
+  assert.equal(call.headers.authorization, bearer('tok-owner'))
+  assert.deepEqual(call.body, { p_restaurant_id: RID, p_user_id: KITCHEN, p_roles: ['kitchen', 'stock'] })
+})
+
+test('staff: ตั้งบทบาทคนที่ไม่อยู่ในร้าน -> 404', async () => {
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_set_roles') ? json({ code: 'P0001', message: 'not_found' }, 400) : undefined))
+  const r = await req(`/api/staff/${NEWUSER}`, { token: 'tok-owner', method: 'PATCH', body: { restaurant_id: RID, roles: ['staff'] } })
+  assert.equal(r.status, 404)
+})
+
+test('auth: ผู้ใช้หลายบทบาท ผ่านถ้ามีบทบาทใดบทบาทหนึ่งที่ต้องการ', async () => {
+  handlers.push((c) =>
+    c.method === 'GET' && c.url.includes('/rest/v1/staff_members') && c.url.includes(KITCHEN)
+      ? json([{ role: 'kitchen' }, { role: 'manager' }])
+      : undefined,
+  )
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_list') ? json([]) : undefined))
+  assert.equal((await req('/api/staff?restaurant_id=' + RID, { token: 'tok-kitchen' })).status, 200)
+})
+
 test('staff: เปลี่ยนบทบาทเจ้าของคนสุดท้าย -> 409 last_owner', async () => {
-  handlers.push((c) => (c.method === 'PATCH' ? json({ code: 'P0001', message: 'last_owner' }, 400) : undefined))
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_set_roles') ? json({ code: 'P0001', message: 'last_owner' }, 400) : undefined))
   const r = await req(`/api/staff/${OWNER}`, { token: 'tok-owner', method: 'PATCH', body: { restaurant_id: RID, role: 'staff' } })
   assert.equal(r.status, 409)
   assert.equal((await body(r)).error, 'last_owner')
@@ -335,7 +465,7 @@ test('manager: เพิ่มพนักงานครัวได้', async
   handlers.push((c) => (c.method === 'POST' && c.url.endsWith('/rest/v1/staff_members') ? json([{}], 201) : undefined))
   const r = await req('/api/staff', { token: 'tok-manager', body: { restaurant_id: RID, email: 'cook@x.com', role: 'kitchen' } })
   assert.equal(r.status, 201)
-  assert.equal(callsTo('/rest/v1/staff_members').find((c) => c.method === 'POST')!.headers.authorization, 'Bearer tok-manager')
+  assert.equal(callsTo('/rest/v1/staff_members').find((c) => c.method === 'POST')!.headers.authorization, bearer('tok-manager'))
 })
 
 test('manager: แต่งตั้งเจ้าของ/ผู้จัดการไม่ได้ (ไม่แตะฐานข้อมูล)', async () => {
@@ -346,11 +476,22 @@ test('manager: แต่งตั้งเจ้าของ/ผู้จัด�
     const p = await req(`/api/staff/${KITCHEN}`, { token: 'tok-manager', method: 'PATCH', body: { restaurant_id: RID, role } })
     assert.equal(p.status, 403)
   }
-  assert.equal(callsTo('staff_find_user').length + calls.filter((c) => c.method !== 'GET').length, 0)
+  const writes = calls.filter((c) => c.method !== 'GET' && !c.url.endsWith('/rpc/app_user_active'))
+  assert.equal(callsTo('staff_find_user').length + writes.length, 0)
+})
+
+test('manager ที่มีบทบาทอื่นด้วย ก็แต่งตั้งเจ้าของ/ผู้จัดการไม่ได้', async () => {
+  handlers.push((c) =>
+    c.method === 'GET' && c.url.includes('/rest/v1/staff_members') && c.url.includes(MANAGER)
+      ? json([{ role: 'manager' }, { role: 'stock' }])
+      : undefined,
+  )
+  const r = await req(`/api/staff/${KITCHEN}`, { token: 'tok-manager', method: 'PATCH', body: { restaurant_id: RID, roles: ['kitchen', 'manager'] } })
+  assert.equal(r.status, 403)
 })
 
 test('owner: แต่งตั้งผู้จัดการได้', async () => {
-  handlers.push((c) => (c.method === 'PATCH' ? json([{}]) : undefined))
+  handlers.push((c) => (c.url.endsWith('/rpc/staff_set_roles') ? json(['manager']) : undefined))
   const r = await req(`/api/staff/${KITCHEN}`, { token: 'tok-owner', method: 'PATCH', body: { restaurant_id: RID, role: 'manager' } })
   assert.equal(r.status, 200)
 })
@@ -405,7 +546,7 @@ test('แนะนำโปร: ได้คำแนะนำจากกติ
   assert.ok(b.rules.length >= 2)
   assert.deepEqual(b.ai, [])
   assert.equal(callsTo('generativelanguage').length, 0)
-  assert.equal(callsTo('/rpc/promo_insights')[0].headers.authorization, 'Bearer tok-manager')
+  assert.equal(callsTo('/rpc/promo_insights')[0].headers.authorization, bearer('tok-manager'))
 })
 
 test('แนะนำโปร: ผลจาก AI ที่ขาดทุน/เมนูไม่มีจริง ถูกตัดทิ้ง', async () => {
@@ -478,7 +619,7 @@ test('รายงาน: ส่งเข้า LINE ด้วย token ขอ�
   const sent = push.body as { to: string; messages: { text: string }[] }
   assert.equal(sent.to, LINE_TO)
   assert.match(sent.messages[0].text, /ร้านทดสอบ[\s\S]*฿300 \(2 บิล\)[\s\S]*กะเพรา 3 ที่/)
-  assert.equal(callsTo('/rpc/daily_report')[0].headers.authorization, 'Bearer tok-manager')
+  assert.equal(callsTo('/rpc/daily_report')[0].headers.authorization, bearer('tok-manager'))
 })
 
 test('รายงาน: ยังไม่ตั้ง token -> 503 · ยังไม่ตั้งผู้รับ -> 400 · LINE ปฏิเสธ -> 502', async () => {

@@ -1,19 +1,59 @@
 @import "tailwindcss";
 
-/* ===== FoodFlow design tokens ===== */
+/* ===== Plato design tokens ===== */
 @theme {
   --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-300: #fdba74;
-  --color-brand-400: #fb923c;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
+  /* สีหลัก: Terracotta (ปุ่มหลัก เช่น ส่งเข้าครัว ชำระเงิน) */
+  --color-brand-50: #fbf1ee;
+  --color-brand-100: #f6ded8;
+  --color-brand-200: #edbdb1;
+  --color-brand-300: #e09885;
+  --color-brand-400: #d4735c;
+  --color-brand-500: #c8553d;
+  --color-brand-600: #ad4532;
+  --color-brand-700: #8c3729;
 
-  --color-surface: #f7f7f5;
+  /* สีหลัก: Charcoal (แถบด้านข้าง หัวข้อ จอครัว) */
+  --color-charcoal: #2b2d42;
+  --color-charcoal-light: #3a3d56;
+  --color-gray-900: #2b2d42;
+  --color-gray-950: #1f2031;
+
+  /* สีรอง: Cream (พื้นหลังหน้าร้าน) และ Sage (สำเร็จ เช่น ชำระแล้ว) */
+  --color-surface: #faf6f0;
+  --color-sage-50: #f1f5f1;
+  --color-sage-100: #dfe9e0;
+  --color-sage-500: #7a9e7e;
+  --color-sage-600: #5f8463;
+  --color-sage-700: #4b6a4f;
+
+  /* สีสถานะ: ใช้บอกสถานะเท่านั้น ห้ามใช้ตกแต่ง */
+  /* เขียว: พร้อมเสิร์ฟ / สต็อกปกติ */
+  --color-emerald-50: #edf7ee;
+  --color-emerald-100: #d7eed8;
+  --color-emerald-200: #b5dfb7;
+  --color-emerald-500: #4caf50;
+  --color-emerald-600: #3d8b40;
+  --color-emerald-700: #2f6d32;
+  --color-emerald-800: #255727;
+  --color-green-500: #4caf50;
+  --color-green-600: #3d8b40;
+  /* เหลืองอำพัน: ของใกล้หมด / ออเดอร์รอนาน */
+  --color-amber-50: #fef6e9;
+  --color-amber-100: #fdebc9;
+  --color-amber-200: #fbd896;
+  --color-amber-500: #f5a623;
+  --color-amber-800: #865709;
+  --color-amber-900: #6b4607;
+  /* แดง: ของหมด / ยกเลิกบิล / เตือนต้นทุนผิดปกติ */
+  --color-red-50: #fbeeee;
+  --color-red-100: #f7dada;
+  --color-red-200: #efb5b5;
+  --color-red-300: #e48c8c;
+  --color-red-500: #dd6262;
+  --color-red-600: #d64545;
+  --color-red-700: #b33434;
 }
 
 @layer base {
@@ -104,7 +144,7 @@
     @apply border border-gray-300 bg-white text-gray-700 shadow-xs hover:bg-gray-50;
   }
   .btn-success {
-    @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-700;
+    @apply bg-sage-600 text-white shadow-sm hover:bg-sage-700;
   }
   .btn-danger {
     @apply bg-red-600 text-white shadow-sm hover:bg-red-700;
@@ -135,7 +175,7 @@
     @apply mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700;
   }
   .alert-success {
-    @apply mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800;
+    @apply mb-4 rounded-xl border border-sage-100 bg-sage-50 px-4 py-3 text-sm text-sage-700;
   }
   .alert-warn {
     @apply mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900;
@@ -270,6 +310,19 @@
   .print-area,
   .print-area * {
     visibility: visible;
+  }
+  .print-sheet,
+  .print-sheet * {
+    visibility: visible;
+  }
+  /* ใบตรวจนับสต็อก: เต็มหน้ากระดาษ A4 */
+  .print-sheet {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: 0 !important;
+    box-shadow: none !important;
   }
   .print-area {
     position: fixed;

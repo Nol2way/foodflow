@@ -76,7 +76,7 @@ export async function collectFacts(db: Db, restaurantId: string, days: number) {
 
 export type Facts = Awaited<ReturnType<typeof collectFacts>>
 
-export const SYSTEM_PROMPT = `คุณคือผู้ช่วยวิเคราะห์ข้อมูลร้านอาหารของระบบ FoodFlow ตอบเป็นภาษาไทย กระชับ อ่านง่ายสำหรับเจ้าของร้าน
+export const SYSTEM_PROMPT = `คุณคือผู้ช่วยวิเคราะห์ข้อมูลร้านอาหารของระบบ Plato ตอบเป็นภาษาไทย กระชับ อ่านง่ายสำหรับเจ้าของร้าน
 กฎ:
 - ใช้เฉพาะตัวเลขที่อยู่ใน <facts> เท่านั้น ห้ามคิดหรือประมาณตัวเลขใหม่ ถ้าคำนวณเพิ่ม (เช่น เปอร์เซ็นต์) ให้บอกว่าคำนวณจากตัวเลขไหน
 - ถ้าข้อมูลไม่พอจะตอบ ให้บอกตรงๆ ว่าไม่พอ และบอกว่าต้องมีข้อมูลอะไรเพิ่ม

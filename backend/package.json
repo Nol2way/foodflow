@@ -1,7 +1,7 @@
 {
   "name": "foodflow-backend",
   "version": "1.0.0",
-  "description": "FoodFlow backend (Cloudflare Worker + Hono)",
+  "description": "Plato backend (Cloudflare Worker + Hono)",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

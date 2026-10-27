@@ -1,45 +1,40 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { FullPageMessage, Logo } from '../components/RequireRole'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { Logo } from '../components/RequireRole'
 import { useSession } from '../lib/auth'
+import { api, apiMessage } from '../lib/api'
+import { updateUser } from '../lib/session'
 
-// ตั้งรหัสผ่าน: ใช้ทั้งพนักงานที่ถูกเชิญทางอีเมล และคนที่กด "ลืมรหัสผ่าน"
-// ลิงก์ในอีเมลของ Supabase พามาที่หน้านี้พร้อม session ชั่วคราว (supabase-js อ่านจาก URL ให้อัตโนมัติ)
+// เปลี่ยนรหัสผ่าน: ใช้ทั้งตอนล็อกอินด้วยรหัสชั่วคราวครั้งแรก (บังคับ) และเปลี่ยนเองจากเมนู
 export const MIN_PASSWORD = 8
 
 export default function SetPassword() {
   const navigate = useNavigate()
-  const { session, loading } = useSession()
+  const { session } = useSession()
+  const [current, setCurrent] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  if (!session) return <Navigate to="/login" replace />
+  const forced = session.user.must_change_password
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (password.length < MIN_PASSWORD) return setError(`รหัสผ่านต้องยาวอย่างน้อย ${MIN_PASSWORD} ตัวอักษร`)
-    if (password !== confirm) return setError('รหัสผ่านทั้งสองช่องไม่ตรงกัน')
+    if (password !== confirm) return setError('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน')
     setBusy(true)
     setError(null)
-    const { error: err } = await supabase.auth.updateUser({ password })
-    setBusy(false)
-    if (err) setError('ตั้งรหัสผ่านไม่สำเร็จ ลิงก์อาจหมดอายุ ขอลิงก์ใหม่ที่หน้าเข้าสู่ระบบ')
-    else navigate('/')
-  }
-
-  if (loading) return <FullPageMessage>กำลังโหลด...</FullPageMessage>
-  if (!session) {
-    return (
-      <FullPageMessage>
-        <div className="card max-w-sm">
-        <p className="text-red-600">ลิงก์ไม่ถูกต้องหรือหมดอายุแล้ว</p>
-        <a className="link mt-3 inline-block" href="/login">
-          กลับไปหน้าเข้าสู่ระบบ เพื่อขอลิงก์ใหม่
-        </a>
-        </div>
-      </FullPageMessage>
-    )
+    try {
+      await api('/auth/password', { body: { current_password: current, new_password: password } })
+      updateUser({ must_change_password: false })
+      navigate('/')
+    } catch (err) {
+      setError(apiMessage(err))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -47,8 +42,20 @@ export default function SetPassword() {
       <div className="w-full max-w-sm">
         <Logo className="mb-6 justify-center text-xl" />
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
-      <h1 className="text-xl font-bold text-gray-900">ตั้งรหัสผ่าน</h1>
-      <p className="text-sm text-gray-500">{session.user.email}</p>
+      <h1 className="text-xl font-bold text-gray-900">{forced ? 'ตั้งรหัสผ่านใหม่' : 'เปลี่ยนรหัสผ่าน'}</h1>
+      <p className="text-sm text-gray-500">
+        {session.user.email}
+        {forced && <span className="mt-1 block">คุณเข้าสู่ระบบด้วยรหัสชั่วคราว กรุณาตั้งรหัสผ่านของตัวเองก่อนใช้งาน</span>}
+      </p>
+      <input
+        className="input w-full py-2.5"
+        type="password"
+        placeholder={forced ? 'รหัสชั่วคราว' : 'รหัสผ่านปัจจุบัน'}
+        autoComplete="current-password"
+        value={current}
+        onChange={(e) => setCurrent(e.target.value)}
+        required
+      />
       <input
         className="input w-full py-2.5"
         type="password"
@@ -61,7 +68,7 @@ export default function SetPassword() {
       <input
         className="input w-full py-2.5"
         type="password"
-        placeholder="ยืนยันรหัสผ่าน"
+        placeholder="ยืนยันรหัสผ่านใหม่"
         autoComplete="new-password"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
@@ -71,6 +78,11 @@ export default function SetPassword() {
       <button className="btn btn-primary w-full py-3" disabled={busy}>
         {busy ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่าน'}
       </button>
+      {!forced && (
+        <button type="button" className="link-muted block w-full text-center" onClick={() => navigate(-1)}>
+          ยกเลิก
+        </button>
+      )}
         </form>
       </div>
     </div>

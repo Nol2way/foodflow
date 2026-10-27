@@ -1,7 +1,7 @@
--- FoodFlow — บัญชีทดสอบครบทุกบทบาท (ใช้ทดลองเท่านั้น ห้ามใช้กับร้านจริง)
+-- Plato — บัญชีทดสอบครบทุกบทบาท (ใช้ทดลองเท่านั้น ห้ามใช้กับร้านจริง)
 -- รันใน Supabase SQL Editor หลัง migrations ทั้งหมด + seed.sql
 --
--- สร้างผู้ใช้ใน Supabase Auth (ยืนยันอีเมลแล้ว ล็อกอินได้ทันที) และผูกบทบาทกับร้านแรกในตาราง restaurants
+-- สร้างผู้ใช้ในตาราง app_users (ล็อกอินได้ทันที) และผูกบทบาทกับร้านแรกในตาราง restaurants
 -- รันซ้ำได้: ถ้ามีอีเมลนี้อยู่แล้ว จะตั้งรหัสผ่านใหม่และอัปเดตบทบาทให้
 -- อีเมลใช้โดเมน .test (โดเมนสำหรับทดสอบ ส่งอีเมลจริงไม่ได้)
 --
@@ -15,6 +15,7 @@
 -- | kitchen@foodflow.test        | kitchen     | หน้าจอครัว                                         |
 -- | accountant@foodflow.test     | accountant  | บัญชี, วิเคราะห์ + AI                               |
 -- | stock@foodflow.test          | stock       | สต็อก                                              |
+-- | multi@foodflow.test          | staff+stock | หน้าร้าน + สต็อก (ตัวอย่างพนักงานหลายบทบาท)            |
 -- | other-owner@foodflow.test    | owner       | เจ้าของ "ร้านทดสอบอื่น" ใช้ตรวจว่าเห็นข้อมูลร้านเราไม่ได้ |
 -- | norole@foodflow.test         | (ไม่มี)      | ล็อกอินได้แต่ไม่ได้ผูกกับร้าน ต้องขึ้นข้อความว่าไม่มีสิทธิ์   |
 
@@ -39,62 +40,48 @@ begin
 
   for r in
     select * from (values
-      ('owner@foodflow.test', 'owner', rid),
-      ('manager@foodflow.test', 'manager', rid),
-      ('staff@foodflow.test', 'staff', rid),
-      ('kitchen@foodflow.test', 'kitchen', rid),
-      ('accountant@foodflow.test', 'accountant', rid),
-      ('stock@foodflow.test', 'stock', rid),
-      ('other-owner@foodflow.test', 'owner', rid_other),
+      ('owner@foodflow.test', array['owner'], rid),
+      ('manager@foodflow.test', array['manager'], rid),
+      ('staff@foodflow.test', array['staff'], rid),
+      ('kitchen@foodflow.test', array['kitchen'], rid),
+      ('accountant@foodflow.test', array['accountant'], rid),
+      ('stock@foodflow.test', array['stock'], rid),
+      ('multi@foodflow.test', array['staff', 'stock'], rid),
+      ('other-owner@foodflow.test', array['owner'], rid_other),
       ('norole@foodflow.test', null, null)
-    ) as t(email, role, restaurant_id)
+    ) as t(email, roles, restaurant_id)
   loop
-    select id into uid from auth.users where email = r.email;
-
+    -- ผู้ใช้อยู่ในตาราง app_users ของระบบเอง (0021) ไม่ใช่ Supabase Auth
+    select id into uid from app_users where email = r.email;
     if uid is null then
-      uid := gen_random_uuid();
-      insert into auth.users (
-        instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
-        raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-        confirmation_token, recovery_token, email_change_token_new, email_change
-      ) values (
-        '00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated', r.email,
-        extensions.crypt(v_password, extensions.gen_salt('bf')), now(),
-        '{"provider": "email", "providers": ["email"]}'::jsonb, '{}'::jsonb, now(), now(),
-        '', '', '', ''
-      );
-      insert into auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
-      values (
-        gen_random_uuid(), uid, uid::text, 'email',
-        jsonb_build_object('sub', uid::text, 'email', r.email, 'email_verified', true),
-        now(), now(), now()
-      );
+      uid := app_create_user(r.email, v_password, null, false);
     else
-      -- มีอยู่แล้ว: ตั้งรหัสผ่านกลับเป็นค่าทดสอบ และยืนยันอีเมลให้
-      update auth.users
-      set encrypted_password = extensions.crypt(v_password, extensions.gen_salt('bf')),
-          email_confirmed_at = coalesce(email_confirmed_at, now()),
-          updated_at = now()
-      where id = uid;
+      -- มีอยู่แล้ว: ตั้งรหัสผ่านกลับเป็นค่าทดสอบ และเปิดใช้งาน
+      perform app_set_password(uid, v_password, false);
+      update app_users set is_active = true where id = uid;
     end if;
 
-    if r.role is not null then
+    -- 1 แถวต่อ 1 บทบาท (0020): เพิ่มที่ขาด แล้วลบบทบาทที่ไม่อยู่ในรายการ
+    if r.roles is not null then
       insert into staff_members (user_id, restaurant_id, role)
-      values (uid, r.restaurant_id, r.role)
-      on conflict (user_id, restaurant_id) do update set role = excluded.role;
+      select uid, r.restaurant_id, x from unnest(r.roles) as x
+      on conflict do nothing;
+      delete from staff_members
+      where user_id = uid and restaurant_id = r.restaurant_id and role <> all(r.roles);
     end if;
   end loop;
 end;
 $$;
 
 -- ตรวจผล: บัญชีทดสอบและบทบาท
-select u.email, s.role, r.name as restaurant
-from auth.users u
+select u.email, string_agg(s.role, ', ' order by s.role) as roles, r.name as restaurant
+from app_users u
 left join staff_members s on s.user_id = u.id
 left join restaurants r on r.id = s.restaurant_id
 where u.email like '%@foodflow.test'
-order by r.name nulls last, s.role;
+group by u.email, r.name
+order by r.name nulls last, u.email;
 
 -- ===== ลบบัญชีทดสอบทั้งหมด (เอา -- ออกแล้วรัน) =====
--- delete from auth.users where email like '%@foodflow.test';        -- staff_members ถูกลบตามอัตโนมัติ
+-- delete from app_users where email like '%@foodflow.test';        -- staff_members ถูกลบตามอัตโนมัติ
 -- delete from restaurants where name = 'ร้านทดสอบอื่น';

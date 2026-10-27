@@ -75,6 +75,50 @@ endpoint ที่ต้องล็อกอิน ส่ง header `Authorizat
 
 `role`: `owner`, `manager`, `staff`, `kitchen`, `accountant`, `stock` · ร้านต้องมีเจ้าของอย่างน้อย 1 คน (บังคับด้วย trigger ในฐานข้อมูล)
 
+### บัญชี (0026) — `/api/accounting/*`
+
+รายละเอียดเต็มและลองเรียกได้ที่ Swagger (`/api/docs` แท็ก "บัญชี") · หลักการบัญชีดู [accounting.md](accounting.md) · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS ตรวจซ้ำ) · ช่วงวันที่ `from`/`to` = `YYYY-MM-DD` ตามเวลาร้าน ไม่เกิน 10 ปี
+
+| Method | Path | สิทธิ์ | หน้าที่ |
+|--------|------|--------|---------|
+| GET | `/dashboard?restaurant_id=` | เจ้าของ ผู้จัดการ บัญชี | วันนี้/7/30 วัน/เดือนนี้/เดือนก่อน/ทั้งปี + metrics (Food/Prime Cost) + แจ้งเตือน + เกณฑ์ VAT + เหมา 60% |
+| GET | `/summary` `/menu-profit` `/trial-balance` `/journal` | เจ้าของ ผู้จัดการ บัญชี | งบกำไรขาดทุน/perpetual · กำไรต่อเมนู · งบทดลอง + งบดุล · สมุดรายวัน/บัญชีแยกประเภท (`account_id`) |
+| GET | `/reconcile` | + พนักงานสต็อก | มูลค่าในโมดูลสต็อก vs บัญชีสต็อก |
+| GET/POST | `/accounts` | ดู: 3 บทบาท · เพิ่ม: เจ้าของ บัญชี | ผังบัญชี / เพิ่มหมวดเอง |
+| GET/POST | `/expenses` · POST `/expenses/:id/void` | เพิ่ม/ยกเลิก: เจ้าของ บัญชี | รายจ่าย (บังคับ `account_id`) · ยกเลิก = กลับรายการ บังคับ `reason` |
+| POST | `/supplier-payments` | เจ้าของ บัญชี | จ่ายเจ้าหนี้ |
+| POST | `/bills/:order_id/cancel` | เจ้าของ | ยกเลิกบิลที่จ่ายแล้ว บังคับ `reason` |
+| POST | `/entries/:id/reverse` · `/opening` | เจ้าของ | กลับรายการ (ยอดยกมา จ่ายเจ้าหนี้ ปิดวัน) · ยอดยกมาเงินสด/ธนาคาร |
+| GET | `/day?date=` | 3 บทบาท | สรุปยอดของวัน + เงินสดตามระบบ |
+| POST | `/day-close` | เจ้าของ ผู้จัดการ | `{ restaurant_id, date, counted_cash, note? }` → ปิดวัน ล็อกรายการ ส่ง LINE (`line: sent / not_configured / failed`) · 409 `already_closed` |
+| GET/PATCH | `/settings` | แก้: เจ้าของ | โหมด จด VAT เป้า Food/Prime Cost ใบรับของจ่ายด้วย · `onboarded: true` = ตอบคำถามเริ่มต้นแล้ว |
+| GET | `/export?report=&format=` | 3 บทบาท | `report`: journal / trial_balance / summary / menu_profit / expenses · `format`: csv (UTF-8 BOM) / xls (Excel XML) |
+
+ข้อผิดพลาดบัญชีตอบเป็นภาษาไทย เช่น `409 day_closed` (วันนั้นปิดวันแล้ว), `409 expense_posted_use_void`, `409 already_reversed`, `400 reverse_not_allowed`
+
+### สต็อกวัตถุดิบ (0027-0030) — `/api/stock/*`
+
+หลักการและสูตรดู [stock.md](stock.md) · Swagger แท็ก "สต็อกวัตถุดิบ" · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ · ตัวเลขทุกตัวเป็นหน่วยฐานของวัตถุดิบ (g / ml / pcs) · อ่าน = เจ้าของ ผู้จัดการ สต็อก บัญชี · เขียน = เจ้าของ ผู้จัดการ สต็อก
+
+| Method | Path | สิทธิ์ | หน้าที่ |
+|--------|------|--------|---------|
+| GET | `/overview` | อ่าน | ใกล้หมด หมด ใกล้หมดอายุ มูลค่าสต็อก (FIFO) แนะนำสั่งวันนี้ เตือนสูตร/yield เมนูที่ระบบปิด |
+| GET | `/reorder?days=28` | อ่าน | par (อัตโนมัติ/ตั้งเอง) และจำนวนแนะนำสั่งทุกวัตถุดิบ |
+| GET/POST · PATCH `/:id` | `/ingredients` | ดู: อ่าน · แก้: เขียน | วัตถุดิบ · สร้างใหม่ส่ง `recipe_unit` (+ `quantity_on_hand` ยอดยกมา, `cost_per_unit` ต่อหน่วยฐาน) · PATCH แก้ยอด/ต้นทุนไม่ได้ |
+| GET/POST · PATCH `/:id` | `/suppliers` | ดู: อ่าน · แก้: เขียน | ผู้ขาย `lead_time_days` `delivery_days` (0-6) |
+| GET/POST · PUT/DELETE `/:id` | `/recipes` | ดู: อ่าน · แก้: เขียน | สูตรเมนู + สูตรย่อย บันทึกทั้งสูตรในธุรกรรมเดียว (`lines`: `ingredient_id` หรือ `sub_recipe_id` + `qty`) |
+| GET | `/last-purchases?supplier_id=` | อ่าน | ราคา/ขนาดบรรจุครั้งก่อน (หน้ารับเข้าเตือนก่อนบันทึก) |
+| GET/POST | `/receipts` | ดู: อ่าน (`from`/`to`) · รับ: เขียน | รับเข้า: `supplier_id` + `lines` [`pack_qty` `pack_size` `pack_price` `expiry_date` (`invoice_qty` ถ้าได้ไม่ครบ)] → `{ receipt_id, warnings, recosted_recipes }` |
+| GET | `/count-sheet?abc=A,B` | เขียน | ใบนับ blind (ไม่มียอดในระบบ) เรียงตามตำแหน่งจัดเก็บ |
+| GET/POST | `/counts` | ดู: อ่าน · นับ: เขียน | บันทึกใบนับ (`count_type` daily/weekly/monthly/spot, `lines` `counted_qty` `entered_text` `note`) → คืนแค่ `count_id` |
+| POST | `/counts/:id/verify` | เจ้าของ ผู้จัดการ | ผู้ตรวจรับรอง (ผู้จัดการรับรองใบที่ตัวเองนับไม่ได้) |
+| GET | `/counts/:id/variance` | อ่าน | ส่วนต่างเรียงตามมูลค่า: ควรเหลือ นับจริง ส่วนต่าง หน่วย/บาท/% สี ติดลบต่อเนื่อง |
+| GET/POST | `/yield-tests` | ดู: อ่าน · บันทึก: เขียน | ชั่งก่อน-หลัง 3 ครั้ง (`kind` trim/cook) `apply: true` = ตั้งเป็น yield ของวัตถุดิบ |
+| GET | `/history?from=&to=&ingredient_id=&actor_id=&type=` | อ่าน | ประวัติ ledger (ช่วงไม่เกิน 366 วัน) |
+| POST | `/movements/:id/reverse` | เจ้าของ ผู้จัดการ | กลับรายการนำเข้า/ปรับจากการนับ บังคับ `reason` |
+
+ข้อผิดพลาดสต็อกตอบภาษาไทยพร้อมชื่อวัตถุดิบ เช่น `409 insufficient_stock` ("วัตถุดิบไม่พอ...: กุ้ง"), `409 lot_already_used`, `409 already_verified`, `400 recipe_cycle`, `400 invalid_field` (+ `field`)
+
 ## ตัวแปรของ backend
 
 | ชื่อ | ความลับ | หมายเหตุ |

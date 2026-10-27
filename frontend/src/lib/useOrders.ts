@@ -12,7 +12,7 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
     const { data, error: err } = await supabase
       .from('orders')
       .select(
-        'id,status,total,subtotal,discount_total,created_at,started_at,ready_at,table_id,order_type,customer_label,note,promotion_id,order_promotions(promotion_id,discount,promotions(name)),dining_tables(label),order_items(id,menu_item_id,unit_price,quantity,note,done_at,served_at,menu_items(name))',
+        'id,status,total,subtotal,discount_total,created_at,started_at,ready_at,table_id,order_type,customer_label,note,promotion_id,order_promotions(promotion_id,discount,promotions(name)),dining_tables(label),order_items(id,menu_item_id,unit_price,quantity,weight_g,note,done_at,served_at,menu_items(name))',
       )
       .eq('restaurant_id', restaurantId)
       .in('status', statusKey.split(','))

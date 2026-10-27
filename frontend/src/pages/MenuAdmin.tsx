@@ -25,7 +25,8 @@ function errText(message: string, code?: string): string {
   return message
 }
 
-function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role }) {
+function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[] }) {
+  const isOwner = myRoles.includes('owner')
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [items, setItems] = useState<MenuItem[]>([])
   const [tables, setTables] = useState<DiningTable[]>([])
@@ -39,6 +40,11 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
   const [newTable, setNewTable] = useState('')
   const [description, setDescription] = useState('')
   const [recommended, setRecommended] = useState(false)
+  // 0023: ขายตามน้ำหนัก (ราคา = ต่อ 1 กก.) และวัตถุดิบที่ตัดตามน้ำหนักจริง
+  const [soldByWeight, setSoldByWeight] = useState(false)
+  const [weightIngredientId, setWeightIngredientId] = useState('')
+  const [hasWeight, setHasWeight] = useState(true)
+  const [weighable, setWeighable] = useState<{ id: string; name: string; unit: string }[]>([])
   const [media, setMedia] = useState<DisplayMediaRow[]>([])
   const [poster, setPoster] = useState<PosterTarget | null>(null)
   // false = ยังไม่ได้รัน migration 0013 (ซ่อนส่วนจอแสดงผล)
@@ -50,19 +56,28 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
       supabase.from('menu_categories').select('id,name,sort_order').eq('restaurant_id', restaurantId).order('sort_order'),
       supabase
         .from('menu_items')
-        .select('id,category_id,name,price,is_available,is_recommended,description')
+        .select('id,category_id,name,price,is_available,is_recommended,description,sold_by_weight,weight_ingredient_id')
         .eq('restaurant_id', restaurantId)
         .order('name'),
-      myRole === 'owner'
+      isOwner
         ? supabase.from('dining_tables').select('id,label').eq('restaurant_id', restaurantId).order('label')
         : Promise.resolve({ data: [], error: null }),
       supabase.from('display_screens').select('token').eq('restaurant_id', restaurantId).maybeSingle(),
       supabase.from('display_media').select('*').eq('restaurant_id', restaurantId).order('sort_order').order('created_at'),
     ])
-    const m = full.error
-      ? await supabase.from('menu_items').select('id,category_id,name,price,is_available').eq('restaurant_id', restaurantId).order('name')
-      : full
-    setHasDisplay(!full.error)
+    const noWeight = full.error
+      ? await supabase.from('menu_items').select('id,category_id,name,price,is_available,is_recommended,description').eq('restaurant_id', restaurantId).order('name')
+      : null
+    const m = !full.error
+      ? full
+      : noWeight && !noWeight.error
+        ? noWeight
+        : await supabase.from('menu_items').select('id,category_id,name,price,is_available').eq('restaurant_id', restaurantId).order('name')
+    setHasWeight(!full.error)
+    setHasDisplay(!full.error || Boolean(noWeight && !noWeight.error))
+    // วัตถุดิบหน่วย g/kg สำหรับของชั่งขาย (ผู้จัดการอ่านวัตถุดิบไม่ได้ จะได้รายการว่าง)
+    const ing = await supabase.from('ingredients').select('id,name,unit').eq('restaurant_id', restaurantId).order('name')
+    setWeighable((ing.data ?? []).filter((i) => ['g', 'kg', 'กรัม', 'กก', 'กก.', 'กิโลกรัม', 'กิโล', 'gram', 'grams', 'kilogram'].includes(i.unit.trim().toLowerCase())))
     setDisplayToken(d.error ? null : (d.data?.token ?? null))
     setMedia(dm.error ? [] : (dm.data as DisplayMediaRow[]))
     if (c.error || m.error || t.error) {
@@ -72,7 +87,7 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
     setCategories(c.data as MenuCategory[])
     setItems((m.data as MenuItem[]).map((x) => ({ ...x, price: Number(x.price) })))
     setTables(t.data as DiningTable[])
-  }, [restaurantId, myRole])
+  }, [restaurantId, isOwner])
 
   useEffect(() => {
     void load()
@@ -91,6 +106,8 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
     setCategoryId(item?.category_id ?? '')
     setDescription(item?.description ?? '')
     setRecommended(item?.is_recommended ?? false)
+    setSoldByWeight(item?.sold_by_weight ?? false)
+    setWeightIngredientId(item?.weight_ingredient_id ?? '')
   }
 
   async function saveItem(e: FormEvent) {
@@ -98,7 +115,11 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
     const value = Number(price)
     if (!name.trim() || !(value >= 0) || price === '') return setMessage({ ok: false, text: 'กรอกชื่อและราคาให้ถูกต้อง' })
     const base = { name: name.trim(), price: value, category_id: categoryId || null }
-    const row = hasDisplay ? { ...base, description: description.trim() || null, is_recommended: recommended } : base
+    if (soldByWeight && !weightIngredientId && weighable.length > 0) return setMessage({ ok: false, text: 'ของชั่งขายต้องเลือกวัตถุดิบที่ตัดสต็อก (หน่วย g หรือ kg)' })
+    const withDisplay = hasDisplay ? { ...base, description: description.trim() || null, is_recommended: recommended } : base
+    const row = hasWeight
+      ? { ...withDisplay, sold_by_weight: soldByWeight, weight_ingredient_id: soldByWeight ? weightIngredientId || null : null }
+      : withDisplay
     const { error } = editing
       ? await supabase.from('menu_items').update(row).eq('id', editing.id)
       : await supabase.from('menu_items').insert({ ...row, restaurant_id: restaurantId })
@@ -209,7 +230,7 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
         <h2 className="section-title">{editing ? `แก้ไข: ${editing.name}` : 'เพิ่มเมนู'}</h2>
         <form onSubmit={saveItem} className="grid gap-2 sm:grid-cols-[1fr_120px_180px_auto]">
           <input className="input" placeholder="ชื่อเมนู" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required />
-          <input className="input" type="number" min="0" step="0.01" placeholder="ราคา" value={price} onChange={(e) => setPrice(e.target.value)} required />
+          <input className="input" type="number" min="0" step="0.01" placeholder={soldByWeight ? 'ราคาต่อ กก.' : 'ราคา'} value={price} onChange={(e) => setPrice(e.target.value)} required />
           <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             <option value="">ไม่มีหมวด</option>
             {categories.map((c) => (
@@ -222,6 +243,27 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
               <button type="button" className="btn btn-secondary" onClick={() => startEdit(null)}>ยกเลิก</button>
             )}
           </div>
+          {hasWeight && (
+            <div className="grid gap-2 rounded-xl bg-gray-50 p-3 sm:col-span-4 sm:grid-cols-[auto_1fr] sm:items-center">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
+                <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={soldByWeight} onChange={(e) => setSoldByWeight(e.target.checked)} />
+                ขายตามน้ำหนักจริง (ชั่งหน้าตู้)
+              </label>
+              {soldByWeight && (
+                <select className="input" value={weightIngredientId} onChange={(e) => setWeightIngredientId(e.target.value)}>
+                  <option value="">{weighable.length ? 'ตัดสต็อกจากวัตถุดิบ...' : 'ไม่มีวัตถุดิบหน่วย g/kg (หรือไม่มีสิทธิ์ดูวัตถุดิบ)'}</option>
+                  {weighable.map((i) => (
+                    <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>
+                  ))}
+                </select>
+              )}
+              {soldByWeight && (
+                <p className="text-xs text-gray-500 sm:col-span-2">
+                  ราคาที่กรอก = ราคาต่อ 1 กก. · หน้ารับออเดอร์จะให้กรอกน้ำหนักที่ชั่ง ระบบคิดราคาและตัดสต็อกตามน้ำหนักจริง · น้ำจิ้ม/เครื่องเคียงใส่ในสูตรอาหารได้ตามปกติ
+                </p>
+              )}
+            </div>
+          )}
           {hasDisplay && (
             <div className="grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_auto] sm:items-center">
               <input
@@ -277,7 +319,7 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
                     </span>
                   </td>
                   <td className="p-2 text-gray-500">{catName(it.category_id)}</td>
-                  <td className="p-2 text-right">{baht(it.price)}</td>
+                  <td className="p-2 text-right">{baht(it.price)}{it.sold_by_weight && <span className="block text-xs text-gray-500">ต่อ กก. (ชั่ง)</span>}</td>
                   <td className="p-2">
                     <button
                       className={`badge ${it.is_available ? 'badge-green' : 'badge-gray'}`}
@@ -406,7 +448,7 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
         </ul>
       </section>
 
-      {myRole === 'owner' && (
+      {isOwner && (
         <section>
           <h2 className="section-title">โต๊ะ (เจ้าของร้านเท่านั้น)</h2>
           <form onSubmit={addTable} className="mb-2 flex gap-2">
@@ -429,6 +471,6 @@ function Board({ restaurantId, myRole }: { restaurantId: string; myRole: Role })
 
 export default function MenuAdmin() {
   return (
-    <RequireRole roles={rolesFor('/menu')}>{(ctx) => <Board restaurantId={ctx.restaurantId} myRole={ctx.role} />}</RequireRole>
+    <RequireRole roles={rolesFor('/menu')}>{(ctx) => <Board restaurantId={ctx.restaurantId} myRoles={ctx.roles} />}</RequireRole>
   )
 }

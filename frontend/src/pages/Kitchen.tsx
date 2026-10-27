@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrders } from '../lib/useOrders'
 import { rolesFor } from '../lib/roles'
-import { orderLabel } from '../lib/format'
+import { orderLabel, itemQty } from '../lib/format'
 import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
 import type { KitchenOrder, OrderStatus } from '../lib/types'
@@ -53,9 +53,11 @@ function Board({ restaurantId }: { restaurantId: string }) {
   }
 
   return (
+    // จอครัวใช้พื้นมืด (charcoal) ลดแสงจ้าตอนทำอาหาร
+    <div className="min-h-screen bg-charcoal">
     <div className="page max-w-none">
       <div className="page-header">
-        <h1 className="page-title">หน้าจอครัว</h1>
+        <h1 className="page-title text-white">หน้าจอครัว</h1>
         <span className="badge badge-green">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
           อัปเดตอัตโนมัติ
@@ -67,8 +69,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
         {COLUMNS.map((col) => {
           const list = orders.filter((o) => o.status === col.status)
           return (
-            <section key={col.status} className="rounded-2xl bg-gray-100/80 p-3">
-              <h2 className="mb-3 flex items-center gap-2 px-1 font-semibold text-gray-900">
+            <section key={col.status} className="rounded-2xl bg-charcoal-light p-3">
+              <h2 className="mb-3 flex items-center gap-2 px-1 font-semibold text-white">
                 <span className={`h-2.5 w-2.5 rounded-full ${col.dot}`} />
                 {col.title}
                 <span className="badge badge-gray ml-auto bg-white">{list.length}</span>
@@ -101,14 +103,14 @@ function Board({ restaurantId }: { restaurantId: string }) {
                                   {isOn(it) && <Icon name="check" className="h-3.5 w-3.5" />}
                                 </span>
                                 <span className={isOn(it) ? 'text-gray-400 line-through' : ''}>
-                                  {it.quantity} × {it.menu_items?.name ?? '-'}
+                                  {itemQty(it)} {it.menu_items?.name ?? '-'}
                                   {it.note && <span className="block text-xs text-brand-600 no-underline">หมายเหตุ: {it.note}</span>}
                                 </span>
                               </button>
                             </li>
                           ) : (
                             <li key={it.id} className="px-2 py-1">
-                              <span className="font-semibold">{it.quantity} ×</span> {it.menu_items?.name ?? '-'}
+                              <span className="font-semibold">{itemQty(it)}</span> {it.menu_items?.name ?? '-'}
                               {it.note && <div className="text-xs text-brand-600">หมายเหตุ: {it.note}</div>}
                             </li>
                           ),
@@ -125,12 +127,13 @@ function Board({ restaurantId }: { restaurantId: string }) {
                     </article>
                   )
                 })}
-                {list.length === 0 && <p className="empty">ไม่มีออเดอร์</p>}
+                {list.length === 0 && <p className="empty border-white/20 bg-transparent text-white/50">ไม่มีออเดอร์</p>}
               </div>
             </section>
           )
         })}
       </div>
+    </div>
     </div>
   )
 }

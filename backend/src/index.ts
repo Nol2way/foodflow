@@ -1,4 +1,4 @@
-// FoodFlow backend — Cloudflare Worker (Hono)
+// Plato backend — Cloudflare Worker (Hono)
 // scheduled: Cron ทุกชั่วโมง (wrangler.toml) ส่งรายงานรายวันทาง LINE ให้ร้านที่ถึงเวลา
 import { createApp } from './app.ts'
 import { sendDueReports } from './reports.ts'
