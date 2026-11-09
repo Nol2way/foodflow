@@ -1,5 +1,7 @@
 // เซสชันล็อกอินของระบบเอง (ตาราง app_users ผ่าน backend ไม่ใช้ Supabase Auth)
 // เก็บ access_token ใน localStorage แล้วแจ้งทุกคอมโพเนนต์ที่ฟังอยู่เมื่อเปลี่ยน
+import { clearAll } from './cache'
+
 export interface SessionUser {
   id: string
   email: string
@@ -34,6 +36,15 @@ export function getSession(): Session | null {
 }
 
 export function setSession(s: Session | null) {
+  // เปลี่ยนผู้ใช้/ออกจากระบบ: ล้างข้อมูลที่แคชไว้ทั้งหมด (กันข้อมูลบัญชีเก่าโผล่)
+  if (current?.user.id !== s?.user.id) {
+    clearAll()
+    try {
+      localStorage.removeItem('plato.staff')
+    } catch {
+      // ignore
+    }
+  }
   current = s
   try {
     if (s) localStorage.setItem(KEY, JSON.stringify(s))
@@ -59,7 +70,9 @@ export const getToken = () => getSession()?.access_token ?? null
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key !== KEY) return
-    current = read()
+    const next = read()
+    if (current?.user.id !== next?.user.id) clearAll()
+    current = next
     for (const fn of listeners) fn(current)
   })
 }

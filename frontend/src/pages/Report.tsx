@@ -6,6 +6,7 @@ import { baht } from '../lib/format'
 import { changePct, reportText, thaiDate, type DailyReport } from '../lib/report'
 import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
+import { useCachedState } from '../lib/useCachedState'
 
 // รายงานสรุปรายวัน (daily_report ใน 0018) · แชร์เข้า LINE เอง หรือให้ backend ส่งเข้า LINE ร้าน
 
@@ -13,7 +14,7 @@ const today = () => new Date().toLocaleDateString('sv-SE')
 
 function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[] }) {
   const [date, setDate] = useState(today)
-  const [report, setReport] = useState<DailyReport | null>(null)
+  const [report, setReport] = useCachedState<DailyReport | null>(`report:${restaurantId}:${date}`, null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [sending, setSending] = useState(false)
 
@@ -76,7 +77,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
               <div className="stat">
                 <div className="stat-label">จำนวนบิล</div>
                 <div className="stat-value">{r.orders.toLocaleString('th-TH')}</div>
-                {r.cancelled > 0 && <div className="text-xs text-red-600">ยกเลิก {r.cancelled}</div>}
+                {r.cancelled > 0 && <div className="field-error">ยกเลิก {r.cancelled}</div>}
               </div>
               <div className="stat">
                 <div className="stat-label">เฉลี่ยต่อบิล</div>
@@ -165,7 +166,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
                 </button>
               )}
             </div>
-            <p className="mt-2 text-xs text-gray-500">ร้านที่ตั้ง LINE ไว้ ระบบส่งให้อัตโนมัติทุกวันตอน 22:00</p>
+            <p className="mt-2 hint">ร้านที่ตั้ง LINE ไว้ ระบบส่งให้อัตโนมัติทุกวันตอน 22:00</p>
           </section>
         </div>
       )}

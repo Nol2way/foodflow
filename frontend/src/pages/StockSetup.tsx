@@ -107,12 +107,12 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 toolbar">
         <h2 className="section-title mb-0 flex-1">วัตถุดิบ</h2>
         <input className="input w-48 py-1.5" placeholder="ค้นหา ชื่อ/ตำแหน่ง/หมวด" value={search} onChange={(e) => setSearch(e.target.value)} />
         {canWrite && <button className="btn btn-primary btn-sm" onClick={() => { setEditing('new'); setForm(NEW_ING) }}>+ เพิ่มวัตถุดิบ</button>}
       </div>
-      <div className="card-flush overflow-x-auto">
+      <div className="table-wrap">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="text-left">
@@ -132,13 +132,13 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
                   <span className="font-medium">{i.name}</span>
                   <span className="badge badge-gray ml-1.5">{i.abc_class}</span>
                   {!i.is_active && <span className="badge badge-gray ml-1">ปิดใช้งาน</span>}
-                  <div className="text-xs text-gray-500">
+                  <div className="hint">
                     ซื้อเป็น {i.purchase_unit} (= {fmtNum(Number(i.conversion_factor))} {i.unit})
                     {i.display_unit && Number(i.display_factor) !== 1 && ` · ครัวนับเป็น ${i.display_unit} (= ${fmtNum(Number(i.display_factor))} ${i.unit})`}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums">{displayQty(Number(i.quantity_on_hand), i.unit, i.display_unit, Number(i.display_factor))}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-gray-600">
+                <td className="px-3 py-2 num">{displayQty(Number(i.quantity_on_hand), i.unit, i.display_unit, Number(i.display_factor))}</td>
+                <td className="px-3 py-2 num text-gray-600">
                   {baht(yieldUnitCost(Number(i.last_unit_cost ?? i.cost_per_unit), Number(i.trim_yield_pct), Number(i.cook_yield_pct)))}/{i.unit}
                 </td>
                 <td className="px-3 py-2 text-xs text-gray-600">ตัดแต่ง {fmtNum(Number(i.trim_yield_pct), 2)}% · สุก {fmtNum(Number(i.cook_yield_pct), 2)}%</td>
@@ -152,10 +152,10 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-gray-900/40 p-4" onClick={() => setEditing(null)}>
+        <div className="overlay" onClick={() => setEditing(null)}>
           <form onSubmit={save} className="card max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}
             role="dialog" aria-modal="true" aria-label="วัตถุดิบ">
-            <h2 className="text-lg font-bold text-gray-900">{editing === 'new' ? 'เพิ่มวัตถุดิบ' : `แก้ไข ${editing.name}`}</h2>
+            <h2 className="title-lg">{editing === 'new' ? 'เพิ่มวัตถุดิบ' : `แก้ไข ${editing.name}`}</h2>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="sm:col-span-2">
                 <span className="label">ชื่อ</span>
@@ -205,7 +205,7 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
                 <span className="label">ปรุงสุก cook %</span>
                 <input className="input w-full text-right" type="number" min="0.01" max="400" step="any" required value={form.cook_yield_pct} onChange={f('cook_yield_pct')} />
               </label>
-              <p className="self-end text-xs text-gray-500 sm:col-span-2">
+              <p className="self-end hint sm:col-span-2">
                 ต้นทุนต่อหน่วยที่ใช้ได้ = ราคาซื้อ ÷ (trim × cook) · สูตรใช้สุทธิ 100 {base} ตัดดิบ{' '}
                 {fmtNum((100 * 10000) / ((Number(form.trim_yield_pct) || 100) * (Number(form.cook_yield_pct) || 100)))} {base}
               </p>
@@ -310,7 +310,7 @@ function SuppliersSection({ restaurantId, canWrite, suppliers, reload, notify }:
         <h2 className="section-title mb-0">ผู้ขาย</h2>
         {canWrite && <button className="btn btn-secondary btn-sm" onClick={() => setEdit({ id: null, name: '', phone: '', lead: '1', days: [1, 2, 3, 4, 5, 6] })}>+ ผู้ขาย</button>}
       </div>
-      <ul className="card-flush divide-y text-sm">
+      <ul className="list-card">
         {suppliers.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
             <span className="min-w-40 flex-1 font-medium text-gray-900">{s.name}{s.phone && <span className="ml-2 font-normal text-gray-500">{s.phone}</span>}</span>
@@ -320,7 +320,7 @@ function SuppliersSection({ restaurantId, canWrite, suppliers, reload, notify }:
             )}
           </li>
         ))}
-        {suppliers.length === 0 && <li className="p-6 text-center text-gray-400">ยังไม่มีผู้ขาย</li>}
+        {suppliers.length === 0 && <li className="empty-cell">ยังไม่มีผู้ขาย</li>}
       </ul>
       {edit && (
         <form onSubmit={save} className="card mt-3 grid gap-3 sm:grid-cols-4">
@@ -439,7 +439,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   const data = useLoad(async () => {
     const [i, s, r] = await Promise.all([stockApi.ingredients(restaurantId, true), stockApi.suppliers(restaurantId), stockApi.recipes(restaurantId)])
     return { ingredients: i.ingredients, suppliers: s.suppliers, recipes: r.recipes, menus: r.menus }
-  }, [restaurantId])
+  }, [restaurantId], 'stock.setupBoard')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const notify = (ok: boolean, text: string) => setMsg({ ok, text })
   const reload = () => void data.reload()
@@ -471,9 +471,9 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
           </section>
           <section className="mt-8">
             <h2 className="section-title">เปิด/ปิดเมนูเอง</h2>
-            <ul className="card-flush divide-y text-sm">
+            <ul className="list-card">
               {data.data.menus.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-2 p-3">
+                <li key={m.id} className="row-between p-3">
                   <span className={m.is_available ? '' : 'text-gray-400 line-through'}>{m.name}</span>
                   {m.stock_disabled && <span className="badge badge-red ml-auto">ระบบปิด: ของไม่พอ</span>}
                   <button className={`btn btn-sm ${m.is_available ? 'btn-secondary' : 'bg-gray-200 text-gray-600'}`} onClick={() => void toggleMenu(m.id, !m.is_available)}>

@@ -6,6 +6,8 @@ import { groupPages, pagesFor, roleLabels } from '../lib/roles'
 import type { OrderStatus } from '../lib/types'
 import Icon, { type IconName } from '../components/Icon'
 import { FullPageMessage, Logo } from '../components/RequireRole'
+import { useCachedState } from '../lib/useCachedState'
+import { preloadPages } from './loaders'
 
 const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: 'pos', title: 'รับออเดอร์', text: 'เลือกโต๊ะหรือกลับบ้าน ส่งเข้าครัวทันที' },
@@ -29,7 +31,7 @@ const LIVE: { status: OrderStatus; label: string; to: string; dot: string }[] = 
 ]
 
 function useLiveCounts(restaurantId: string | null, enabled: boolean) {
-  const [counts, setCounts] = useState<Partial<Record<OrderStatus, number>> | null>(null)
+  const [counts, setCounts] = useCachedState<Partial<Record<OrderStatus, number>> | null>(`home.counts:${restaurantId}`, null)
   useEffect(() => {
     if (!restaurantId || !enabled) return
     let cancelled = false
@@ -98,7 +100,7 @@ function Landing() {
             {FEATURES.map((f) => (
               <div key={f.title} className="card flex flex-col gap-2 p-3">
                 <Icon name={f.icon} className="h-5 w-5 text-brand-500" />
-                <span className="text-sm font-semibold text-gray-900">{f.title}</span>
+                <span className="text-sm strong-text">{f.title}</span>
               </div>
             ))}
           </div>
@@ -118,6 +120,11 @@ export default function Home() {
   const seesFront = pages.some((p) => p.path === '/kitchen' || p.path === '/counter')
   const counts = useLiveCounts(staff.restaurantId, seesFront)
   const [now, setNow] = useState(() => new Date())
+  const pathKey = pages.map((p) => p.path).join(',')
+  // โหลดโค้ดหน้าที่เข้าได้ไว้ล่วงหน้า (กดเมนูแล้วขึ้นทันที)
+  useEffect(() => {
+    if (pathKey) preloadPages(pathKey.split(','))
+  }, [pathKey])
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
@@ -213,7 +220,7 @@ export default function Home() {
                         <Icon name={p.icon} className="h-6 w-6" />
                       </span>
                       <span>
-                        <span className="block text-lg font-semibold text-gray-900">{p.title}</span>
+                        <span className="block text-lg strong-text">{p.title}</span>
                         <span className="mt-0.5 block text-sm text-gray-500">{p.label}</span>
                       </span>
                     </Link>
@@ -227,7 +234,7 @@ export default function Home() {
                         <Icon name={p.icon} className="h-5.5 w-5.5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-gray-900">{p.title}</span>
+                        <span className="block strong-text">{p.title}</span>
                         <span className="mt-0.5 block truncate text-sm text-gray-500">{p.label}</span>
                       </span>
                       <span className="text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-brand-500">›</span>

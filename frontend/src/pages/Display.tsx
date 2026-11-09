@@ -189,7 +189,7 @@ function ItemSlide({
   if (layout === 'full' && media) {
     return (
       <div className="absolute inset-0 overflow-hidden bg-black">
-        <Media m={media} className="absolute inset-0 h-full w-full object-cover" onVideoLength={onVideoLength} />
+        <Media m={media} className="absolute inset-0 media-cover" onVideoLength={onVideoLength} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30" />
         {promo && <PromoSticker promo={promo} />}
         <div className="absolute inset-x-0 bottom-0 p-8 pb-14 text-white md:p-14 md:pb-20">
@@ -221,7 +221,7 @@ function ItemSlide({
     >
       <div className="relative h-1/2 overflow-hidden md:h-full md:w-[55%]">
         {media ? (
-          <Media m={media} className="absolute inset-0 h-full w-full object-cover" onVideoLength={onVideoLength} />
+          <Media m={media} className="absolute inset-0 media-cover" onVideoLength={onVideoLength} />
         ) : (
           <div className="mag-poster absolute inset-0 grid place-items-center bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700">
             <span className="mag-drift text-[42vh] leading-none font-extrabold text-white/15 select-none">{item.name.slice(0, 1)}</span>
@@ -261,7 +261,7 @@ function PromoSlide({ promo }: { promo: DisplayPromo }) {
         <img
           src={mediaSrc(pic)}
           alt=""
-          className="mag-kenburns absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-multiply"
+          className="mag-kenburns absolute inset-0 media-cover opacity-25 mix-blend-multiply"
         />
       )}
       <div className="mag-spin absolute -top-1/4 -right-1/4 h-[80vmax] w-[80vmax] rounded-full border-[3vmax] border-white/10" />
@@ -300,7 +300,7 @@ function PromoSlide({ promo }: { promo: DisplayPromo }) {
 function AdSlide({ m, onVideoLength }: { m: DisplayMedia; onVideoLength: (s: number) => void }) {
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
-      <Media m={m} className="absolute inset-0 h-full w-full object-cover" onVideoLength={onVideoLength} />
+      <Media m={m} className="absolute inset-0 media-cover" onVideoLength={onVideoLength} />
       {(m.title || m.caption) && (
         <>
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
@@ -339,7 +339,7 @@ function CoverSlide({ content, now, tagline }: { content: DisplayContent; now: D
             key={p.id}
             src={mediaSrc(p)}
             alt=""
-            className="mag-kenburns h-full w-full object-cover"
+            className="mag-kenburns media-cover"
             style={{ animationDelay: `${i * 300}ms` }}
           />
         ))}

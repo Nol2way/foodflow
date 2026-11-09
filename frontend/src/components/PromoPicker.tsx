@@ -79,8 +79,8 @@ export default function PromoPicker({
 
   return (
     <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-gray-900">โปรโมชัน</span>
+      <div className="mb-2 row-between">
+        <span className="text-sm strong-text">โปรโมชัน</span>
         {isAuto ? (
           <span className="badge badge-green">เลือกให้อัตโนมัติ</span>
         ) : (
@@ -113,7 +113,7 @@ export default function PromoPicker({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-gray-900">{p.name}</span>
-                  <span className="block text-xs text-gray-500">{why ?? describePromotion(p)}</span>
+                  <span className="block hint">{why ?? describePromotion(p)}</span>
                 </span>
                 {on && <span className="font-semibold tabular-nums text-emerald-700">−{baht(discounts.byPromo[p.id] ?? 0)}</span>}
               </button>

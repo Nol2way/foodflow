@@ -6,8 +6,12 @@ import { useOrders } from '../lib/useOrders'
 import RequireRole from '../components/RequireRole'
 import PromoPicker, { usePromoSelection, usePromotions } from '../components/PromoPicker'
 import Icon from '../components/Icon'
+import TaxShiftBar from '../components/TaxShiftBar'
+import { useCurrentShift } from '../components/ShiftModal'
+import { useTaxSetup } from '../lib/tax'
 import { promotionError } from '../lib/promotions'
 import type { CartLine, MenuCategory, MenuItem, OrderStatus, OrderType } from '../lib/types'
+import { useCachedState } from '../lib/useCachedState'
 
 // หน้ารับออเดอร์ของพนักงาน: เลือกโต๊ะ/กลับบ้าน → เลือกเมนู → ส่งเข้าครัว
 // ราคาและเมนูที่หมดตรวจซ้ำในฐานข้อมูล (staff_place_order) เสมอ
@@ -30,9 +34,9 @@ const STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
 }
 
 function Board({ restaurantId }: { restaurantId: string }) {
-  const [categories, setCategories] = useState<MenuCategory[]>([])
-  const [items, setItems] = useState<MenuItem[]>([])
-  const [tables, setTables] = useState<DiningTable[]>([])
+  const [categories, setCategories] = useCachedState<MenuCategory[]>(`menu.categories:${restaurantId}`, [])
+  const [items, setItems] = useCachedState<MenuItem[]>(`pos.items:${restaurantId}`, [])
+  const [tables, setTables] = useCachedState<DiningTable[]>(`menu.tables:${restaurantId}`, [])
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [orderType, setOrderType] = useState<OrderType>('dine_in')
@@ -49,6 +53,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
 
   const { orders } = useOrders(restaurantId, OPEN)
   const promotions = usePromotions(restaurantId)
+  const tax = useTaxSetup(restaurantId)
+  const current = useCurrentShift(restaurantId)
 
   const loadMenu = useCallback(async () => {
     const [c, m, t] = await Promise.all([
@@ -183,7 +189,10 @@ function Board({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="page grid max-w-7xl gap-5 lg:grid-cols-[1fr_380px]">
       <div>
-        <h1 className="page-title mb-4">รับออเดอร์</h1>
+        <div className="mb-4 toolbar justify-between">
+          <h1 className="page-title">รับออเดอร์</h1>
+          <TaxShiftBar restaurantId={restaurantId} setup={tax} current={current} />
+        </div>
         {loadError && <p className="alert-error">{loadError}</p>}
 
         {/* 1) ทานที่ร้าน / กลับบ้าน */}
@@ -228,7 +237,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
         )}
 
         {/* 2) เมนู */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-3 toolbar">
           <input
             className="input min-w-48 flex-1"
             placeholder="ค้นหาเมนู"
@@ -257,7 +266,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
               >
                 <div className="pr-6 font-medium leading-snug">{item.name}</div>
                 <div className={`mt-1 text-sm ${item.is_available ? 'font-semibold text-brand-600' : ''}`}>{item.is_available ? `${baht(item.price)}${item.sold_by_weight ? '/กก.' : ''}` : 'หมด'}</div>
-                {item.sold_by_weight && item.is_available && <div className="text-xs text-gray-500">ชั่งน้ำหนัก</div>}
+                {item.sold_by_weight && item.is_available && <div className="hint">ชั่งน้ำหนัก</div>}
                 {qty > 0 && (
                   <span className="absolute right-2 top-2 grid h-6 min-w-6 place-items-center rounded-full bg-brand-500 px-1.5 text-xs font-bold text-white shadow-sm">{qty}</span>
                 )}
@@ -271,7 +280,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       {/* 3) ตะกร้า + ส่งเข้าครัว */}
       <aside className="card h-fit p-5 lg:sticky lg:top-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">{target ?? 'เลือกโต๊ะก่อน'}</h2>
+          <h2 className="text-lg strong-text">{target ?? 'เลือกโต๊ะก่อน'}</h2>
           {count > 0 && <span className="badge badge-brand">{count} รายการ</span>}
         </div>
         {lines.length === 0 ? (
@@ -280,11 +289,11 @@ function Board({ restaurantId }: { restaurantId: string }) {
           <ul className="divide-y text-sm">
             {entries.map(([key, l]) => (
               <li key={key} className="py-2">
-                <div className="flex items-center justify-between gap-2">
+                <div className="row-between">
                   <span className="flex-1 font-medium">
                     {l.item.name}
                     {l.weight_g && (
-                      <span className="block text-xs font-normal text-gray-500">
+                      <span className="block hint font-normal">
                         {kg(l.weight_g)} × {baht(l.item.price)}/กก.
                       </span>
                     )}
@@ -298,7 +307,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                       <button className="grid h-8 w-8 place-items-center rounded-full border bg-white text-gray-600 hover:bg-gray-50" onClick={() => change(l.item, 1)} aria-label="เพิ่ม">+</button>
                     </>
                   )}
-                  <span className="w-16 text-right tabular-nums">{baht(lineAmount(l))}</span>
+                  <span className="w-16 num">{baht(lineAmount(l))}</span>
                 </div>
                 <input
                   className="input mt-1.5 w-full py-1.5 text-xs"
@@ -353,7 +362,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
 
         {tableOrders.length > 0 && (
           <div className="mt-5 border-t pt-4 text-sm">
-            <h3 className="mb-2 font-semibold text-gray-900">ออเดอร์ของโต๊ะนี้ที่ยังไม่ชำระ</h3>
+            <h3 className="mb-2 strong-text">ออเดอร์ของโต๊ะนี้ที่ยังไม่ชำระ</h3>
             <ul className="space-y-1">
               {tableOrders.map((o) => (
                 <li key={o.id} className="flex justify-between text-gray-600">
@@ -371,7 +380,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       </aside>
 
       {weighing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-gray-900/40 p-4" onClick={() => setWeighing(null)}>
+        <div className="overlay" onClick={() => setWeighing(null)}>
           <form
             className="card w-full max-w-sm space-y-4 p-5"
             onClick={(e) => e.stopPropagation()}
@@ -381,13 +390,13 @@ function Board({ restaurantId }: { restaurantId: string }) {
             }}
           >
             <div>
-              <h2 className="text-lg font-bold text-gray-900">{weighing.name}</h2>
+              <h2 className="title-lg">{weighing.name}</h2>
               <p className="text-sm text-gray-500">ราคา {baht(weighing.price)} ต่อ กก. · ชั่งแล้วกรอกน้ำหนักจริง</p>
             </div>
             <label className="block">
               <span className="label">น้ำหนัก (กก.)</span>
               <input
-                className="input w-full py-3 text-right text-2xl font-semibold tabular-nums"
+                className="input w-full py-3 num text-2xl font-semibold"
                 type="number"
                 inputMode="decimal"
                 min="0.001"

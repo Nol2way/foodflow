@@ -45,6 +45,10 @@
       "description": "บัญชีคู่ (double-entry) ลงอัตโนมัติจากบิล สต็อก และรายจ่าย · เดบิต = เครดิต ทุกรายการ · ลงแล้วแก้ไม่ได้ ใช้กลับรายการ\nแสดงผล 3 โหมดจากข้อมูลชุดเดียวกัน (ง่าย / มาตรฐาน / มืออาชีพ)\n**ไม่ใช่เครื่องมือยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ**"
     },
     {
+      "name": "ภาษีกรมสรรพากร",
+      "description": "เอกสารภาษี ABB (ใบกำกับภาษีอย่างย่อ) · TAX (ใบเสร็จรับเงิน/ใบกำกับภาษี) · CN (ใบลดหนี้) · รายงานภาษีรายเดือน · กะแคชเชียร์\nสร้างฉบับร่าง → ยืนยันเอง: ออกเลขที่ต่อเนื่องไม่ขาดช่วง (ประเภท-เครื่อง-YYYYMM-NNNNNN) + สร้าง XML ETDA ขมธอ.3-2560 v2.0 (TypeCode TAX=T03 · ABB=T05 · CN=81) เก็บไว้ดาวน์โหลด\nVAT แยกจากยอดรวม: ROUND((ยอดรวม - ยกเว้น) x 7 / 107, 2) · ไม่มีการเรียก API ภายนอก\n**ไม่ใช่การยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ และตรวจ XML กับ XSD ก่อนใช้งานจริง**"
+    },
+    {
       "name": "สต็อกวัตถุดิบ",
       "description": "ยอดคงเหลือ = ผลรวมของ ledger (stock_movements) แก้ตรงไม่ได้ · ledger เพิ่มได้อย่างเดียว ผิดให้กลับรายการ\nสต็อกมี 3 แหล่ง: **นำเข้า** · **ตัดตามสูตร** (อัตโนมัติเมื่อครัวกดเริ่มทำ คืนเมื่อยกเลิก) · **นับสุดท้าย** (ไม่มีการบันทึกของเสียแยก)\nหยิบของแบบ **FEFO** คิดต้นทุนแบบ **FIFO** ตามล็อต · หน่วยฐานทุกตัวเลข: g / ml / pcs\nActual vs Theoretical: ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร · ส่วนต่าง = นับจริง − ยอดที่ควรเหลือ\nข้อผิดพลาดจากกฎสต็อกตอบ `{ error: \"<code>\", message: \"<ไทย>\" }` เช่น `insufficient_stock` (409), `lot_already_used` (409)"
     }
@@ -3199,6 +3203,48 @@
                   "receipt_url": {
                     "type": "string",
                     "description": "path รูปใบเสร็จใน bucket expense-receipts (<restaurant_id>/...)"
+                  },
+                  "supplier_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "supplier_tax_id": {
+                    "type": "string",
+                    "pattern": "^[0-9]{13}$",
+                    "description": "ขึ้นต้น 0 = นิติบุคคล (ภ.ง.ด.53) · อื่น = บุคคลธรรมดา (ภ.ง.ด.3)"
+                  },
+                  "supplier_branch_code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{5}$",
+                    "default": "00000"
+                  },
+                  "tax_invoice_no": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "description": "เลขที่ใบกำกับภาษีซื้อ (ต้องมี tax_invoice_date + ผู้ขาย) → เข้ารายงานภาษีซื้อ"
+                  },
+                  "tax_invoice_date": {
+                    "type": "string",
+                    "format": "date",
+                    "examples": [
+                      "2026-10-26"
+                    ]
+                  },
+                  "wht_rate": {
+                    "enum": [
+                      1,
+                      2,
+                      3,
+                      5
+                    ],
+                    "description": "หัก ณ ที่จ่าย % ของยอดก่อน VAT (ต้องมีผู้ขาย) → ลงบัญชีภาษีหัก ณ ที่จ่ายค้างจ่าย"
+                  },
+                  "wht_type": {
+                    "enum": [
+                      "pnd3",
+                      "pnd53"
+                    ],
+                    "description": "แบบยื่น (ไม่ส่ง = เลือกจากเลขผู้เสียภาษี) · ต้องตรงประเภทผู้ขาย: ขึ้นต้น 0 = ภ.ง.ด.53"
                   }
                 }
               }
@@ -4277,6 +4323,1430 @@
           },
           "403": {
             "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/reports/sales-tax": {
+      "get": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "รายงานภาษีขาย (ประกอบ ภ.พ.30)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี\n\nเฉพาะเอกสารที่ยืนยันแล้ว ตามวันที่ออก · ABB รวม 1 บรรทัดต่อวันต่อเครื่อง (ช่วงเลขที่) · ใบลดหนี้ติดลบ · ใบเต็มรูปที่แปลงจาก ABB แสดงอ้างอิงยอด 0 (ไม่นับซ้ำ)",
+        "operationId": "taxSalesReport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+              "examples": [
+                "2026-11"
+              ]
+            },
+            "description": "เดือนภาษี YYYY-MM"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            },
+            "description": "csv = UTF-8 BOM พร้อมหัวรายงานผู้ประกอบการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการ + ยอดรวม",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "object"
+                    },
+                    "seller": {
+                      "$ref": "#/components/schemas/TaxSeller"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "taxable": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "exempt": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "vat": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "total": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/reports/purchase-tax": {
+      "get": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "รายงานภาษีซื้อ",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี\n\nรายจ่ายที่มีใบกำกับภาษีซื้อและยังไม่ยกเลิก ตามวันที่ลงบัญชี (spent_on) · without_invoice = รายจ่ายที่มี VAT แต่ไม่มีใบกำกับ (นำมาหักไม่ได้)",
+        "operationId": "taxPurchaseReport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+              "examples": [
+                "2026-11"
+              ]
+            },
+            "description": "เดือนภาษี YYYY-MM"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            },
+            "description": "csv = UTF-8 BOM พร้อมหัวรายงานผู้ประกอบการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการ + ยอดรวม",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string"
+                    },
+                    "seller": {
+                      "$ref": "#/components/schemas/TaxSeller"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "value": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "vat": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "total": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    },
+                    "without_invoice": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer"
+                        },
+                        "vat": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/reports/pp30-summary": {
+      "get": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "สรุป ภ.พ.30 (ภาษีขาย - ภาษีซื้อ)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "taxPp30Summary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+              "examples": [
+                "2026-11"
+              ]
+            },
+            "description": "เดือนภาษี YYYY-MM"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            },
+            "description": "csv = UTF-8 BOM พร้อมหัวรายงานผู้ประกอบการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "vat_payable > 0 = ต้องชำระ · vat_credit > 0 = ชำระเกิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string"
+                    },
+                    "seller": {
+                      "$ref": "#/components/schemas/TaxSeller"
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "sales_total": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "sales_exempt_or_zero": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "sales_taxable": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "output_vat": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "purchases_eligible": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "input_vat": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "net_vat": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "vat_payable": {
+                          "type": "number",
+                          "description": "บาท"
+                        },
+                        "vat_credit": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    },
+                    "counts": {
+                      "type": "object"
+                    },
+                    "purchases_without_invoice": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/reports/wht": {
+      "get": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "สรุปภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี",
+        "operationId": "taxWhtReport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+              "examples": [
+                "2026-11"
+              ]
+            },
+            "description": "เดือนภาษี YYYY-MM"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            },
+            "description": "csv = UTF-8 BOM พร้อมหัวรายงานผู้ประกอบการ"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pnd3",
+                "pnd53"
+              ]
+            },
+            "description": "ไม่ใส่ = ทั้งสองแบบ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "รายการ + สรุปต่อแบบ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "pnd3",
+                        "pnd53",
+                        "all"
+                      ]
+                    },
+                    "seller": {
+                      "$ref": "#/components/schemas/TaxSeller"
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "pnd3": {
+                          "type": "object"
+                        },
+                        "pnd53": {
+                          "type": "object"
+                        },
+                        "total_wht": {
+                          "type": "number",
+                          "description": "บาท"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/documents": {
+      "get": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "รายการเอกสารภาษี",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี พนักงาน (ใบลดหนี้: ไม่รวมพนักงาน)",
+        "operationId": "taxDocuments",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "doc_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "ABB",
+                "TAX",
+                "CN"
+              ]
+            },
+            "description": "ประเภท"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "draft",
+                "confirmed",
+                "voided"
+              ]
+            },
+            "description": "สถานะ"
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "เฉพาะออเดอร์นี้"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่ออกตั้งแต่"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "examples": [
+                "2026-10-26"
+              ]
+            },
+            "description": "วันที่ออกถึง"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ล่าสุดก่อน สูงสุด 1,000 (ไม่รวม XML)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "documents": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TaxDocument"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "สร้างเอกสารภาษี (ฉบับร่าง หรือยืนยันทันที)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี พนักงาน (ใบลดหนี้: ไม่รวมพนักงาน)\n\nABB/TAX: จากออเดอร์ที่ชำระแล้ว (ยอดรวม VAT) · TAX + ref_document_id = แปลงจาก ABB · CN: ต้องมี ref_document_id + amount + credit_note_reason\n\nconfirm=true + terminal_code = ยืนยันทันที ถ้ายืนยันไม่ผ่านจะคืน document_id ของฉบับร่าง",
+        "operationId": "taxCreateDocument",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "doc_type"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "doc_type": {
+                    "enum": [
+                      "ABB",
+                      "TAX",
+                      "CN"
+                    ]
+                  },
+                  "order_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "ref_document_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "buyer_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "buyer_tax_id": {
+                    "type": "string",
+                    "pattern": "^[0-9]{13}$"
+                  },
+                  "buyer_branch_code": {
+                    "type": "string",
+                    "pattern": "^[0-9]{5}$"
+                  },
+                  "buyer_address": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "exempt_amount": {
+                    "type": "number",
+                    "description": "ยอดที่ได้รับยกเว้น VAT (ABB/TAX จากออเดอร์)",
+                    "default": 0
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "CN: ยอดลดหนี้รวม VAT (รวมทุกใบไม่เกินยอดเอกสารต้นทาง)"
+                  },
+                  "credit_note_reason": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "confirm": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "terminal_code": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9]{1,10}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "สร้างแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document": {
+                      "$ref": "#/components/schemas/TaxDocument"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "มีเอกสารแล้ว (document_exists, tax_invoice_exists) / ยอดลดหนี้เกิน / ยืนยันไม่ผ่าน (มี document_id)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/documents/{id}/confirm": {
+      "post": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "ยืนยันฉบับร่าง: ออกเลขที่ไม่ขาดช่วง + สร้าง XML ETDA",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี พนักงาน (ใบลดหนี้: ไม่รวมพนักงาน)\n\nnext_tax_doc_no ออกเลขในธุรกรรมเดียวกับการบันทึก (rollback = เลขไม่ถูกใช้) · เก็บสำเนาข้อมูลผู้ขายและเครื่อง · หลังยืนยันแก้/ลบไม่ได้ (ยกเลิกด้วยใบลดหนี้) · ABB ต้องใช้เครื่องที่มีเลขอนุมัติ POS",
+        "operationId": "taxConfirmDocument",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "เอกสารฉบับร่าง"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "terminal_code"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "terminal_code": {
+                    "type": "string",
+                    "examples": [
+                      "POS01"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ยืนยันแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document": {
+                      "$ref": "#/components/schemas/TaxDocument"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบเอกสาร",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ไม่ใช่ฉบับร่าง (not_draft) / ยอดออเดอร์เปลี่ยน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/documents/{id}/xml": {
+      "get": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "ดาวน์โหลด XML (ETDA ขมธอ.3-2560)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงานบัญชี พนักงาน (ใบลดหนี้: ไม่รวมพนักงาน)",
+        "operationId": "taxDocumentXml",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "เอกสารที่ยืนยันแล้ว"
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ไฟล์ <doc_number>.xml (attachment)",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบเอกสาร",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ยังไม่ยืนยัน (not_confirmed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shifts/open": {
+      "post": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "เปิดกะ (เงินทอนตั้งต้น)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงาน (พนักงานเฉพาะกะของตัวเอง)\n\nผู้ใช้ 1 คน / เครื่อง 1 เครื่อง เปิดได้ 1 กะ · บิลที่ชำระระหว่างกะผูกกับกะของผู้รับเงินอัตโนมัติ",
+        "operationId": "shiftOpen",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "starting_cash"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "starting_cash": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "terminal_code": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "เปิดกะแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "shift": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "มีกะเปิดอยู่แล้ว (shift_already_open)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shifts/cash-movement": {
+      "post": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "เงินเข้า/ออกลิ้นชัก (ต้องมีเหตุผล)",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงาน (พนักงานเฉพาะกะของตัวเอง)",
+        "operationId": "shiftCashMovement",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "shift_id",
+                  "type",
+                  "amount",
+                  "reason"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "shift_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "type": {
+                    "enum": [
+                      "cash_in",
+                      "cash_out"
+                    ]
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "บันทึกแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "log": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบกะ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "กะปิดแล้ว / เงินไม่พอ (insufficient_cash)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shifts/close": {
+      "post": {
+        "tags": [
+          "ภาษีกรมสรรพากร"
+        ],
+        "summary": "ปิดกะ: นับเงินสด + Z-Report",
+        "description": "สิทธิ์: เจ้าของ ผู้จัดการ พนักงาน (พนักงานเฉพาะกะของตัวเอง)\n\nที่ควรมี = เงินทอนตั้งต้น + ขายเงินสด + เงินเข้า - เงินออก · ส่วนต่าง = นับจริง - ที่ควรมี · ปิดแล้วแก้ไม่ได้",
+        "operationId": "shiftClose",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "shift_id",
+                  "actual_cash"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "shift_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "actual_cash": {
+                    "type": "number",
+                    "description": "บาท"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ปิดกะแล้ว",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "shift": {
+                      "type": "object"
+                    },
+                    "z_report": {
+                      "$ref": "#/components/schemas/ZReport"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่ได้ล็อกอิน",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ไม่พบกะ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "กะปิดแล้ว (shift_closed)",
             "content": {
               "application/json": {
                 "schema": {
@@ -6789,6 +8259,258 @@
       }
     },
     "schemas": {
+      "TaxDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "order_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ref_document_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "doc_type": {
+            "enum": [
+              "ABB",
+              "TAX",
+              "CN"
+            ]
+          },
+          "doc_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "ABB-POS01-202611-000001"
+            ]
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "confirmed",
+              "voided"
+            ]
+          },
+          "terminal_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pos_reg_no": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buyer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buyer_tax_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buyer_branch_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vat_rate": {
+            "type": "number"
+          },
+          "taxable_amount": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "exempt_amount": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "vat_amount": {
+            "type": "number",
+            "description": "ROUND((total - exempt) x rate / (100 + rate), 2)"
+          },
+          "total_amount": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "credit_note_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issue_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "created_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "confirmed_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirmed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_xml": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaxSeller": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "company_name": {
+            "type": "string"
+          },
+          "tax_id": {
+            "type": "string"
+          },
+          "branch_code": {
+            "type": "string"
+          },
+          "registered_address": {
+            "type": "string"
+          }
+        }
+      },
+      "ZReport": {
+        "type": "object",
+        "properties": {
+          "shift_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cashier": {
+            "type": "string"
+          },
+          "closed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "opened_at": {
+            "type": "string"
+          },
+          "closed_at": {
+            "type": "string"
+          },
+          "starting_cash": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_sales": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_in": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cash_out": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "expected_cash": {
+            "type": "number",
+            "description": "เงินทอนตั้งต้น + ขายเงินสด + เงินเข้า - เงินออก"
+          },
+          "actual_cash": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "variance_cash": {
+            "type": "number",
+            "description": "นับจริง - ที่ควรมี"
+          },
+          "cash_status": {
+            "enum": [
+              "balanced",
+              "over",
+              "short"
+            ]
+          },
+          "sales_by_method": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "method": {
+                  "type": "string"
+                },
+                "bills": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "number",
+                  "description": "บาท"
+                }
+              }
+            }
+          },
+          "total_bills": {
+            "type": "integer"
+          },
+          "total_sales": {
+            "type": "number",
+            "description": "บาท"
+          },
+          "cancelled_after_paid": {
+            "type": "integer"
+          },
+          "tax_documents": {
+            "type": "object",
+            "description": "ช่วงเลขที่ต่อประเภท (abb/tax/cn: count, first, last) + vat_total, gross_total"
+          },
+          "drawer_logs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "AcctSummary": {
         "type": "object",
         "description": "ยอดดิบของช่วงวันที่จากสมุดรายวัน (acct_summary_data)",

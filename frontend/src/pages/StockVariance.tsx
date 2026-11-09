@@ -16,9 +16,9 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtNum(Math.
 
 function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] }) {
   const [params, setParams] = useSearchParams()
-  const counts = useLoad(() => stockApi.counts(restaurantId), [restaurantId])
+  const counts = useLoad(() => stockApi.counts(restaurantId), [restaurantId], 'stock.counts.list')
   const countId = params.get('count') ?? counts.data?.counts[0]?.id ?? null
-  const report = useLoad(async () => (countId ? stockApi.variance(restaurantId, countId) : { lines: [] as VarianceLine[] }), [restaurantId, countId])
+  const report = useLoad(async () => (countId ? stockApi.variance(restaurantId, countId) : { lines: [] as VarianceLine[] }), [restaurantId, countId], 'stock.variance')
   const [kitchenUnits, setKitchenUnits] = useState(false)
   const [only, setOnly] = useState<VarianceColor | 'alert' | null>(null)
 
@@ -62,7 +62,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <div className="stat">
               <div className="stat-label">ส่วนต่างสุทธิ</div>
               <div className={`stat-value ${net < 0 ? 'text-red-600' : ''}`}>{baht(net)}</div>
-              <div className="mt-1 text-xs text-gray-500">ของหายรวม {baht(loss)}</div>
+              <div className="mt-1 hint">ของหายรวม {baht(loss)}</div>
             </div>
             <div className="stat">
               <div className="stat-label">ปกติ (&lt; 2%)</div>
@@ -75,7 +75,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <div className="stat">
               <div className="stat-label">ผิดปกติ (&gt; 5%)</div>
               <div className="stat-value text-red-600">{sum('red')}</div>
-              {head && !head.verified_at && <div className="mt-1 text-xs text-gray-500">ใบนี้ยังรอผู้ตรวจรับรอง</div>}
+              {head && !head.verified_at && <div className="mt-1 hint">ใบนี้ยังรอผู้ตรวจรับรอง</div>}
             </div>
           </div>
 
@@ -92,7 +92,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <button className={chip(only === 'alert')} onClick={() => setOnly('alert')}>สูตร/yield อาจไม่ตรง</button>
           </div>
 
-          <div className="card-flush overflow-x-auto">
+          <div className="table-wrap">
             <table className="w-full min-w-[920px] text-sm">
               <thead>
                 <tr className="text-right">
@@ -110,11 +110,11 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               </thead>
               <tbody className="divide-y">
                 {shown.map((l) => (
-                  <tr key={l.ingredient_id} className="text-right tabular-nums align-top">
+                  <tr key={l.ingredient_id} className="num align-top">
                     <td className="px-3 py-2 text-left">
                       <span className="font-medium text-gray-900">{l.ingredient_name}</span>
                       {l.abc_class && <span className="badge badge-gray ml-1.5">{l.abc_class}</span>}
-                      {l.note && <div className="text-xs text-gray-500">เหตุผล: {l.note}</div>}
+                      {l.note && <div className="hint">เหตุผล: {l.note}</div>}
                       {l.entered_text && <div className="text-xs text-gray-400">กรอก {l.entered_text}</div>}
                     </td>
                     <td className="px-3 py-2 text-gray-600">{q(l, l.opening_qty)}</td>
@@ -134,12 +134,12 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                   </tr>
                 ))}
                 {shown.length === 0 && !report.loading && (
-                  <tr><td colSpan={10} className="p-6 text-center text-gray-400">ไม่มีรายการ</td></tr>
+                  <tr><td colSpan={10} className="empty-cell">ไม่มีรายการ</td></tr>
                 )}
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 hint">
             ติดลบ = ของหายไม่ทราบสาเหตุ (ตักเกินสูตร ของเสียที่ไม่ได้บันทึก ชั่งรับไม่ตรง) · มูลค่าคิดจากต้นทุน FIFO ณ ตอนนับ
           </p>
         </>

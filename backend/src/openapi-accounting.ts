@@ -20,8 +20,8 @@ const errors = (extra: Record<string, string> = {}) => ({
 })
 const ok = (description: string, schema: object, status = '200') => ({ [status]: { description, content: json(schema) } })
 const body = (schema: object) => ({ required: true, content: json(schema) })
-const op = (summary: string, who: string, operationId: string, rest: object) => ({
-  tags: ['บัญชี'],
+const op = (summary: string, who: string, operationId: string, rest: object, tag = 'บัญชี') => ({
+  tags: [tag],
   summary,
   description: `สิทธิ์: ${who}`,
   operationId,
@@ -41,7 +41,61 @@ export const accountingTag = {
   ].join('\n'),
 }
 
+export const taxTag = {
+  name: 'ภาษีกรมสรรพากร',
+  description: [
+    'เอกสารภาษี ABB (ใบกำกับภาษีอย่างย่อ) · TAX (ใบเสร็จรับเงิน/ใบกำกับภาษี) · CN (ใบลดหนี้) · รายงานภาษีรายเดือน · กะแคชเชียร์',
+    'สร้างฉบับร่าง → ยืนยันเอง: ออกเลขที่ต่อเนื่องไม่ขาดช่วง (ประเภท-เครื่อง-YYYYMM-NNNNNN) + สร้าง XML ETDA ขมธอ.3-2560 v2.0 (TypeCode TAX=T03 · ABB=T05 · CN=81) เก็บไว้ดาวน์โหลด',
+    'VAT แยกจากยอดรวม: ROUND((ยอดรวม - ยกเว้น) x 7 / 107, 2) · ไม่มีการเรียก API ภายนอก',
+    '**ไม่ใช่การยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ และตรวจ XML กับ XSD ก่อนใช้งานจริง**',
+  ].join('\n'),
+}
+
+const TAX_ISSUE = 'เจ้าของ ผู้จัดการ พนักงานบัญชี พนักงาน (ใบลดหนี้: ไม่รวมพนักงาน)'
+const SHIFT_WHO = 'เจ้าของ ผู้จัดการ พนักงาน (พนักงานเฉพาะกะของตัวเอง)'
+const month = q('month', { type: 'string', pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$', examples: ['2026-11'] }, 'เดือนภาษี YYYY-MM')
+const reportFormat = q('format', { enum: ['json', 'csv'], default: 'json' }, 'csv = UTF-8 BOM พร้อมหัวรายงานผู้ประกอบการ', false)
+const reportResponses = (description: string, schema: object) => ({
+  '200': { description, content: { ...json(schema), 'text/csv': { schema: { type: 'string' } } } },
+  ...errors(),
+})
+
 export const accountingSchemas = {
+  TaxDocument: {
+    type: 'object',
+    properties: {
+      id: uuid, order_id: uuid, ref_document_id: { type: ['string', 'null'], format: 'uuid' },
+      doc_type: { enum: ['ABB', 'TAX', 'CN'] },
+      doc_number: { type: ['string', 'null'], examples: ['ABB-POS01-202611-000001'] },
+      status: { enum: ['draft', 'confirmed', 'voided'] },
+      terminal_code: { type: ['string', 'null'] }, pos_reg_no: { type: ['string', 'null'] },
+      buyer_name: { type: ['string', 'null'] }, buyer_tax_id: { type: ['string', 'null'] }, buyer_branch_code: { type: ['string', 'null'] },
+      vat_rate: { type: 'number' }, taxable_amount: money, exempt_amount: money,
+      vat_amount: { ...money, description: 'ROUND((total - exempt) x rate / (100 + rate), 2)' }, total_amount: money,
+      credit_note_reason: { type: ['string', 'null'] }, issue_date: { type: ['string', 'null'], format: 'date' },
+      created_by_name: { type: ['string', 'null'] }, created_at: { type: 'string' },
+      confirmed_by_name: { type: ['string', 'null'] }, confirmed_at: { type: ['string', 'null'] },
+      has_xml: { type: 'boolean' },
+    },
+  },
+  TaxSeller: {
+    type: ['object', 'null'],
+    properties: { company_name: { type: 'string' }, tax_id: { type: 'string' }, branch_code: { type: 'string' }, registered_address: { type: 'string' } },
+  },
+  ZReport: {
+    type: 'object',
+    properties: {
+      shift_id: uuid, cashier: { type: 'string' }, closed_by: { type: ['string', 'null'] }, opened_at: { type: 'string' }, closed_at: { type: 'string' },
+      starting_cash: money, cash_sales: money, cash_in: money, cash_out: money,
+      expected_cash: { ...money, description: 'เงินทอนตั้งต้น + ขายเงินสด + เงินเข้า - เงินออก' },
+      actual_cash: money, variance_cash: { ...money, description: 'นับจริง - ที่ควรมี' }, cash_status: { enum: ['balanced', 'over', 'short'] },
+      sales_by_method: { type: 'array', items: { type: 'object', properties: { method: { type: 'string' }, bills: { type: 'integer' }, total: money } } },
+      total_bills: { type: 'integer' }, total_sales: money, cancelled_after_paid: { type: 'integer' },
+      tax_documents: { type: 'object', description: 'ช่วงเลขที่ต่อประเภท (abb/tax/cn: count, first, last) + vat_total, gross_total' },
+      drawer_logs: { type: 'array', items: { type: 'object' } },
+      note: { type: ['string', 'null'] },
+    },
+  },
   AcctSummary: {
     type: 'object',
     description: 'ยอดดิบของช่วงวันที่จากสมุดรายวัน (acct_summary_data)',
@@ -243,6 +297,13 @@ export const accountingPaths = {
           spent_on: date,
           note: { type: 'string' },
           receipt_url: { type: 'string', description: 'path รูปใบเสร็จใน bucket expense-receipts (<restaurant_id>/...)' },
+          supplier_name: { type: 'string', maxLength: 200 },
+          supplier_tax_id: { type: 'string', pattern: '^[0-9]{13}$', description: 'ขึ้นต้น 0 = นิติบุคคล (ภ.ง.ด.53) · อื่น = บุคคลธรรมดา (ภ.ง.ด.3)' },
+          supplier_branch_code: { type: 'string', pattern: '^[0-9]{5}$', default: '00000' },
+          tax_invoice_no: { type: 'string', maxLength: 50, description: 'เลขที่ใบกำกับภาษีซื้อ (ต้องมี tax_invoice_date + ผู้ขาย) → เข้ารายงานภาษีซื้อ' },
+          tax_invoice_date: date,
+          wht_rate: { enum: [1, 2, 3, 5], description: 'หัก ณ ที่จ่าย % ของยอดก่อน VAT (ต้องมีผู้ขาย) → ลงบัญชีภาษีหัก ณ ที่จ่ายค้างจ่าย' },
+          wht_type: { enum: ['pnd3', 'pnd53'], description: 'แบบยื่น (ไม่ส่ง = เลือกจากเลขผู้เสียภาษี) · ต้องตรงประเภทผู้ขาย: ขึ้นต้น 0 = ภ.ง.ด.53' },
         },
       }),
       responses: { ...ok('บันทึกแล้ว', { type: 'object' }, '201'), ...errors({ '409': 'วันนั้นปิดวันแล้ว (day_closed)' }) },
@@ -336,5 +397,152 @@ export const accountingPaths = {
         ...errors(),
       },
     }),
+  },
+
+  // ===== รายงานภาษีรายเดือน =====
+  '/api/accounting/reports/sales-tax': {
+    get: op('รายงานภาษีขาย (ประกอบ ภ.พ.30)', READ, 'taxSalesReport', {
+      description: `สิทธิ์: ${READ}\n\nเฉพาะเอกสารที่ยืนยันแล้ว ตามวันที่ออก · ABB รวม 1 บรรทัดต่อวันต่อเครื่อง (ช่วงเลขที่) · ใบลดหนี้ติดลบ · ใบเต็มรูปที่แปลงจาก ABB แสดงอ้างอิงยอด 0 (ไม่นับซ้ำ)`,
+      parameters: [restaurant, month, reportFormat],
+      responses: reportResponses('รายการ + ยอดรวม', {
+        type: 'object',
+        properties: {
+          month: { type: 'string' }, period: { type: 'object' }, seller: { $ref: '#/components/schemas/TaxSeller' },
+          rows: { type: 'array', items: { type: 'object' } },
+          totals: { type: 'object', properties: { taxable: money, exempt: money, vat: money, total: money } },
+        },
+      }),
+    }, taxTag.name),
+  },
+  '/api/accounting/reports/purchase-tax': {
+    get: op('รายงานภาษีซื้อ', READ, 'taxPurchaseReport', {
+      description: `สิทธิ์: ${READ}\n\nรายจ่ายที่มีใบกำกับภาษีซื้อและยังไม่ยกเลิก ตามวันที่ลงบัญชี (spent_on) · without_invoice = รายจ่ายที่มี VAT แต่ไม่มีใบกำกับ (นำมาหักไม่ได้)`,
+      parameters: [restaurant, month, reportFormat],
+      responses: reportResponses('รายการ + ยอดรวม', {
+        type: 'object',
+        properties: {
+          month: { type: 'string' }, seller: { $ref: '#/components/schemas/TaxSeller' },
+          rows: { type: 'array', items: { type: 'object' } },
+          totals: { type: 'object', properties: { value: money, vat: money, total: money } },
+          without_invoice: { type: 'object', properties: { count: { type: 'integer' }, vat: money } },
+        },
+      }),
+    }, taxTag.name),
+  },
+  '/api/accounting/reports/pp30-summary': {
+    get: op('สรุป ภ.พ.30 (ภาษีขาย - ภาษีซื้อ)', READ, 'taxPp30Summary', {
+      parameters: [restaurant, month, reportFormat],
+      responses: reportResponses('vat_payable > 0 = ต้องชำระ · vat_credit > 0 = ชำระเกิน', {
+        type: 'object',
+        properties: {
+          month: { type: 'string' }, seller: { $ref: '#/components/schemas/TaxSeller' },
+          summary: {
+            type: 'object',
+            properties: {
+              sales_total: money, sales_exempt_or_zero: money, sales_taxable: money, output_vat: money,
+              purchases_eligible: money, input_vat: money, net_vat: money, vat_payable: money, vat_credit: money,
+            },
+          },
+          counts: { type: 'object' }, purchases_without_invoice: { type: 'object' },
+        },
+      }),
+    }, taxTag.name),
+  },
+  '/api/accounting/reports/wht': {
+    get: op('สรุปภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53)', READ, 'taxWhtReport', {
+      parameters: [restaurant, month, reportFormat, q('type', { enum: ['pnd3', 'pnd53'] }, 'ไม่ใส่ = ทั้งสองแบบ', false)],
+      responses: reportResponses('รายการ + สรุปต่อแบบ', {
+        type: 'object',
+        properties: {
+          month: { type: 'string' }, type: { enum: ['pnd3', 'pnd53', 'all'] }, seller: { $ref: '#/components/schemas/TaxSeller' },
+          rows: { type: 'array', items: { type: 'object' } },
+          summary: { type: 'object', properties: { pnd3: { type: 'object' }, pnd53: { type: 'object' }, total_wht: money } },
+        },
+      }),
+    }, taxTag.name),
+  },
+
+  // ===== เอกสารภาษี =====
+  '/api/tax/documents': {
+    get: op('รายการเอกสารภาษี', TAX_ISSUE, 'taxDocuments', {
+      parameters: [
+        restaurant,
+        q('doc_type', { enum: ['ABB', 'TAX', 'CN'] }, 'ประเภท', false),
+        q('status', { enum: ['draft', 'confirmed', 'voided'] }, 'สถานะ', false),
+        q('order_id', uuid, 'เฉพาะออเดอร์นี้', false),
+        q('from', date, 'วันที่ออกตั้งแต่', false),
+        q('to', date, 'วันที่ออกถึง', false),
+      ],
+      responses: { ...ok('ล่าสุดก่อน สูงสุด 1,000 (ไม่รวม XML)', { type: 'object', properties: { documents: { type: 'array', items: { $ref: '#/components/schemas/TaxDocument' } } } }), ...errors() },
+    }, taxTag.name),
+    post: op('สร้างเอกสารภาษี (ฉบับร่าง หรือยืนยันทันที)', TAX_ISSUE, 'taxCreateDocument', {
+      description: `สิทธิ์: ${TAX_ISSUE}\n\nABB/TAX: จากออเดอร์ที่ชำระแล้ว (ยอดรวม VAT) · TAX + ref_document_id = แปลงจาก ABB · CN: ต้องมี ref_document_id + amount + credit_note_reason\n\nconfirm=true + terminal_code = ยืนยันทันที ถ้ายืนยันไม่ผ่านจะคืน document_id ของฉบับร่าง`,
+      requestBody: body({
+        type: 'object',
+        required: ['restaurant_id', 'doc_type'],
+        properties: {
+          restaurant_id: uuid, doc_type: { enum: ['ABB', 'TAX', 'CN'] }, order_id: uuid, ref_document_id: uuid,
+          buyer_name: { type: 'string', maxLength: 200 }, buyer_tax_id: { type: 'string', pattern: '^[0-9]{13}$' },
+          buyer_branch_code: { type: 'string', pattern: '^[0-9]{5}$' }, buyer_address: { type: 'string', maxLength: 500 },
+          exempt_amount: { ...money, default: 0, description: 'ยอดที่ได้รับยกเว้น VAT (ABB/TAX จากออเดอร์)' },
+          amount: { ...money, description: 'CN: ยอดลดหนี้รวม VAT (รวมทุกใบไม่เกินยอดเอกสารต้นทาง)' },
+          credit_note_reason: { type: 'string', maxLength: 300 },
+          confirm: { type: 'boolean', default: false }, terminal_code: { type: 'string', pattern: '^[A-Za-z0-9]{1,10}$' },
+        },
+      }),
+      responses: {
+        ...ok('สร้างแล้ว', { type: 'object', properties: { document: { $ref: '#/components/schemas/TaxDocument' } } }, '201'),
+        ...errors({ '409': 'มีเอกสารแล้ว (document_exists, tax_invoice_exists) / ยอดลดหนี้เกิน / ยืนยันไม่ผ่าน (มี document_id)' }),
+      },
+    }, taxTag.name),
+  },
+  '/api/tax/documents/{id}/confirm': {
+    post: op('ยืนยันฉบับร่าง: ออกเลขที่ไม่ขาดช่วง + สร้าง XML ETDA', TAX_ISSUE, 'taxConfirmDocument', {
+      description: `สิทธิ์: ${TAX_ISSUE}\n\nnext_tax_doc_no ออกเลขในธุรกรรมเดียวกับการบันทึก (rollback = เลขไม่ถูกใช้) · เก็บสำเนาข้อมูลผู้ขายและเครื่อง · หลังยืนยันแก้/ลบไม่ได้ (ยกเลิกด้วยใบลดหนี้) · ABB ต้องใช้เครื่องที่มีเลขอนุมัติ POS`,
+      parameters: [path('id', 'เอกสารฉบับร่าง')],
+      requestBody: body({ type: 'object', required: ['restaurant_id', 'terminal_code'], properties: { restaurant_id: uuid, terminal_code: { type: 'string', examples: ['POS01'] } } }),
+      responses: {
+        ...ok('ยืนยันแล้ว', { type: 'object', properties: { document: { $ref: '#/components/schemas/TaxDocument' } } }),
+        ...errors({ '404': 'ไม่พบเอกสาร', '409': 'ไม่ใช่ฉบับร่าง (not_draft) / ยอดออเดอร์เปลี่ยน' }),
+      },
+    }, taxTag.name),
+  },
+  '/api/tax/documents/{id}/xml': {
+    get: op('ดาวน์โหลด XML (ETDA ขมธอ.3-2560)', TAX_ISSUE, 'taxDocumentXml', {
+      parameters: [path('id', 'เอกสารที่ยืนยันแล้ว'), restaurant],
+      responses: {
+        '200': { description: 'ไฟล์ <doc_number>.xml (attachment)', content: { 'application/xml': { schema: { type: 'string' } } } },
+        ...errors({ '404': 'ไม่พบเอกสาร', '409': 'ยังไม่ยืนยัน (not_confirmed)' }),
+      },
+    }, taxTag.name),
+  },
+
+  // ===== กะแคชเชียร์ =====
+  '/api/shifts/open': {
+    post: op('เปิดกะ (เงินทอนตั้งต้น)', SHIFT_WHO, 'shiftOpen', {
+      description: `สิทธิ์: ${SHIFT_WHO}\n\nผู้ใช้ 1 คน / เครื่อง 1 เครื่อง เปิดได้ 1 กะ · บิลที่ชำระระหว่างกะผูกกับกะของผู้รับเงินอัตโนมัติ`,
+      requestBody: body({ type: 'object', required: ['restaurant_id', 'starting_cash'], properties: { restaurant_id: uuid, starting_cash: money, terminal_code: { type: 'string' } } }),
+      responses: { ...ok('เปิดกะแล้ว', { type: 'object', properties: { shift: { type: 'object' } } }, '201'), ...errors({ '409': 'มีกะเปิดอยู่แล้ว (shift_already_open)' }) },
+    }, taxTag.name),
+  },
+  '/api/shifts/cash-movement': {
+    post: op('เงินเข้า/ออกลิ้นชัก (ต้องมีเหตุผล)', SHIFT_WHO, 'shiftCashMovement', {
+      requestBody: body({
+        type: 'object',
+        required: ['restaurant_id', 'shift_id', 'type', 'amount', 'reason'],
+        properties: { restaurant_id: uuid, shift_id: uuid, type: { enum: ['cash_in', 'cash_out'] }, amount: money, reason: { type: 'string', maxLength: 300 } },
+      }),
+      responses: { ...ok('บันทึกแล้ว', { type: 'object', properties: { log: { type: 'object' } } }, '201'), ...errors({ '404': 'ไม่พบกะ', '409': 'กะปิดแล้ว / เงินไม่พอ (insufficient_cash)' }) },
+    }, taxTag.name),
+  },
+  '/api/shifts/close': {
+    post: op('ปิดกะ: นับเงินสด + Z-Report', SHIFT_WHO, 'shiftClose', {
+      description: `สิทธิ์: ${SHIFT_WHO}\n\nที่ควรมี = เงินทอนตั้งต้น + ขายเงินสด + เงินเข้า - เงินออก · ส่วนต่าง = นับจริง - ที่ควรมี · ปิดแล้วแก้ไม่ได้`,
+      requestBody: body({ type: 'object', required: ['restaurant_id', 'shift_id', 'actual_cash'], properties: { restaurant_id: uuid, shift_id: uuid, actual_cash: money, note: { type: 'string', maxLength: 300 } } }),
+      responses: {
+        ...ok('ปิดกะแล้ว', { type: 'object', properties: { shift: { type: 'object' }, z_report: { $ref: '#/components/schemas/ZReport' } } }),
+        ...errors({ '404': 'ไม่พบกะ', '409': 'กะปิดแล้ว (shift_closed)' }),
+      },
+    }, taxTag.name),
   },
 }

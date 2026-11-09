@@ -30,11 +30,11 @@ function AllStock({ items, outIds, lowIds }: { items: StockIngredient[]; outIds:
       {groups.length === 0 ? <Empty>{items.length ? 'ไม่พบวัตถุดิบที่ค้นหา' : 'ยังไม่มีวัตถุดิบ'}</Empty> : (
         <div className="space-y-4">
           {groups.map(([loc, list]) => (
-            <div key={loc} className="card-flush overflow-x-auto">
-              <div className="border-b bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-900">📍 {loc}</div>
+            <div key={loc} className="table-wrap">
+              <div className="border-b bg-gray-50 px-4 py-2 text-sm strong-text">📍 {loc}</div>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-right text-xs text-gray-500">
+                  <tr className="text-right hint">
                     <th className="px-4 py-1.5 text-left font-medium">วัตถุดิบ</th>
                     <th className="px-2 py-1.5 font-medium">คงเหลือ</th>
                     <th className="px-2 py-1.5 font-medium">จุดสั่ง</th>
@@ -45,7 +45,7 @@ function AllStock({ items, outIds, lowIds }: { items: StockIngredient[]; outIds:
                   {list.map((i) => {
                     const qty = Number(i.quantity_on_hand)
                     return (
-                      <tr key={i.id} className="text-right tabular-nums">
+                      <tr key={i.id} className="num">
                         <td className="px-4 py-2 text-left">
                           {i.name} <span className="badge badge-gray">{i.abc_class}</span>
                           {outIds.has(i.id) && <span className="badge badge-red ml-1">หมด</span>}
@@ -53,7 +53,7 @@ function AllStock({ items, outIds, lowIds }: { items: StockIngredient[]; outIds:
                         </td>
                         <td className="px-2 py-2 text-gray-900">
                           {displayQty(qty, i.unit, i.display_unit, Number(i.display_factor))}
-                          {i.display_unit && Number(i.display_factor) !== 1 && <span className="block text-xs text-gray-500">{fmtNum(qty)} {i.unit}</span>}
+                          {i.display_unit && Number(i.display_factor) !== 1 && <span className="block hint">{fmtNum(qty)} {i.unit}</span>}
                         </td>
                         <td className="px-2 py-2 text-gray-600">{fmtNum(Number(i.reorder_level))} {i.unit}</td>
                         <td className="px-4 py-2 text-gray-600">{baht(qty * Number(i.cost_per_unit))}</td>
@@ -72,8 +72,8 @@ function AllStock({ items, outIds, lowIds }: { items: StockIngredient[]; outIds:
 
 // ภาพรวมสต็อก: ใกล้หมด · หมด · ใกล้หมดอายุ · มูลค่าสต็อก · แนะนำสั่งวันนี้ (stock_overview ใน 0029) · สต็อกทั้งหมด
 function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] }) {
-  const { data: o, error, loading } = useLoad(() => stockApi.overview(restaurantId), [restaurantId])
-  const all = useLoad(() => stockApi.ingredients(restaurantId), [restaurantId])
+  const { data: o, error, loading } = useLoad(() => stockApi.overview(restaurantId), [restaurantId], 'stock.overview')
+  const all = useLoad(() => stockApi.ingredients(restaurantId), [restaurantId], 'stock.ingredients')
   const canWrite = roles.some((r) => ['owner', 'manager', 'stock'].includes(r))
 
   const bySupplier = new Map<string, NonNullable<typeof o>['reorder_today']>()
@@ -103,7 +103,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <div className="stat">
               <div className="stat-label">มูลค่าสต็อก (FIFO)</div>
               <div className="stat-value">{baht(Number(o.stock_value))}</div>
-              <div className="mt-1 text-xs text-gray-500">{o.ingredient_count} วัตถุดิบ</div>
+              <div className="mt-1 hint">{o.ingredient_count} วัตถุดิบ</div>
             </div>
             <div className="stat">
               <div className="stat-label">หมด</div>
@@ -136,7 +136,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
           <section className="mt-6">
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <h2 className="section-title mb-0">แนะนำสั่งวันนี้</h2>
-              <span className="text-xs text-gray-500">par = ใช้ต่อวัน × (lead time + รอบสั่ง) + safety stock</span>
+              <span className="hint">par = ใช้ต่อวัน × (lead time + รอบสั่ง) + safety stock</span>
             </div>
             {bySupplier.size === 0 ? (
               <Empty>ไม่มีรายการที่ต้องสั่งวันนี้</Empty>
@@ -144,13 +144,13 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               <div className="grid gap-3 lg:grid-cols-2">
                 {[...bySupplier].map(([sup, rows]) => (
                   <div key={sup} className="card-flush">
-                    <div className="border-b bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-900">
+                    <div className="border-b bg-gray-50 px-4 py-2 text-sm strong-text">
                       {sup}
                       {rows[0].next_delivery && <span className="ml-2 font-normal text-gray-500">ของถึง {shortDate(rows[0].next_delivery)}</span>}
                     </div>
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-right text-xs text-gray-500">
+                        <tr className="text-right hint">
                           <th className="px-4 py-1.5 text-left font-medium">วัตถุดิบ</th>
                           <th className="px-2 py-1.5 font-medium">คงเหลือ</th>
                           <th className="px-2 py-1.5 font-medium">par</th>
@@ -159,11 +159,11 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                       </thead>
                       <tbody className="divide-y">
                         {rows.map((r) => (
-                          <tr key={r.ingredient_id} className="text-right tabular-nums">
+                          <tr key={r.ingredient_id} className="num">
                             <td className="px-4 py-2 text-left">{r.name}</td>
                             <td className="px-2 py-2 text-gray-600">{fmtNum(r.on_hand)} {r.unit}</td>
                             <td className="px-2 py-2 text-gray-600">{fmtNum(r.par)}{r.par_source === 'manual' && <span className="text-xs text-gray-400"> (ตั้งเอง)</span>}</td>
-                            <td className="px-4 py-2 font-semibold text-gray-900">{fmtNum(r.suggested_purchase_qty, 0)} {r.purchase_unit}</td>
+                            <td className="px-4 py-2 strong-text">{fmtNum(r.suggested_purchase_qty, 0)} {r.purchase_unit}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -178,7 +178,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <section>
               <h2 className="section-title">หมด</h2>
               {o.out.length === 0 ? <Empty>ไม่มีวัตถุดิบที่หมด</Empty> : (
-                <ul className="card-flush divide-y text-sm">
+                <ul className="list-card">
                   {o.out.map((x) => (
                     <li key={x.id} className="flex items-center justify-between px-4 py-2.5">
                       {x.name}
@@ -191,13 +191,13 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <section>
               <h2 className="section-title">ใกล้หมด</h2>
               {o.low.length === 0 ? <Empty>ไม่มีวัตถุดิบใกล้หมด</Empty> : (
-                <ul className="card-flush divide-y text-sm">
+                <ul className="list-card">
                   {o.low.map((x) => (
-                    <li key={x.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                    <li key={x.id} className="row-between px-4 py-2.5">
                       <span>{x.name}</span>
-                      <span className="text-right tabular-nums text-amber-800">
+                      <span className="num text-amber-800">
                         {displayQty(Number(x.on_hand), x.unit, x.display_unit, Number(x.display_factor))}
-                        <span className="block text-xs text-gray-500">จุดสั่ง {fmtNum(Number(x.threshold))} {x.unit}</span>
+                        <span className="block hint">จุดสั่ง {fmtNum(Number(x.threshold))} {x.unit}</span>
                       </span>
                     </li>
                   ))}
@@ -207,12 +207,12 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <section>
               <h2 className="section-title">ใกล้หมดอายุ</h2>
               {o.expiring.length === 0 ? <Empty>ไม่มีล็อตที่หมดอายุใน 3 วัน</Empty> : (
-                <ul className="card-flush divide-y text-sm">
+                <ul className="list-card">
                   {o.expiring.map((x) => (
-                    <li key={x.lot_id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                    <li key={x.lot_id} className="row-between px-4 py-2.5">
                       <span>
                         {x.name}
-                        <span className="block text-xs text-gray-500">{fmtNum(Number(x.qty))} {x.unit} · {baht(Number(x.value))}</span>
+                        <span className="block hint">{fmtNum(Number(x.qty))} {x.unit} · {baht(Number(x.value))}</span>
                       </span>
                       <span className={`badge ${x.days_left <= 0 ? 'badge-red' : 'badge-amber'}`}>
                         {x.days_left < 0 ? `หมดอายุแล้ว ${-x.days_left} วัน` : x.days_left === 0 ? 'หมดอายุวันนี้' : `อีก ${x.days_left} วัน`}
@@ -221,7 +221,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-xs text-gray-500">ระบบหยิบล็อตที่หมดอายุก่อนออกก่อน (FEFO) ให้อัตโนมัติ</p>
+              <p className="mt-2 hint">ระบบหยิบล็อตที่หมดอายุก่อนออกก่อน (FEFO) ให้อัตโนมัติ</p>
             </section>
           </div>
 

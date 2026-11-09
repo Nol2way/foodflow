@@ -161,7 +161,7 @@ export default function PosterEditor({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="สร้างโปสเตอร์">
       <div className="mx-auto max-w-6xl rounded-2xl bg-white p-4 shadow-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-gray-900">{target.media ? 'แก้โปสเตอร์' : 'สร้างโปสเตอร์จากเทมเพลต'}</h2>
+          <h2 className="title-lg">{target.media ? 'แก้โปสเตอร์' : 'สร้างโปสเตอร์จากเทมเพลต'}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>
             ปิด
           </button>
@@ -183,8 +183,8 @@ export default function PosterEditor({
                   onClick={() => chooseTemplate(t)}
                   className={`rounded-xl border p-2 text-left transition ${spec.template === t ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/20' : 'hover:bg-gray-50'}`}
                 >
-                  <span className="block text-sm font-semibold text-gray-900">{POSTER_TEMPLATES[t].label}</span>
-                  <span className="block text-xs text-gray-500">{POSTER_TEMPLATES[t].hint}</span>
+                  <span className="block text-sm strong-text">{POSTER_TEMPLATES[t].label}</span>
+                  <span className="block hint">{POSTER_TEMPLATES[t].hint}</span>
                 </button>
               ))}
             </div>
@@ -252,7 +252,7 @@ export default function PosterEditor({
                     onClick={() => set({ image: p.src })}
                     className={`h-12 w-16 overflow-hidden rounded-lg border ${spec.image === p.src ? 'ring-2 ring-brand-500' : ''}`}
                   >
-                    <img src={p.src} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    <img src={p.src} alt="" loading="lazy" className="media-cover" />
                   </button>
                 ))}
                 <label className={`grid h-12 w-16 place-items-center rounded-lg border border-dashed text-xs text-gray-500 ${busy ? 'opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}>
@@ -270,7 +270,7 @@ export default function PosterEditor({
                   />
                 </label>
               </div>
-              {imgError && <p className="mt-1 text-xs text-red-600">โหลดรูปนี้มาวาดไม่ได้ (เว็บต้นทางไม่อนุญาต) ให้อัปโหลดรูปเองแทน</p>}
+              {imgError && <p className="mt-1 field-error">โหลดรูปนี้มาวาดไม่ได้ (เว็บต้นทางไม่อนุญาต) ให้อัปโหลดรูปเองแทน</p>}
             </div>
             {error && <p className="alert-error">{error}</p>}
             <div className="flex gap-2 pt-1">

@@ -157,7 +157,7 @@ export default function AcctDayClose({
               <div>
                 <div className="stat-label">เงินสดตามระบบ</div>
                 <div className="stat-value">{baht(day.system_cash)}</div>
-                <div className="text-xs text-gray-500">ยอดยกมา + ขายเงินสด − จ่ายเงินสด</div>
+                <div className="hint">ยอดยกมา + ขายเงินสด − จ่ายเงินสด</div>
               </div>
               {day.closed && day.close ? (
                 <>
@@ -168,7 +168,7 @@ export default function AcctDayClose({
                   <div>
                     <div className="stat-label">ส่วนต่าง</div>
                     <div className={`stat-value ${Number(day.close.difference) < 0 ? 'text-red-600' : ''}`}>{baht(Number(day.close.difference))}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="hint">
                       ยืนยันโดย {day.close.confirmed_by_name ?? '-'} · {new Date(day.close.created_at).toLocaleString('th-TH')}
                     </div>
                   </div>
@@ -200,7 +200,7 @@ export default function AcctDayClose({
                 </button>
               </div>
             )}
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 hint">
               ปิดวันแล้วจะล็อกรายการของวันนั้น บันทึกเพิ่มไม่ได้ (บิลที่จ่ายหลังปิดวันเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ · ส่วนต่างลงบัญชีเงินสดขาด/เกิน
             </p>
           </div>
@@ -208,10 +208,10 @@ export default function AcctDayClose({
       )}
 
       <Section title={`บิลที่จ่ายแล้ว (${bills.length})`}>
-        <ul className="card-flush divide-y text-sm">
+        <ul className="list-card">
           {bills.map((b) => (
             <li key={b.id} className={`p-3 ${b.reversed ? 'text-gray-400' : ''}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="toolbar justify-between">
                 <span>
                   #{b.entry_no} · {b.memo}
                   {b.reversed && <span className="badge badge-red ml-2">ยกเลิกแล้ว</span>}
@@ -245,15 +245,15 @@ export default function AcctDayClose({
               )}
             </li>
           ))}
-          {bills.length === 0 && <li className="p-6 text-center text-gray-400">ยังไม่มีบิลที่จ่ายแล้วในวันนี้</li>}
+          {bills.length === 0 && <li className="empty-cell">ยังไม่มีบิลที่จ่ายแล้วในวันนี้</li>}
         </ul>
-        {isOwner && <p className="mt-2 text-xs text-gray-500">ยกเลิกบิลหลังจ่ายได้เฉพาะเจ้าของร้าน ต้องใส่เหตุผล ระบบกลับรายการรายได้และย้ายต้นทุนเป็นส่วนต่างสต็อก</p>}
+        {isOwner && <p className="mt-2 hint">ยกเลิกบิลหลังจ่ายได้เฉพาะเจ้าของร้าน ต้องใส่เหตุผล ระบบกลับรายการรายได้และย้ายต้นทุนเป็นส่วนต่างสต็อก</p>}
       </Section>
 
       {history.length > 0 && (
         <Section title="ประวัติปิดวัน">
-          <div className="card-flush overflow-x-auto">
-            <table className="w-full text-sm [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2">
+          <div className="table-wrap">
+            <table className="tbl">
               <thead>
                 <tr>
                   <th className="text-left">วันที่</th>
@@ -267,8 +267,8 @@ export default function AcctDayClose({
                 {history.map((h) => (
                   <tr key={h.close_date} className="border-t">
                     <td>{h.close_date}</td>
-                    <td className="text-right tabular-nums">{baht(h.system_cash)}</td>
-                    <td className="text-right tabular-nums">{baht(h.counted_cash)}</td>
+                    <td className="num">{baht(h.system_cash)}</td>
+                    <td className="num">{baht(h.counted_cash)}</td>
                     <td className={`text-right tabular-nums ${h.difference < 0 ? 'text-red-600' : ''}`}>{baht(h.difference)}</td>
                     <td>{h.confirmed_by_name ?? '-'}</td>
                   </tr>

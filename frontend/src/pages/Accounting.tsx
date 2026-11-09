@@ -10,6 +10,7 @@ import AcctDayClose from '../components/accounting/AcctDayClose'
 import AcctReports from '../components/accounting/AcctReports'
 import AcctSettings from '../components/accounting/AcctSettings'
 import { Disclaimer } from '../components/accounting/ui'
+import { useCachedState } from '../lib/useCachedState'
 
 // บัญชี (0026): บัญชีคู่ลงอัตโนมัติข้างหลัง แสดงผลได้ 3 โหมดจากข้อมูลชุดเดียวกัน
 // เจ้าของ: ทุกอย่าง · ผู้จัดการ: ดูได้ + ปิดวัน · พนักงานบัญชี: รายจ่าย รายงาน ส่งออก (ฐานข้อมูลบังคับซ้ำ)
@@ -110,7 +111,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   const canClose = isOwner || myRoles.includes('manager')
   const [params, setParams] = useSearchParams()
   const tab = (TABS.find((t) => t.key === params.get('tab'))?.key ?? 'dashboard') as Tab
-  const [dash, setDash] = useState<Dashboard | null>(null)
+  const [dash, setDash] = useCachedState<Dashboard | null>(`acct.dashboard:${restaurantId}`, null)
   const [error, setError] = useState<string | null>(null)
   const [mode, setModeState] = useState<AccountingMode | null>(readMode)
 
@@ -184,7 +185,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
 
       {dash && tab === 'dashboard' && <AcctDashboard restaurantId={restaurantId} dash={dash} mode={current} />}
       {dash && tab === 'expenses' && (
-        <AcctExpenses restaurantId={restaurantId} today={dash.today} canWrite={canWrite} vatRegistered={dash.settings.vat_registered} onChanged={() => void load()} />
+        <AcctExpenses restaurantId={restaurantId} today={dash.today} canWrite={canWrite} vatRegistered={dash.settings.vat_registered} vatRate={dash.settings.vat_rate} onChanged={() => void load()} />
       )}
       {dash && tab === 'close' && <AcctDayClose restaurantId={restaurantId} today={dash.today} canClose={canClose} isOwner={isOwner} onChanged={() => void load()} />}
       {dash && tab === 'reports' && <AcctReports restaurantId={restaurantId} today={dash.today} mode={current} />}

@@ -33,7 +33,7 @@ export function PageHead({ title, subtitle, action }: { title: string; subtitle?
         <h1 className="page-title">{title}</h1>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-      {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
+      {action && <div className="toolbar">{action}</div>}
     </div>
   )
 }

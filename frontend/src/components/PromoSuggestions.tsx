@@ -111,10 +111,10 @@ export default function PromoSuggestions({
           {list.map((s) => (
             <li key={s.key} className="flex flex-col rounded-xl border p-3">
               <div className="flex items-start justify-between gap-2">
-                <span className="font-semibold text-gray-900">{s.title}</span>
+                <span className="strong-text">{s.title}</span>
                 <span className={`badge shrink-0 ${s.source === 'ai' ? 'badge-brand' : 'badge-gray'}`}>{s.source === 'ai' ? 'AI' : 'กติกา'}</span>
               </div>
-              <p className="mt-1 text-xs text-gray-500">{detail(s)}</p>
+              <p className="mt-1 hint">{detail(s)}</p>
               {s.reason && <p className="mt-2 flex-1 text-sm text-gray-700">{s.reason}</p>}
               <button
                 className="btn btn-secondary btn-sm mt-3 self-start"

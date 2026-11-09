@@ -3,6 +3,7 @@
   "private": true,
   "description": "Plato: frontend / backend / database / docs",
   "scripts": {
+    "share": "node scripts/share.mjs",
     "install:all": "npm --prefix frontend install && npm --prefix backend install",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix backend run dev",
@@ -12,6 +13,7 @@
     "test:backend": "npm --prefix backend test",
     "test:database": "python3 database/tests/test_rls.py && python3 database/tests/test_accounting.py && python3 database/tests/test_stock.py",
     "openapi": "npm --prefix backend run openapi",
-    "test:e2e": "npm --prefix frontend run test:e2e"
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "deploy": "npm --prefix frontend run build && backend/node_modules/.bin/wrangler deploy"
   }
 }

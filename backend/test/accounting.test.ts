@@ -2,7 +2,7 @@
 import { beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from '../src/app.ts'
-import { pickSettings } from '../src/accounting.ts'
+import { WHT_TYPES, pickSettings, whtTypeFor } from '../src/accounting.ts'
 import { signJwt } from '../src/jwt.ts'
 import type { Env } from '../src/env.ts'
 
@@ -265,4 +265,158 @@ test('pickSettings: กรองเฉพาะช่องตั้งค่า
   assert.deepEqual(pickSettings({ accounting_mode: 'simple', line_to: 'x', vat_rate: 7 }), { accounting_mode: 'simple', vat_rate: 7 })
   assert.equal(pickSettings({ vat_registered: 'yes' }), null)
   assert.equal(pickSettings({ food_cost_target_max: 150 }), null)
+})
+
+// ===== ภาษี: ภาษีซื้อ / หัก ณ ที่จ่าย (ภ.ง.ด.3/53) / เอกสารภาษี / รายงาน กรมสรรพากร (หน้า AcctExpenses / AcctReports) =====
+const COMPANY_TAX_ID = '0105551234567' // นิติบุคคล → ภ.ง.ด.53
+const PERSON_TAX_ID = '1101700203450' // บุคคลธรรมดา → ภ.ง.ด.3
+const EXPENSE = { restaurant_id: RID, account_id: ORDER, amount: 1070, vat_amount: 70, payment_method: 'bank', spent_on: '2026-11-05' }
+
+test('whtTypeFor / WHT_TYPES: ขึ้นต้น 0 = ภ.ง.ด.53 · อื่นๆ = ภ.ง.ด.3', () => {
+  assert.equal(whtTypeFor(COMPANY_TAX_ID), 'pnd53')
+  assert.equal(whtTypeFor(PERSON_TAX_ID), 'pnd3')
+  assert.deepEqual([...WHT_TYPES], ['pnd3', 'pnd53'])
+})
+
+test('POST /accounting/expenses: ใบกำกับภาษีซื้อ + หัก ณ ที่จ่าย ภ.ง.ด.53 ส่งครบทุกช่อง', async () => {
+  on('/rest/v1/expenses', () => json([{ id: 'e1' }], 201), 'POST')
+  const r = await req('/api/accounting/expenses', {
+    as: 'owner',
+    body: {
+      ...EXPENSE,
+      supplier_name: ' บจก. ซัพพลาย ',
+      supplier_tax_id: COMPANY_TAX_ID,
+      supplier_branch_code: '00001',
+      tax_invoice_no: 'IV-2026-001',
+      tax_invoice_date: '2026-11-04',
+      wht_rate: 3,
+      wht_type: 'pnd53',
+    },
+  })
+  assert.equal(r.status, 201)
+  const sent = callsTo('/rest/v1/expenses')[0].body as Record<string, unknown>
+  assert.deepEqual(
+    [sent.supplier_name, sent.supplier_tax_id, sent.supplier_branch_code, sent.tax_invoice_no, sent.tax_invoice_date, sent.wht_rate, sent.wht_type, sent.vat_amount],
+    ['บจก. ซัพพลาย', COMPANY_TAX_ID, '00001', 'IV-2026-001', '2026-11-04', 3, 'pnd53', 70],
+  )
+  // ยอดหัก ณ ที่จ่ายให้ฐานข้อมูลคิด (expenses_tax_fields) ไม่รับจาก client
+  assert.equal('wht_amount' in sent, false)
+})
+
+test('POST /accounting/expenses: ภ.ง.ด.3 กับบุคคลธรรมดา · ไม่ส่งแบบ = ให้ฐานข้อมูลเลือก', async () => {
+  on('/rest/v1/expenses', () => json([{ id: 'e2' }], 201), 'POST')
+  const person = { ...EXPENSE, vat_amount: 0, amount: 5000, supplier_name: 'นายช่าง', supplier_tax_id: PERSON_TAX_ID, wht_rate: 3 }
+  assert.equal((await req('/api/accounting/expenses', { as: 'accountant', body: { ...person, wht_type: 'pnd3' } })).status, 201)
+  assert.equal((callsTo('/rest/v1/expenses')[0].body as Record<string, unknown>).wht_type, 'pnd3')
+  assert.equal((await req('/api/accounting/expenses', { as: 'accountant', body: person })).status, 201)
+  assert.equal('wht_type' in (callsTo('/rest/v1/expenses')[1].body as Record<string, unknown>), false)
+})
+
+test('POST /accounting/expenses: แบบ ภ.ง.ด. ไม่ตรงประเภทผู้ขาย / ไม่มีอัตรา / ค่าแปลก -> 400 ไม่เรียกฐานข้อมูล', async () => {
+  const company = { ...EXPENSE, supplier_name: 'บจก. ก', supplier_tax_id: COMPANY_TAX_ID }
+  const cases: [Record<string, unknown>, string][] = [
+    [{ ...company, wht_rate: 3, wht_type: 'pnd3' }, 'wht_type_mismatch'],
+    [{ ...company, supplier_tax_id: PERSON_TAX_ID, wht_rate: 3, wht_type: 'pnd53' }, 'wht_type_mismatch'],
+    [{ ...company, wht_type: 'pnd53' }, 'invalid_wht_type'],
+    [{ ...company, wht_rate: 3, wht_type: 'pnd1' }, 'invalid_wht_type'],
+    [{ ...EXPENSE, wht_rate: 3 }, 'invalid_wht'],
+    [{ ...company, wht_rate: 7 }, 'invalid_wht'],
+    [{ ...company, tax_invoice_no: 'IV-1' }, 'invalid_tax_invoice'],
+    [{ ...company, supplier_tax_id: '12345' }, 'invalid_supplier_tax_id'],
+    [{ ...company, supplier_branch_code: '1' }, 'invalid_supplier_branch_code'],
+  ]
+  for (const [b, code] of cases) {
+    const r = await req('/api/accounting/expenses', { as: 'owner', body: b })
+    assert.equal(r.status, 400, code)
+    assert.equal((await body(r)).error, code)
+  }
+  assert.equal(callsTo('/rest/v1/expenses').length, 0)
+})
+
+test('POST /accounting/expenses: ใบกำกับภาษีซื้อซ้ำ (unique index) ส่งต่อข้อผิดพลาดฐานข้อมูล', async () => {
+  on('/rest/v1/expenses', () => json({ code: '23505', message: 'duplicate key value violates unique constraint "expenses_tax_invoice_key"' }, 409), 'POST')
+  const r = await req('/api/accounting/expenses', {
+    as: 'owner',
+    body: { ...EXPENSE, supplier_name: 'บจก. ก', supplier_tax_id: COMPANY_TAX_ID, tax_invoice_no: 'IV-1', tax_invoice_date: '2026-11-04' },
+  })
+  assert.ok(r.status >= 400)
+})
+
+test('GET /accounting/expenses: อ่านช่องผู้ขาย ใบกำกับ และหัก ณ ที่จ่าย · ครัว 403', async () => {
+  on('/rest/v1/expenses', () => json([{ id: 'e1', wht_type: 'pnd53', wht_amount: '30.00' }]))
+  const r = await req(`/api/accounting/expenses?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'manager' })
+  assert.equal(r.status, 200)
+  const url = decodeURIComponent(callsTo('/rest/v1/expenses')[0].url)
+  for (const col of ['supplier_name', 'supplier_tax_id', 'supplier_branch_code', 'tax_invoice_no', 'tax_invoice_date', 'wht_rate', 'wht_amount', 'wht_type']) {
+    assert.ok(url.includes(col), col)
+  }
+  assert.equal((await body(r)).expenses[0].wht_type, 'pnd53')
+  assert.equal((await req(`/api/accounting/expenses?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'kitchen' })).status, 403)
+})
+
+test('GET /tax/documents: แท็บเอกสารภาษีดึงร่างทั้งหมด + เอกสารตามวันที่ออก · สถานะผิด 400', async () => {
+  on('/rest/v1/tax_documents', () => json([{ id: 'd1', doc_type: 'TAX', status: 'draft', total_amount: '1070.00' }]))
+  const drafts = await req(`/api/tax/documents?restaurant_id=${RID}&status=draft`, { as: 'accountant' })
+  assert.equal(drafts.status, 200)
+  assert.match(callsTo('/rest/v1/tax_documents')[0].url, /status=eq\.draft/)
+  assert.equal((await body(drafts)).documents[0].status, 'draft')
+  await req(`/api/tax/documents?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'owner' })
+  assert.match(callsTo('/rest/v1/tax_documents')[1].url, /issue_date=gte\.2026-11-01&issue_date=lte\.2026-11-30/)
+  // รายการไม่ส่ง xml_payload (ดาวน์โหลดแยกที่ /xml)
+  assert.doesNotMatch(callsTo('/rest/v1/tax_documents')[1].url, /xml_payload/)
+  assert.equal((await req(`/api/tax/documents?restaurant_id=${RID}&status=archived`, { as: 'owner' })).status, 400)
+  assert.equal((await req(`/api/tax/documents?restaurant_id=${RID}&from=2026-13-01`, { as: 'owner' })).status, 400)
+})
+
+test('POST /tax/documents/:id/confirm + GET xml: ยืนยันร่างด้วยเครื่อง POS แล้วดาวน์โหลด XML ETDA', async () => {
+  const DOC = '88888888-8888-4888-8888-888888888888'
+  on('/rest/v1/tax_documents?select=id&', () => json([{ id: DOC }]))
+  on('/rpc/tax_doc_confirm', () => json({ id: DOC, status: 'confirmed', doc_number: 'TAX-POS01-202611-000001', xml_payload: '<x/>' }))
+  const r = await req(`/api/tax/documents/${DOC}/confirm`, { as: 'manager', body: { restaurant_id: RID, terminal_code: 'pos01' } })
+  assert.equal(r.status, 200)
+  const b = await body(r)
+  assert.equal(b.document.doc_number, 'TAX-POS01-202611-000001')
+  assert.equal(b.document.has_xml, true)
+  assert.equal('xml_payload' in b.document, false)
+  assert.deepEqual(callsTo('/rpc/tax_doc_confirm')[0].body, { p_document_id: DOC, p_terminal_code: 'POS01' })
+  assert.equal((await req(`/api/tax/documents/${DOC}/confirm`, { as: 'owner', body: { restaurant_id: RID } })).status, 400)
+
+  on('select=doc_number,status,xml_payload', () => json([{ doc_number: 'TAX-POS01-202611-000001', status: 'confirmed', xml_payload: '<rsm:TaxInvoice_CrossIndustryInvoice/>' }]))
+  const x = await req(`/api/tax/documents/${DOC}/xml?restaurant_id=${RID}`, { as: 'accountant' })
+  assert.equal(x.status, 200)
+  assert.match(x.headers.get('content-type') ?? '', /application\/xml/)
+  assert.match(x.headers.get('content-disposition') ?? '', /filename="TAX-POS01-202611-000001\.xml"/)
+})
+
+test('รายงาน กรมสรรพากร: JSON ที่หน้า RD Tax ใช้ + ชื่อไฟล์ CSV ตรงกับหน้าเว็บ', async () => {
+  on('/rest/v1/tax_settings', () => json([{ company_name: 'บจก. ร้านอาหาร', tax_id: COMPANY_TAX_ID, branch_code: '00000', registered_address: 'กรุงเทพฯ' }]))
+  on('tax_invoice_no=not.is.null', () =>
+    json([{ tax_invoice_date: '2026-11-04', tax_invoice_no: 'IV-1', supplier_name: 'บจก. ซัพพลาย', supplier_tax_id: COMPANY_TAX_ID, supplier_branch_code: '00000', amount: '1070', vat_amount: '70', spent_on: '2026-11-05' }]),
+  )
+  on('tax_invoice_no=is.null', () => json([]))
+  on('wht_type=', () =>
+    json([
+      { spent_on: '2026-11-05', supplier_name: 'บจก. ซัพพลาย', supplier_tax_id: COMPANY_TAX_ID, supplier_branch_code: '00000', amount: '1070', vat_amount: '70', wht_rate: '3', wht_amount: '30', wht_type: 'pnd53', note: null, accounts: { name: 'ค่าบริการ' } },
+      { spent_on: '2026-11-06', supplier_name: 'นายช่าง', supplier_tax_id: PERSON_TAX_ID, supplier_branch_code: null, amount: '5000', vat_amount: '0', wht_rate: '3', wht_amount: '150', wht_type: 'pnd3', note: 'ซ่อมแอร์', accounts: null },
+    ]),
+  )
+  const p = await body(await req(`/api/accounting/reports/purchase-tax?restaurant_id=${RID}&month=2026-11`, { as: 'accountant' }))
+  assert.deepEqual(p.totals, { value: 1000, vat: 70, total: 1070 })
+  assert.deepEqual(p.without_invoice, { count: 0, vat: 0 })
+  assert.equal(p.seller.tax_id, COMPANY_TAX_ID)
+
+  const w = await body(await req(`/api/accounting/reports/wht?restaurant_id=${RID}&month=2026-11`, { as: 'owner' }))
+  assert.equal(w.type, 'all')
+  assert.deepEqual(w.summary.pnd53, { count: 1, paid_amount: 1000, wht: 30 })
+  assert.deepEqual(w.summary.pnd3, { count: 1, paid_amount: 5000, wht: 150 })
+  assert.equal(w.summary.total_wht, 180)
+  assert.deepEqual(w.rows.map((r: { form: string }) => r.form), ['pnd3', 'pnd53'])
+
+  const csv = await req(`/api/accounting/reports/wht?restaurant_id=${RID}&month=2026-11&format=csv&type=pnd53`, { as: 'owner' })
+  assert.match(csv.headers.get('content-disposition') ?? '', /filename="wht-pnd53-2026-11\.csv"/)
+  const pc = await req(`/api/accounting/reports/purchase-tax?restaurant_id=${RID}&month=2026-11&format=csv`, { as: 'owner' })
+  assert.match(pc.headers.get('content-disposition') ?? '', /filename="purchase-tax-2026-11\.csv"/)
+  assert.match(await pc.text(), /รายงานภาษีซื้อ/)
+  assert.equal((await req(`/api/accounting/reports/wht?restaurant_id=${RID}&month=2026-11&format=pdf`, { as: 'owner' })).status, 400)
+  assert.equal((await req(`/api/accounting/reports/pp30-summary?restaurant_id=${RID}&month=2026-11`, { as: 'kitchen' })).status, 403)
 })

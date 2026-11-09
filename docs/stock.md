@@ -1,6 +1,6 @@
 # โมดูลสต็อกวัตถุดิบ (Plato)
 
-migration: `0027_stock_ledger` · `0028_stock_recipes` · `0029_stock_operations` · `0030_stock_rls`
+migration: `0005_stock.sql` (รวมจากเดิม `0027_stock_ledger` · `0028_stock_recipes` · `0029_stock_operations` · `0030_stock_rls`)
 API: `backend/src/stock.ts` (Swagger แท็ก "สต็อกวัตถุดิบ") · สูตรร่วม: `frontend/src/lib/stockMath.ts`
 แทนที่การออกแบบเดิมใน [inventory-seafood.md](inventory-seafood.md) (ของเสียแยก, ผลิตของเตรียม, ต้นทุนเฉลี่ย)
 

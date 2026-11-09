@@ -1,5 +1,6 @@
 // รายงาน: กำไรต่อเมนู · งบกำไรขาดทุน · เหมา 60% vs ตามจริง · ส่งออก (ทุกโหมด)
 //         สมุดรายวัน · บัญชีแยกประเภท · งบดุล · งบกระแสเงินสด · ภาษีขาย/ซื้อ (โหมดมืออาชีพ)
+//         เอกสารภาษี & e-Tax · รายงานภาษี ภ.พ.30 / ภ.ง.ด. (ทุกโหมด เมื่อจด VAT หรือมีหัก ณ ที่จ่าย)
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { apiDownload, apiMessage } from '../../lib/api'
@@ -17,8 +18,9 @@ import {
 } from '../../lib/accounting'
 import { baht } from '../../lib/format'
 import { AmountTable, Money, Section, addDays, monthStart, prevMonthRange } from './ui'
+import { RdTaxView, TaxDocsView } from './AcctTax'
 
-type View = 'pnl' | 'menu' | 'tax60' | 'journal' | 'ledger' | 'balance' | 'cashflow' | 'vat'
+type View = 'pnl' | 'menu' | 'tax60' | 'journal' | 'ledger' | 'balance' | 'cashflow' | 'vat' | 'taxdocs' | 'rdtax'
 const VIEWS: { key: View; label: string; pro?: boolean }[] = [
   { key: 'pnl', label: 'กำไรขาดทุน' },
   { key: 'menu', label: 'กำไรต่อเมนู' },
@@ -28,6 +30,8 @@ const VIEWS: { key: View; label: string; pro?: boolean }[] = [
   { key: 'balance', label: 'งบดุล', pro: true },
   { key: 'cashflow', label: 'งบกระแสเงินสด', pro: true },
   { key: 'vat', label: 'ภาษีขาย/ซื้อ', pro: true },
+  { key: 'taxdocs', label: 'เอกสารภาษี & e-Tax' },
+  { key: 'rdtax', label: 'รายงานภาษี (ภ.พ.30 / ภ.ง.ด.)' },
 ]
 
 interface JournalRow {
@@ -128,7 +132,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
   return (
     <div>
       {error && <p className="alert-error">{error}</p>}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className={`mb-4 flex flex-wrap items-center gap-2 ${view === 'rdtax' ? 'hidden' : ''}`}>
         {presets.map((p) => (
           <button
             key={p.label}
@@ -159,7 +163,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
           </button>
         ))}
       </div>
-      {!pro && <p className="mb-4 text-xs text-gray-500">สมุดรายวัน บัญชีแยกประเภท งบดุล งบกระแสเงินสด และภาษีขาย/ซื้อ ดูได้ในโหมดมืออาชีพ</p>}
+      {!pro && <p className="mb-4 hint">สมุดรายวัน บัญชีแยกประเภท งบดุล งบกระแสเงินสด และภาษีขาย/ซื้อ ดูได้ในโหมดมืออาชีพ</p>}
 
       {summary && view === 'pnl' && <ProfitLoss s={summary} />}
       {view === 'menu' && <MenuTable rows={menu} />}
@@ -189,11 +193,13 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
           ]}
         />
       )}
+      {view === 'taxdocs' && <TaxDocsView restaurantId={restaurantId} from={from} to={to} />}
+      {view === 'rdtax' && <RdTaxView restaurantId={restaurantId} today={today} />}
 
       <Section title="ส่งออกให้นักบัญชี">
         <div className="card-flush divide-y">
           {EXPORTS.map((x) => (
-            <div key={x.report} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+            <div key={x.report} className="toolbar justify-between px-3 py-2 text-sm">
               <span>{x.label}</span>
               <span className="flex gap-2">
                 <button className="btn btn-secondary btn-sm" onClick={() => void download(x.report, 'csv')}>
@@ -206,7 +212,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
             </div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">ช่วงวันที่ {from} ถึง {to} · CSV เปิดใน Excel ได้ภาษาไทยถูกต้อง</p>
+        <p className="mt-2 hint">ช่วงวันที่ {from} ถึง {to} · CSV เปิดใน Excel ได้ภาษาไทยถูกต้อง</p>
       </Section>
     </div>
   )
@@ -230,7 +236,7 @@ function ProfitLoss({ s }: { s: Summary }) {
           { label: 'กำไรสุทธิ', amount: m.netProfit, strong: true },
         ]}
       />
-      <p className="mt-2 text-xs text-gray-500">
+      <p className="mt-2 hint">
         Prime Cost {m.primeCostPct ?? '–'}% · ต้นทุนขายจริง {baht(k.cogsActual)} = ต้นงวด {baht(k.opening)} + รับเข้า {baht(k.purchases)} − ปลายงวด {baht(k.closing)}
         {k.matches ? ' ✓' : ' (ไม่ตรง ให้ตรวจ)'}
       </p>
@@ -240,8 +246,8 @@ function ProfitLoss({ s }: { s: Summary }) {
 
 function MenuTable({ rows }: { rows: MenuProfit[] }) {
   return (
-    <div className="card-flush overflow-x-auto">
-      <table className="w-full text-sm [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2">
+    <div className="table-wrap">
+      <table className="tbl">
         <thead>
           <tr>
             <th className="text-left">เมนู</th>
@@ -259,25 +265,25 @@ function MenuTable({ rows }: { rows: MenuProfit[] }) {
                 {r.name}
                 {!r.has_recipe && <span className="badge badge-amber ml-2">ไม่มีสูตร</span>}
               </td>
-              <td className="text-right tabular-nums">{r.quantity.toLocaleString('th-TH')}</td>
-              <td className="text-right tabular-nums">{baht(r.revenue)}</td>
-              <td className="text-right tabular-nums">{baht(r.cost)}</td>
+              <td className="num">{r.quantity.toLocaleString('th-TH')}</td>
+              <td className="num">{baht(r.revenue)}</td>
+              <td className="num">{baht(r.cost)}</td>
               <td className="text-right">
                 <Money value={r.gross_profit} />
               </td>
-              <td className="text-right tabular-nums">{r.revenue > 0 ? ((r.gross_profit / r.revenue) * 100).toFixed(0) + '%' : '–'}</td>
+              <td className="num">{r.revenue > 0 ? ((r.gross_profit / r.revenue) * 100).toFixed(0) + '%' : '–'}</td>
             </tr>
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="p-6 text-center text-gray-400">
+              <td colSpan={6} className="empty-cell">
                 ยังไม่มียอดขายในช่วงนี้
               </td>
             </tr>
           )}
         </tbody>
       </table>
-      <p className="px-3 py-2 text-xs text-gray-500">ยอดขายก่อนหักส่วนลดท้ายบิล · ต้นทุนตามสูตรปัจจุบัน</p>
+      <p className="px-3 py-2 hint">ยอดขายก่อนหักส่วนลดท้ายบิล · ต้นทุนตามสูตรปัจจุบัน</p>
     </div>
   )
 }
@@ -311,8 +317,8 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
     return [...m.values()]
   }, [rows])
   return (
-    <div className="card-flush overflow-x-auto">
-      <table className="w-full text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3 [&_th]:py-2">
+    <div className="table-wrap">
+      <table className="tbl-tight">
         <thead>
           <tr>
             <th className="text-left">วันที่ / เลขที่</th>
@@ -336,8 +342,8 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
                 <td className={l.credit > 0 ? 'pl-8' : ''}>
                   {l.account_code} {l.account_name}
                 </td>
-                <td className="text-right tabular-nums">{l.debit > 0 ? baht(l.debit) : ''}</td>
-                <td className="text-right tabular-nums">{l.credit > 0 ? baht(l.credit) : ''}</td>
+                <td className="num">{l.debit > 0 ? baht(l.debit) : ''}</td>
+                <td className="num">{l.credit > 0 ? baht(l.credit) : ''}</td>
               </tr>
             ))}
           </tbody>
@@ -345,7 +351,7 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
         {groups.length === 0 && (
           <tbody>
             <tr>
-              <td colSpan={4} className="p-6 text-center text-gray-400">
+              <td colSpan={4} className="empty-cell">
                 ไม่มีรายการในช่วงนี้
               </td>
             </tr>
@@ -359,8 +365,8 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
 function Ledger({ rows, account }: { rows: JournalRow[]; account: TrialRow }) {
   let bal = account.opening
   return (
-    <div className="card-flush overflow-x-auto">
-      <table className="w-full text-sm [&_td]:px-3 [&_td]:py-1.5 [&_th]:px-3 [&_th]:py-2">
+    <div className="table-wrap">
+      <table className="tbl-tight">
         <thead>
           <tr>
             <th className="text-left">วันที่</th>
@@ -373,7 +379,7 @@ function Ledger({ rows, account }: { rows: JournalRow[]; account: TrialRow }) {
         <tbody>
           <tr className="bg-gray-50">
             <td colSpan={4}>ยอดยกมา</td>
-            <td className="text-right tabular-nums">{baht(account.opening)}</td>
+            <td className="num">{baht(account.opening)}</td>
           </tr>
           {rows.map((r, i) => {
             bal += r.debit - r.credit
@@ -383,9 +389,9 @@ function Ledger({ rows, account }: { rows: JournalRow[]; account: TrialRow }) {
                 <td>
                   #{r.entry_no} {SOURCE_LABEL[r.source_type] ?? r.source_type} · {r.memo}
                 </td>
-                <td className="text-right tabular-nums">{r.debit > 0 ? baht(r.debit) : ''}</td>
-                <td className="text-right tabular-nums">{r.credit > 0 ? baht(r.credit) : ''}</td>
-                <td className="text-right tabular-nums">{baht(bal)}</td>
+                <td className="num">{r.debit > 0 ? baht(r.debit) : ''}</td>
+                <td className="num">{r.credit > 0 ? baht(r.credit) : ''}</td>
+                <td className="num">{baht(bal)}</td>
               </tr>
             )
           })}

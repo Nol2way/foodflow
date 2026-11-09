@@ -17,9 +17,9 @@ const BADGE: Record<MovementType, string> = {
 
 function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] }) {
   const canReverse = roles.includes('owner') || roles.includes('manager')
-  const ings = useLoad(() => stockApi.ingredients(restaurantId, true), [restaurantId])
+  const ings = useLoad(() => stockApi.ingredients(restaurantId, true), [restaurantId], 'stock.ingredients.all')
   const [f, setF] = useState({ from: daysAgoIso(7), to: todayIso(), ingredient_id: '', actor_id: '', type: '' })
-  const list = useLoad(() => stockApi.history(restaurantId, f), [restaurantId, f.from, f.to, f.ingredient_id, f.actor_id, f.type])
+  const list = useLoad(() => stockApi.history(restaurantId, f), [restaurantId, f.from, f.to, f.ingredient_id, f.actor_id, f.type], 'stock.history')
   // ผู้ทำรายการที่เคยเห็นในช่วงนี้ (ตัวเลือกกรอง)
   const [actors, setActors] = useState<Map<string, string>>(new Map())
   const [reversing, setReversing] = useState<Movement | null>(null)
@@ -93,7 +93,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
       {list.data && rows.length === 0 ? (
         <Empty>ไม่มีรายการในช่วงนี้</Empty>
       ) : (
-        <div className="card-flush overflow-x-auto">
+        <div className="table-wrap">
           <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="text-left">
@@ -114,18 +114,18 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                   <td className="px-3 py-2">{m.ingredient_name}</td>
                   <td className="px-3 py-2">
                     <span className={`badge ${BADGE[m.type]}`}>{MOVEMENT_LABEL[m.type]}</span>
-                    {m.reverses_id && <div className="text-xs text-gray-500">รายการกลับ</div>}
+                    {m.reverses_id && <div className="hint">รายการกลับ</div>}
                     {m.reversed_by && <div className="text-xs">ถูกกลับรายการแล้ว</div>}
                   </td>
                   <td className={`px-3 py-2 text-right font-medium tabular-nums ${Number(m.change) < 0 ? 'text-gray-900' : 'text-emerald-700'}`}>
                     {Number(m.change) > 0 ? '+' : '−'}{fmtNum(Math.abs(Number(m.change)))} {m.unit}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-600">{m.balance_after === null ? '-' : `${fmtNum(Number(m.balance_after))} ${m.unit}`}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-600">{m.cost === null ? '-' : baht(Number(m.cost))}</td>
+                  <td className="px-3 py-2 num text-gray-600">{m.balance_after === null ? '-' : `${fmtNum(Number(m.balance_after))} ${m.unit}`}</td>
+                  <td className="px-3 py-2 num text-gray-600">{m.cost === null ? '-' : baht(Number(m.cost))}</td>
                   <td className="px-3 py-2 text-gray-600">
                     {m.actor_name ?? '-'}
                     {m.order_label && <div className="text-xs">ออเดอร์ {m.order_label}</div>}
-                    {m.note && <div className="text-xs text-gray-500">{m.note}</div>}
+                    {m.note && <div className="hint">{m.note}</div>}
                   </td>
                   {canReverse && (
                     <td className="px-3 py-2 text-right">
@@ -140,12 +140,12 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
           </table>
         </div>
       )}
-      {rows.length >= 500 && <p className="mt-2 text-xs text-gray-500">แสดง 500 รายการล่าสุด กรองให้แคบลงเพื่อดูเพิ่ม</p>}
+      {rows.length >= 500 && <p className="mt-2 hint">แสดง 500 รายการล่าสุด กรองให้แคบลงเพื่อดูเพิ่ม</p>}
 
       {reversing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-gray-900/40 p-4" onClick={() => setReversing(null)}>
+        <div className="overlay" onClick={() => setReversing(null)}>
           <div className="card w-full max-w-sm space-y-3 p-5" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="rev-title">
-            <h2 id="rev-title" className="text-lg font-bold text-gray-900">กลับรายการ</h2>
+            <h2 id="rev-title" className="title-lg">กลับรายการ</h2>
             <p className="text-sm text-gray-600">
               {MOVEMENT_LABEL[reversing.type]} {reversing.ingredient_name} {Number(reversing.change) > 0 ? '+' : '−'}{fmtNum(Math.abs(Number(reversing.change)))} {reversing.unit}
               <br />ระบบสร้างรายการตรงข้ามคู่กัน รายการเดิมยังอยู่ในประวัติ

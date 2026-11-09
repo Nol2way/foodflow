@@ -81,7 +81,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
             {p.label}
           </button>
         ))}
-        <span className="ml-auto self-center text-xs text-gray-500">
+        <span className="ml-auto self-center hint">
           {s.from === s.to ? s.to : `${s.from} ถึง ${s.to}`} (เวลาร้าน)
         </span>
       </div>
@@ -112,7 +112,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
                 <div className={`text-2xl font-bold tabular-nums ${m.netProfit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{baht(m.netProfit)}</div>
               </div>
             </div>
-            <p className="mt-3 text-center text-xs text-gray-500">
+            <p className="mt-3 text-center hint">
               {s.bills} บิล{s.cancelled_bills > 0 && ` · ยกเลิก ${s.cancelled_bills}`} · ส่วนลด {baht(s.discounts)} · เดือนนี้{' '}
               <Change now={month.netProfit} before={prev.netProfit} label="กำไรเทียบเดือนก่อน" />
             </p>
@@ -135,8 +135,8 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
           </div>
 
           <Section title="ต้นทุนต่อจาน (ตามสูตรปัจจุบัน)">
-            <div className="card-flush overflow-x-auto">
-              <table className="w-full text-left text-sm [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2">
+            <div className="table-wrap">
+              <table className="tbl text-left">
                 <thead>
                   <tr>
                     <th>เมนู</th>
@@ -155,16 +155,16 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
                       return (
                         <tr key={c.menu_item_id} className="border-t">
                           <td>{c.name}</td>
-                          <td className="text-right tabular-nums">{baht(c.price)}</td>
-                          <td className="text-right tabular-nums">{baht(c.unit_cost)}</td>
-                          <td className="text-right tabular-nums">{baht(c.price - c.unit_cost)}</td>
+                          <td className="num">{baht(c.price)}</td>
+                          <td className="num">{baht(c.unit_cost)}</td>
+                          <td className="num">{baht(c.price - c.unit_cost)}</td>
                           <td className={`text-right tabular-nums ${p > set.food_cost_target_max ? 'font-semibold text-red-600' : ''}`}>{p.toFixed(0)}%</td>
                         </tr>
                       )
                     })}
                   {costs.every((c) => c.ingredient_count === 0) && (
                     <tr>
-                      <td colSpan={5} className="p-6 text-center text-gray-400">
+                      <td colSpan={5} className="empty-cell">
                         ยังไม่มีเมนูที่ใส่สูตร ใส่สูตรที่หน้าสต็อกเพื่อให้ระบบตัดต้นทุนอัตโนมัติ
                       </td>
                     </tr>
@@ -191,14 +191,14 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
                 style={{ width: `${Math.min(vat.pct, 100)}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 hint">
               {vat.pct}% ของเกณฑ์ · รายรับเกิน 1.8 ล้านบาทต่อปีต้องจดทะเบียนภาษีมูลค่าเพิ่ม (ปรึกษานักบัญชี)
             </p>
           </div>
         </Section>
       )}
 
-      <p className="mt-4 text-xs text-gray-500">
+      <p className="mt-4 hint">
         สต็อก:{' '}
         {dash.reconcile.ok ? (
           <span className="text-emerald-700">มูลค่าในโมดูลสต็อก {baht(dash.reconcile.stock_value)} ตรงกับบัญชีสต็อก</span>
@@ -223,7 +223,7 @@ function SimpleView({ s }: { s: Dashboard['periods'][PeriodKey] }) {
         <Stat label="คงเหลือ (เงินสด + ธนาคาร)" value={baht(c.balance)} hint={`ในลิ้นชัก ${baht(s.cash_drawer)}`} />
       </div>
       <Section title="เงินเข้า-ออกมาจากอะไร">
-        <ul className="card-flush divide-y text-sm">
+        <ul className="list-card">
           {s.cash_by_source.map((r) => (
             <li key={r.source_type} className="flex justify-between gap-3 px-3 py-2.5">
               <span>{SOURCE_LABEL[r.source_type] ?? r.source_type}</span>
@@ -232,7 +232,7 @@ function SimpleView({ s }: { s: Dashboard['periods'][PeriodKey] }) {
               </span>
             </li>
           ))}
-          {s.cash_by_source.length === 0 && <li className="p-6 text-center text-gray-400">ยังไม่มีเงินเข้า-ออกในช่วงนี้</li>}
+          {s.cash_by_source.length === 0 && <li className="empty-cell">ยังไม่มีเงินเข้า-ออกในช่วงนี้</li>}
         </ul>
       </Section>
     </>
@@ -260,7 +260,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
             { label: 'กำไรสุทธิ', amount: m.netProfit, strong: true },
           ]}
         />
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 hint">
           Food Cost {m.foodCostPct ?? '–'}% · Prime Cost {m.primeCostPct ?? '–'}% · ภาษีขาย {baht(s.vat_output)} · ภาษีซื้อ {baht(s.vat_input)}
         </p>
       </div>
@@ -287,7 +287,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
             { label: 'ยอดปลายงวด', amount: s.cash_close, strong: true },
           ]}
         />
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 hint">
           สมุดรายวัน บัญชีแยกประเภท งบดุล และงบกระแสเงินสดฉบับเต็ม อยู่ที่แท็บ "รายงาน" · <Money value={dash.reconcile.ledger_value} className="font-medium" /> = ยอดบัญชีสต็อก
         </p>
       </div>

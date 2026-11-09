@@ -1,5 +1,5 @@
 // หมายเหตุ: ตารางนี้ใช้ซ่อน/แสดงเมนูในหน้าเว็บเท่านั้น
-// สิทธิ์จริงบังคับที่ฐานข้อมูล (database/migrations/0003_roles.sql และ 0009_manager_promotions.sql)
+// สิทธิ์จริงบังคับที่ฐานข้อมูล (database/migrations/0001_core.sql)
 
 import type { IconName } from '../components/Icon'
 

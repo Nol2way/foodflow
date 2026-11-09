@@ -54,7 +54,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
   const [openNote, setOpenNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const sheet = useLoad(() => stockApi.countSheet(restaurantId, abc), [restaurantId, abc.join(',')])
+  const sheet = useLoad(() => stockApi.countSheet(restaurantId, abc), [restaurantId, abc.join(',')], 'stock.countSheet')
 
   useEffect(() => saveDraft(restaurantId, entries), [restaurantId, entries])
 
@@ -112,7 +112,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
             ))}
           </div>
         </div>
-        <p className="text-xs text-gray-500">A = มูลค่าสูง นับบ่อย (เช่น ทุกวัน) · C = นับรายเดือน</p>
+        <p className="hint">A = มูลค่าสูง นับบ่อย (เช่น ทุกวัน) · C = นับรายเดือน</p>
         <span className="ml-auto text-sm text-gray-600">นับแล้ว <strong>{done}</strong> / {items.length}</span>
       </div>
 
@@ -132,7 +132,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
                     <div className="mb-2 flex items-center gap-2">
                       <span className="font-medium text-gray-900">{i.name}</span>
                       <span className="badge badge-gray">{i.abc_class}</span>
-                      {counted(e) && <span className="text-xs text-gray-500">= {fmtNum(toBaseQty(i, e))} {i.unit}</span>}
+                      {counted(e) && <span className="hint">= {fmtNum(toBaseQty(i, e))} {i.unit}</span>}
                       <button type="button" className="link-muted ml-auto text-xs" onClick={() => setOpenNote(openNote === i.ingredient_id ? null : i.ingredient_id)}>
                         {e.note ? 'แก้เหตุผล' : 'เหตุผล'}
                       </button>
@@ -142,7 +142,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
                       {disp && (
                         <label className="flex items-center gap-1.5 text-sm text-gray-500">
                           + เศษ
-                          <input className="input h-12 w-24 text-right tabular-nums" type="number" min="0" step="any" inputMode="decimal" placeholder="0"
+                          <input className="input h-12 w-24 num" type="number" min="0" step="any" inputMode="decimal" placeholder="0"
                             value={e.loose} onChange={(ev) => set(i.ingredient_id, { loose: ev.target.value })} aria-label={`เศษ ${i.name} (${i.unit})`} />
                           {i.unit}
                         </label>
@@ -162,7 +162,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
       </div>
 
       {items.length > 0 && (
-        <div className="sticky bottom-0 mt-4 -mx-4 flex flex-wrap items-center gap-2 border-t bg-surface/95 px-4 py-3 backdrop-blur">
+        <div className="sticky bottom-0 mt-4 -mx-4 toolbar border-t bg-surface/95 px-4 py-3 backdrop-blur">
           <input className="input min-w-40 flex-1" maxLength={300} placeholder="หมายเหตุใบนับ" value={note} onChange={(e) => setNote(e.target.value)} />
           {done > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('ล้างยอดที่กรอกทั้งหมด?') && setEntries({})}>ล้าง</button>}
           <button type="button" className="btn btn-primary" disabled={saving || done === 0} onClick={() => void submit()}>
@@ -176,7 +176,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
 
 function CountList({ restaurantId, roles, justSaved }: { restaurantId: string; roles: Role[]; justSaved: string | null }) {
   const { session } = useSession()
-  const list = useLoad(() => stockApi.counts(restaurantId), [restaurantId, justSaved])
+  const list = useLoad(() => stockApi.counts(restaurantId), [restaurantId, justSaved], 'stock.counts')
   const [error, setError] = useState<string | null>(null)
   const isOwner = roles.includes('owner')
   const canVerify = isOwner || roles.includes('manager')
@@ -200,14 +200,14 @@ function CountList({ restaurantId, roles, justSaved }: { restaurantId: string; r
       )}
       {(error || list.error) && <p className="alert-error">{error ?? list.error}</p>}
       {list.data && list.data.counts.length === 0 && <Empty>ยังไม่มีใบนับ</Empty>}
-      <ul className="card-flush divide-y text-sm">
+      <ul className="list-card">
         {(list.data?.counts ?? []).map((c) => {
           const mine = c.counted_by === session?.user.id
           return (
             <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
               <span className="min-w-48 flex-1">
                 <span className="block font-medium text-gray-900">{dateTime(c.created_at)} · {COUNT_TYPES[c.count_type]}</span>
-                <span className="text-xs text-gray-500">ผู้นับ {c.counted_by_name ?? '-'} · {c.item_count} รายการ · ไม่ตรง {c.diff_count}</span>
+                <span className="hint">ผู้นับ {c.counted_by_name ?? '-'} · {c.item_count} รายการ · ไม่ตรง {c.diff_count}</span>
               </span>
               <span className={`tabular-nums ${Number(c.diff_value) < 0 ? 'text-red-700' : 'text-gray-700'}`}>{baht(Number(c.diff_value))}</span>
               {c.verified_at ? (

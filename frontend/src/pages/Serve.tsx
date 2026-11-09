@@ -73,7 +73,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 <Icon name={d.takeaway ? 'bag' : 'table'} className="h-5 w-5" />
               </span>
               <div>
-                <div className="text-xs text-gray-500">ส่งที่</div>
+                <div className="hint">ส่งที่</div>
                 <strong className={`text-lg leading-tight ${d.takeaway ? 'text-blue-700' : 'text-gray-900'}`}>{d.label}</strong>
               </div>
             </div>

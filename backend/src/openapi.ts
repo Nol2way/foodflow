@@ -2,7 +2,7 @@
 // เสิร์ฟที่ /api/openapi.json และหน้า Swagger UI ที่ /api/docs
 // แก้ endpoint ใน app.ts แล้วต้องแก้ที่นี่ด้วย (มีชุดทดสอบตรวจว่าทุก route มีเอกสาร)
 // ส่งออกเป็นไฟล์: npm run openapi -> docs/openapi.json
-import { accountingPaths, accountingSchemas, accountingTag } from './openapi-accounting.ts'
+import { accountingPaths, accountingSchemas, accountingTag, taxTag } from './openapi-accounting.ts'
 import { stockPaths, stockSchemas, stockTag } from './openapi-stock.ts'
 
 const uuid = { type: 'string', format: 'uuid' } as const
@@ -63,6 +63,7 @@ export const openapi = {
     { name: 'รายงาน', description: 'รายงานสรุปรายวันทาง LINE (เจ้าของร้าน, ผู้จัดการ)' },
     { name: 'พนักงาน', description: 'จัดการพนักงาน (เจ้าของร้าน ทุกบทบาท · ผู้จัดการ เฉพาะ staff / kitchen / accountant / stock)' },
     accountingTag,
+    taxTag,
     stockTag,
   ],
   paths: {

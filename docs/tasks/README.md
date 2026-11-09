@@ -12,7 +12,7 @@
 ## กติกากลาง
 
 **โครงสร้างโค้ด**
-- ฐานข้อมูล: `database/migrations/` (ล่าสุดตอนนี้ **0030**) · ทดสอบ `database/tests/test_rls.py` + `harness.py` (Postgres ในเครื่อง)
+- ฐานข้อมูล: `database/migrations/` (รวมเหลือ **0001–0007** · ชุดเดิมอยู่ใน `archive/`) · ทดสอบ `database/tests/test_rls.py` + `harness.py` (Postgres ในเครื่อง)
 - หน้าเว็บเรียก Supabase ตรงผ่าน `frontend/src/lib/supabase.ts` (ตาราง + `rpc(...)`) ส่วนงานที่ต้องใช้ความลับ/LINE/Gemini ผ่าน backend Hono (`backend/src/app.ts`)
 - เพิ่ม endpoint ใหม่ใน backend ต้องเพิ่มใน `backend/src/openapi.ts` แล้วรัน `npm run openapi` (test `openapi.test.ts` เช็คว่าตรงกัน)
 - เมนูและสิทธิ์หน้า: `frontend/src/lib/roles.ts` (`STAFF_PAGES`) + route ใน `frontend/src/App.tsx` · สิทธิ์จริงบังคับที่ฐานข้อมูลเสมอ

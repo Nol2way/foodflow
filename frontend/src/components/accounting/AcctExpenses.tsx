@@ -1,8 +1,26 @@
 // รายจ่าย: บังคับเลือกหมวด · วิธีจ่าย · แนบรูปใบเสร็จ (bucket expense-receipts) · ลงบัญชีอัตโนมัติ
+// ใบกำกับภาษีซื้อ (ขอคืนภาษีซื้อ) คิด VAT จากยอดรวมอัตโนมัติ · ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) คิดจากฐานก่อน VAT
 // ลงแล้วแก้ยอดไม่ได้ ต้อง "ยกเลิกรายจ่าย" (กลับรายการ) แล้วบันทึกใหม่
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
-import { accountingError } from '../../lib/accounting'
+import {
+  EMPTY_EXPENSE_TAX,
+  WHT_FORM_LABEL,
+  WHT_FORM_SHORT,
+  WHT_RATES,
+  accountingError,
+  expenseTax,
+  expenseTaxError,
+  expenseTaxFields,
+  needsSupplier,
+  thaiTaxIdValid,
+  validateExpenseTax,
+  whtFormFor,
+  type ExpenseTaxForm,
+  type WhtForm,
+  type WhtRate,
+} from '../../lib/accounting'
+import { branchLabel, formatTaxId } from '../../lib/tax'
 import { baht } from '../../lib/format'
 import { GROUP_LABEL, PAYMENT_LABEL, Section, expenseCategories, monthStart, type AccountRow } from './ui'
 
@@ -21,21 +39,36 @@ interface Expense {
   voided_at: string | null
   void_reason: string | null
   account_id: string | null
+  supplier_name: string | null
+  supplier_tax_id: string | null
+  supplier_branch_code: string | null
+  tax_invoice_no: string | null
+  tax_invoice_date: string | null
+  wht_rate: number | null
+  wht_amount: number
+  wht_type: WhtForm | null
 }
 
+const EXPENSE_COLUMNS =
+  'id,spent_on,amount,vat_amount,payment_method,note,receipt_url,source,voided_at,void_reason,account_id,' +
+  'supplier_name,supplier_tax_id,supplier_branch_code,tax_invoice_no,tax_invoice_date,wht_rate,wht_amount,wht_type'
+
 const SOURCE_NOTE: Record<string, string> = { stock_receipt: 'จากใบรับของ (ลงเป็นสต็อก)', legacy: 'ก่อนเปิดโมดูลบัญชี' }
+const digits = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max)
 
 export default function AcctExpenses({
   restaurantId,
   today,
   canWrite,
   vatRegistered,
+  vatRate = 7,
   onChanged,
 }: {
   restaurantId: string
   today: string
   canWrite: boolean
   vatRegistered: boolean
+  vatRate?: number
   onChanged: () => void
 }) {
   const [accounts, setAccounts] = useState<AccountRow[]>([])
@@ -44,7 +77,8 @@ export default function AcctExpenses({
   const [to, setTo] = useState(today)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  const [f, setF] = useState({ account_id: '', amount: '', vat: '', payment: 'cash', date: today, note: '' })
+  const [f, setF] = useState({ account_id: '', amount: '', payment: 'cash', date: today, note: '' })
+  const [tax, setTax] = useState<ExpenseTaxForm>({ ...EMPTY_EXPENSE_TAX, invoiceDate: today })
   const [file, setFile] = useState<File | null>(null)
   const [voiding, setVoiding] = useState<{ id: string; reason: string } | null>(null)
   const [newCat, setNewCat] = useState<{ name: string; grp: string } | null>(null)
@@ -54,7 +88,7 @@ export default function AcctExpenses({
       supabase.from('accounts').select('id,code,name,type,grp,system_key,is_active').eq('restaurant_id', restaurantId).order('code'),
       supabase
         .from('expenses')
-        .select('id,spent_on,amount,vat_amount,payment_method,note,receipt_url,source,voided_at,void_reason,account_id')
+        .select(EXPENSE_COLUMNS)
         .eq('restaurant_id', restaurantId)
         .gte('spent_on', from)
         .lte('spent_on', to)
@@ -62,9 +96,17 @@ export default function AcctExpenses({
         .order('created_at', { ascending: false })
         .limit(500),
     ])
-    if (a.error || e.error) return setMsg({ ok: false, text: 'โหลดรายจ่ายไม่สำเร็จ (ต้องรัน migration 0026)' })
+    if (a.error || e.error) return setMsg({ ok: false, text: 'โหลดรายจ่ายไม่สำเร็จ (ต้องรัน migration 0026 และ 0031)' })
     setAccounts((a.data ?? []) as AccountRow[])
-    setRows(((e.data ?? []) as Expense[]).map((x) => ({ ...x, amount: Number(x.amount), vat_amount: Number(x.vat_amount) })))
+    setRows(
+      ((e.data ?? []) as unknown as Expense[]).map((x) => ({
+        ...x,
+        amount: Number(x.amount),
+        vat_amount: Number(x.vat_amount),
+        wht_amount: Number(x.wht_amount ?? 0),
+        wht_rate: x.wht_rate == null ? null : Number(x.wht_rate),
+      })),
+    )
   }, [restaurantId, from, to])
 
   useEffect(() => {
@@ -73,15 +115,31 @@ export default function AcctExpenses({
 
   const cats = useMemo(() => expenseCategories(accounts), [accounts])
   const byId = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts])
-  const total = rows.filter((r) => !r.voided_at).reduce((s, r) => s + r.amount, 0)
+  const live = rows.filter((r) => !r.voided_at)
+  const total = live.reduce((s, r) => s + r.amount, 0)
+  const totalVat = live.filter((r) => r.tax_invoice_no).reduce((s, r) => s + r.vat_amount, 0)
+  const totalWht = live.reduce((s, r) => s + r.wht_amount, 0)
+
+  const amount = Number(f.amount || 0)
+  const inputTax = vatRegistered && tax.inputTax
+  const calc = expenseTax(amount, inputTax, tax.whtRate, vatRate)
+  const showSupplier = needsSupplier({ inputTax, whtRate: tax.whtRate })
+  const taxIdOk = thaiTaxIdValid(tax.supplierTaxId)
+  const suggestedForm = taxIdOk ? whtFormFor(tax.supplierTaxId) : null
+
+  function setTaxId(v: string) {
+    const id = digits(v, 13)
+    // เลือกแบบ ภ.ง.ด. ให้ตรงกับประเภทผู้ขายอัตโนมัติ (0 = นิติบุคคล → ภ.ง.ด.53)
+    setTax((t) => ({ ...t, supplierTaxId: id, whtForm: thaiTaxIdValid(id) ? whtFormFor(id) : t.whtForm }))
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    const amount = Number(f.amount)
-    const vat = Number(f.vat || 0)
     if (!f.account_id) return setMsg({ ok: false, text: 'ต้องเลือกหมวดรายจ่าย' })
     if (!(amount > 0)) return setMsg({ ok: false, text: 'กรอกจำนวนเงินที่มากกว่า 0' })
-    if (vat < 0 || vat > amount) return setMsg({ ok: false, text: 'ภาษีซื้อต้องไม่เกินยอดที่จ่าย' })
+    const effective: ExpenseTaxForm = { ...tax, inputTax }
+    const invalid = validateExpenseTax(effective, amount, today)
+    if (invalid) return setMsg({ ok: false, text: invalid })
     if (file && file.size > MAX_MB * 1024 * 1024) return setMsg({ ok: false, text: `รูปใบเสร็จใหญ่เกิน ${MAX_MB} MB` })
     setBusy(true)
     let path: string | null = null
@@ -94,12 +152,13 @@ export default function AcctExpenses({
         return setMsg({ ok: false, text: 'อัปโหลดรูปใบเสร็จไม่สำเร็จ: ' + up.error.message })
       }
     }
+    const taxFields = expenseTaxFields(effective, amount, vatRate)
     const { error } = await supabase.from('expenses').insert({
+      ...Object.fromEntries(Object.entries(taxFields).filter(([k, v]) => k === 'vat_amount' || v !== null)),
       restaurant_id: restaurantId,
       category: 'other', // ฐานข้อมูลตั้งหมวดแบบเดิมจากบัญชีให้
       account_id: f.account_id,
       amount,
-      vat_amount: vat,
       payment_method: f.payment,
       spent_on: f.date,
       note: f.note.trim() || null,
@@ -108,10 +167,13 @@ export default function AcctExpenses({
     setBusy(false)
     if (error) {
       if (path) void supabase.storage.from(RECEIPT_BUCKET).remove([path])
-      return setMsg({ ok: false, text: accountingError(error.message) })
+      return setMsg({ ok: false, text: expenseTaxError(error.message) ?? accountingError(error.message) })
     }
-    setMsg({ ok: true, text: `บันทึก ${byId.get(f.account_id)?.name ?? 'รายจ่าย'} ${baht(amount)} แล้ว` })
-    setF({ ...f, amount: '', vat: '', note: '' })
+    const extra = [calc.vat > 0 && `ภาษีซื้อ ${baht(calc.vat)}`, calc.wht > 0 && `หัก ณ ที่จ่าย ${baht(calc.wht)}`].filter(Boolean).join(' · ')
+    setMsg({ ok: true, text: `บันทึก ${byId.get(f.account_id)?.name ?? 'รายจ่าย'} ${baht(amount)} แล้ว${extra ? ` (${extra})` : ''}` })
+    setF({ ...f, amount: '', note: '' })
+    // เก็บข้อมูลผู้ขายไว้ (มักบันทึกหลายใบจากผู้ขายรายเดิม) ล้างเฉพาะเลขที่ใบกำกับ
+    setTax((t) => ({ ...t, invoiceNo: '' }))
     setFile(null)
     void load()
     onChanged()
@@ -187,7 +249,7 @@ export default function AcctExpenses({
           </div>
           <div>
             <label className="label" htmlFor="ex-amt">
-              จำนวนเงินที่จ่าย (บาท) <span className="text-red-600">*</span>
+              จำนวนเงินตามใบเสร็จ (รวม VAT) <span className="text-red-600">*</span>
             </label>
             <input id="ex-amt" className="input w-full" type="number" inputMode="decimal" min="0" step="0.01" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} required />
           </div>
@@ -209,23 +271,170 @@ export default function AcctExpenses({
             </label>
             <input id="ex-date" className="input w-full" type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required />
           </div>
-          {vatRegistered && (
-            <div>
-              <label className="label" htmlFor="ex-vat">
-                ภาษีซื้อในใบกำกับ (บาท)
-              </label>
-              <input id="ex-vat" className="input w-full" type="number" inputMode="decimal" min="0" step="0.01" value={f.vat} onChange={(e) => setF({ ...f, vat: e.target.value })} />
-            </div>
-          )}
-          <div className={vatRegistered ? 'sm:col-span-2' : ''}>
+          <div>
             <label className="label" htmlFor="ex-note">
               หมายเหตุ
             </label>
             <input id="ex-note" className="input w-full" maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
           </div>
+
+          {/* ----- ภาษีซื้อ / หัก ณ ที่จ่าย ----- */}
+          <fieldset className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:col-span-2 sm:grid-cols-2">
+            <legend className="px-1 text-sm font-semibold text-gray-800">ภาษี</legend>
+            {vatRegistered ? (
+              <label className="flex items-start gap-2 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={tax.inputTax}
+                  onChange={(e) => setTax({ ...tax, inputTax: e.target.checked })}
+                  aria-describedby="ex-input-tax-hint"
+                />
+                <span>
+                  <span className="text-sm font-medium">มีใบกำกับภาษีเต็มรูป (ขอคืนภาษีซื้อ)</span>
+                  <span id="ex-input-tax-hint" className="block hint">
+                    คิด VAT {vatRate}% จากยอดรวมให้อัตโนมัติ · ไม่มีใบกำกับภาษีเต็มรูป = นำภาษีซื้อมาหักไม่ได้
+                  </span>
+                </span>
+              </label>
+            ) : (
+              <p className="hint sm:col-span-2">ร้านยังไม่จด VAT จึงไม่มีการขอคืนภาษีซื้อ</p>
+            )}
+
+            <div>
+              <label className="label" htmlFor="ex-wht">
+                หักภาษี ณ ที่จ่าย
+              </label>
+              <select
+                id="ex-wht"
+                className="input w-full"
+                value={tax.whtRate ?? ''}
+                onChange={(e) => setTax({ ...tax, whtRate: e.target.value ? (Number(e.target.value) as WhtRate) : null })}
+              >
+                <option value="">ไม่หัก</option>
+                {WHT_RATES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}%{r === 1 ? ' (ค่าขนส่ง)' : r === 2 ? ' (ค่าโฆษณา)' : r === 3 ? ' (ค่าบริการ/จ้างทำของ)' : ' (ค่าเช่า)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {tax.whtRate !== null && (
+              <div>
+                <span className="label">แบบยื่น</span>
+                <div className="flex gap-2" role="radiogroup" aria-label="แบบยื่นภาษีหัก ณ ที่จ่าย">
+                  {(['pnd3', 'pnd53'] as const).map((form) => (
+                    <button
+                      key={form}
+                      type="button"
+                      role="radio"
+                      aria-checked={tax.whtForm === form}
+                      onClick={() => setTax({ ...tax, whtForm: form })}
+                      className={`flex-1 rounded-lg border px-2 py-2 text-sm ${tax.whtForm === form ? 'border-brand-500 bg-brand-50 font-semibold text-brand-700' : 'border-gray-300 bg-white text-gray-600'}`}
+                    >
+                      {WHT_FORM_LABEL[form]}
+                    </button>
+                  ))}
+                </div>
+                {suggestedForm && suggestedForm !== tax.whtForm && (
+                  <span className="mt-1 block text-xs text-amber-700">เลขผู้เสียภาษีนี้ต้องใช้ {WHT_FORM_SHORT[suggestedForm]}</span>
+                )}
+              </div>
+            )}
+
+            {showSupplier && (
+              <>
+                <div className="sm:col-span-2">
+                  <label className="label" htmlFor="ex-sup-name">
+                    ชื่อผู้ขาย / ผู้รับเงิน <span className="text-red-600">*</span>
+                  </label>
+                  <input id="ex-sup-name" className="input w-full" maxLength={200} value={tax.supplierName} onChange={(e) => setTax({ ...tax, supplierName: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="ex-sup-tax">
+                    เลขประจำตัวผู้เสียภาษี (13 หลัก) <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    id="ex-sup-tax"
+                    className="input w-full tabular-nums"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={13}
+                    value={tax.supplierTaxId}
+                    onChange={(e) => setTaxId(e.target.value)}
+                    aria-invalid={tax.supplierTaxId.length === 13 && !taxIdOk}
+                    required
+                  />
+                  <span className={`mt-1 block text-xs ${tax.supplierTaxId.length === 13 && !taxIdOk ? 'text-red-600' : 'text-gray-500'}`}>
+                    {tax.supplierTaxId.length < 13
+                      ? `${tax.supplierTaxId.length}/13 หลัก`
+                      : taxIdOk
+                        ? `${formatTaxId(tax.supplierTaxId)} · ${whtFormFor(tax.supplierTaxId) === 'pnd53' ? 'นิติบุคคล' : 'บุคคลธรรมดา'}`
+                        : 'เลขผู้เสียภาษีไม่ถูกต้อง (ตรวจหลักสุดท้าย)'}
+                  </span>
+                </div>
+                <div>
+                  <label className="label" htmlFor="ex-sup-branch">
+                    รหัสสาขาผู้ขาย (5 หลัก)
+                  </label>
+                  <input
+                    id="ex-sup-branch"
+                    className="input w-full tabular-nums"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={tax.supplierBranch}
+                    onChange={(e) => setTax({ ...tax, supplierBranch: digits(e.target.value, 5) })}
+                    required
+                  />
+                  <span className="mt-1 block hint">{branchLabel(tax.supplierBranch)}</span>
+                </div>
+              </>
+            )}
+
+            {inputTax && (
+              <>
+                <div>
+                  <label className="label" htmlFor="ex-inv-no">
+                    เลขที่ใบกำกับภาษี <span className="text-red-600">*</span>
+                  </label>
+                  <input id="ex-inv-no" className="input w-full" maxLength={50} value={tax.invoiceNo} onChange={(e) => setTax({ ...tax, invoiceNo: e.target.value })} required />
+                </div>
+                <div>
+                  <label className="label" htmlFor="ex-inv-date">
+                    วันที่ในใบกำกับภาษี <span className="text-red-600">*</span>
+                  </label>
+                  <input id="ex-inv-date" className="input w-full" type="date" max={today} value={tax.invoiceDate} onChange={(e) => setTax({ ...tax, invoiceDate: e.target.value })} required />
+                </div>
+              </>
+            )}
+
+            {(inputTax || tax.whtRate !== null) && (
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-gray-50 p-3 text-sm sm:col-span-2" aria-live="polite">
+                <dt className="text-gray-500">มูลค่าก่อน VAT</dt>
+                <dd className="num">{baht(calc.base)}</dd>
+                {inputTax && (
+                  <>
+                    <dt className="text-gray-500">ภาษีซื้อ {vatRate}%</dt>
+                    <dd className="num">{baht(calc.vat)}</dd>
+                  </>
+                )}
+                {tax.whtRate !== null && (
+                  <>
+                    <dt className="text-gray-500">
+                      หัก ณ ที่จ่าย {tax.whtRate}% ({WHT_FORM_SHORT[tax.whtForm]})
+                    </dt>
+                    <dd className="num text-red-600">−{baht(calc.wht)}</dd>
+                  </>
+                )}
+                <dt className="font-semibold">จ่ายผู้ขายจริง</dt>
+                <dd className="num font-semibold">{baht(calc.netPaid)}</dd>
+              </dl>
+            )}
+          </fieldset>
+
           <div className="sm:col-span-2">
             <label className="label" htmlFor="ex-file">
-              รูปใบเสร็จ (ไม่บังคับ)
+              รูปใบเสร็จ / ใบกำกับภาษี (ไม่บังคับ)
             </label>
             <input id="ex-file" type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </div>
@@ -264,7 +473,12 @@ export default function AcctExpenses({
           </div>
         }
       >
-        <ul className="card-flush divide-y text-sm">
+        {(totalVat > 0 || totalWht > 0) && (
+          <p className="mb-2 text-xs text-gray-600">
+            ภาษีซื้อที่มีใบกำกับ {baht(totalVat)} · ภาษีหัก ณ ที่จ่ายค้างนำส่ง {baht(totalWht)}
+          </p>
+        )}
+        <ul className="list-card">
           {rows.map((x) => (
             <li key={x.id} className={`p-3 ${x.voided_at ? 'bg-gray-50 text-gray-400' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -273,12 +487,21 @@ export default function AcctExpenses({
                     <span className={x.voided_at ? 'line-through' : ''}>{byId.get(x.account_id ?? '')?.name ?? 'ไม่ระบุหมวด'}</span>
                     {x.voided_at && <span className="badge badge-red ml-2">ยกเลิก: {x.void_reason}</span>}
                     {x.source !== 'manual' && <span className="badge badge-gray ml-2">{SOURCE_NOTE[x.source]}</span>}
+                    {x.tax_invoice_no && <span className="badge badge-green ml-2">ใบกำกับภาษีซื้อ</span>}
+                    {x.wht_type && <span className="badge badge-amber ml-2">{WHT_FORM_SHORT[x.wht_type]} {x.wht_rate}%</span>}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="hint">
                     {x.spent_on} · {PAYMENT_LABEL[x.payment_method] ?? x.payment_method}
                     {x.vat_amount > 0 && ` · ภาษีซื้อ ${baht(x.vat_amount)}`}
+                    {x.wht_amount > 0 && ` · หัก ณ ที่จ่าย ${baht(x.wht_amount)}`}
                     {x.note && ` · ${x.note}`}
                   </div>
+                  {x.supplier_name && (
+                    <div className="hint">
+                      {x.supplier_name} · {formatTaxId(x.supplier_tax_id)} · {branchLabel(x.supplier_branch_code)}
+                      {x.tax_invoice_no && ` · ใบกำกับ ${x.tax_invoice_no} (${x.tax_invoice_date})`}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`tabular-nums ${x.voided_at ? 'line-through' : 'font-semibold text-gray-900'}`}>{baht(x.amount)}</span>
@@ -314,10 +537,11 @@ export default function AcctExpenses({
               )}
             </li>
           ))}
-          {rows.length === 0 && <li className="p-6 text-center text-gray-400">ยังไม่มีรายจ่ายในช่วงนี้</li>}
+          {rows.length === 0 && <li className="empty-cell">ยังไม่มีรายจ่ายในช่วงนี้</li>}
         </ul>
-        <p className="mt-2 text-xs text-gray-500">
-          ซื้อวัตถุดิบเข้าสต็อกให้บันทึกที่ "ใบรับของ" (ลงเป็นสต็อก แล้วตัดเป็นต้นทุนเมื่อใช้ตามสูตร) · ของที่ไม่ได้นับสต็อก เช่น น้ำแข็ง ใช้หมวด "วัตถุดิบนอกสต็อก"
+        <p className="mt-2 hint">
+          ซื้อวัตถุดิบเข้าสต็อกให้บันทึกที่ "ใบรับของ" (ลงเป็นสต็อก แล้วตัดเป็นต้นทุนเมื่อใช้ตามสูตร) · ของที่ไม่ได้นับสต็อก เช่น น้ำแข็ง ใช้หมวด "วัตถุดิบนอกสต็อก" ·
+          ภาษีหัก ณ ที่จ่ายต้องออกหนังสือรับรอง (50 ทวิ) ให้ผู้รับเงินและนำส่งภายในวันที่ 7 ของเดือนถัดไป (ยื่นออนไลน์ภายในวันที่ 15)
         </p>
       </Section>
     </div>

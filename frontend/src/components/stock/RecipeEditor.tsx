@@ -101,7 +101,7 @@ export default function RecipeEditor({
       <span className="min-w-48 flex-1">
         <span className="font-medium text-gray-900">{r.name}</span>
         {r.menu_item_id && menuName.get(r.menu_item_id)?.stock_disabled && <span className="badge badge-red ml-2">ระบบปิดเมนู: ของไม่พอ</span>}
-        <span className="block text-xs text-gray-500">
+        <span className="block hint">
           ได้ {fmtNum(Number(r.output_qty))} {r.output_unit} · {r.recipe_lines.length} บรรทัด
           {r.recipe_lines.some((l) => l.sub_recipe_id) && ' · มีสูตรย่อย'}
         </span>
@@ -146,10 +146,10 @@ export default function RecipeEditor({
       </div>
 
       {draft && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-gray-900/40 p-4" onClick={() => setDraft(null)}>
+        <div className="overlay" onClick={() => setDraft(null)}>
           <form onSubmit={save} className="card max-h-[90vh] w-full max-w-2xl space-y-3 overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}
             role="dialog" aria-modal="true" aria-label="แก้สูตร">
-            <h2 className="text-lg font-bold text-gray-900">{draft.id ? `แก้สูตร ${draft.name}` : draft.menu_item_id ? 'สูตรเมนู' : 'สูตรย่อยใหม่'}</h2>
+            <h2 className="title-lg">{draft.id ? `แก้สูตร ${draft.name}` : draft.menu_item_id ? 'สูตรเมนู' : 'สูตรย่อยใหม่'}</h2>
             {error && <p className="alert-error">{error}</p>}
             <div className="grid gap-3 sm:grid-cols-4">
               <label className="sm:col-span-2">
@@ -165,7 +165,7 @@ export default function RecipeEditor({
                 <input className="input w-full" maxLength={20} required value={draft.output_unit} onChange={(e) => setDraft({ ...draft, output_unit: e.target.value })} />
               </label>
             </div>
-            {draft.menu_item_id && <p className="text-xs text-gray-500">ผูกกับเมนู {menuName.get(draft.menu_item_id)?.name} · ขาย 1 ที่ = ใช้ 1 {draft.output_unit}</p>}
+            {draft.menu_item_id && <p className="hint">ผูกกับเมนู {menuName.get(draft.menu_item_id)?.name} · ขาย 1 ที่ = ใช้ 1 {draft.output_unit}</p>}
 
             <div className="space-y-2">
               <span className="label">ส่วนผสม (ปริมาณสุทธิที่ใช้จริง)</span>
@@ -175,7 +175,7 @@ export default function RecipeEditor({
                 const unit = i?.unit ?? s?.output_unit ?? ''
                 const raw = i && Number(l.qty) > 0 ? rawQty(Number(l.qty), Number(i.trim_yield_pct), Number(i.cook_yield_pct)) : null
                 return (
-                  <div key={l.key} className="flex flex-wrap items-center gap-2 text-sm">
+                  <div key={l.key} className="toolbar text-sm">
                     <select className="input min-w-48 flex-1 py-1.5" value={l.ref}
                       onChange={(e) => setDraft({ ...draft, lines: draft.lines.map((x) => (x.key === l.key ? { ...x, ref: e.target.value } : x)) })}>
                       <option value="">เลือก...</option>
@@ -191,7 +191,7 @@ export default function RecipeEditor({
                     <input className="input w-24 py-1.5 text-right" type="number" min="0" step="any" inputMode="decimal" value={l.qty}
                       onChange={(e) => setDraft({ ...draft, lines: draft.lines.map((x) => (x.key === l.key ? { ...x, qty: e.target.value } : x)) })} aria-label="ปริมาณสุทธิ" />
                     <span className="w-14 text-gray-500">{unit}</span>
-                    {raw !== null && raw !== Number(l.qty) && <span className="text-xs text-gray-500">ตัดดิบ {fmtNum(raw)} {unit}</span>}
+                    {raw !== null && raw !== Number(l.qty) && <span className="hint">ตัดดิบ {fmtNum(raw)} {unit}</span>}
                     <button type="button" className="link-danger ml-auto" onClick={() => setDraft({ ...draft, lines: draft.lines.filter((x) => x.key !== l.key) })}>ลบ</button>
                   </div>
                 )
@@ -201,7 +201,7 @@ export default function RecipeEditor({
             {preview && (
               <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm">
                 ต้นทุนรวม {baht(preview.total)} · ต่อ 1 {draft.output_unit} <strong>{baht(preview.per)}</strong>
-                <span className="block text-xs text-gray-500">คิดจากราคาซื้อล่าสุด ÷ (trim yield × cook yield) รวมสูตรย่อย</span>
+                <span className="block hint">คิดจากราคาซื้อล่าสุด ÷ (trim yield × cook yield) รวมสูตรย่อย</span>
               </p>
             )}
             <div className="flex justify-end gap-2 pt-1">

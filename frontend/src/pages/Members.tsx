@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { rolesFor } from '../lib/roles'
 import RequireRole from '../components/RequireRole'
 import type { Member } from '../lib/types'
+import { useCachedState } from '../lib/useCachedState'
 
 // สมาชิกสะสมแต้ม (เจ้าของ ผู้จัดการ · 0017): ค้นหา ดูประวัติแต้ม ปรับแต้มพร้อมเหตุผล
 // สมัครสมาชิกทำที่หน้ารับชำระ (ใส่เบอร์ตอนจ่ายเงิน)
@@ -18,7 +19,7 @@ interface LedgerRow {
 const REASON: Record<LedgerRow['reason'], string> = { earn: 'ได้จากการซื้อ', redeem: 'แลกส่วนลด', reverse: 'ยกเลิกบิล', adjust: 'ปรับโดยร้าน' }
 
 function Board({ restaurantId }: { restaurantId: string }) {
-  const [members, setMembers] = useState<Member[]>([])
+  const [members, setMembers] = useCachedState<Member[]>(`members:${restaurantId}`, [])
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Member | null>(null)
   const [ledger, setLedger] = useState<LedgerRow[]>([])
@@ -76,7 +77,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
         <section>
           <input className="input mb-3 w-full" placeholder="ค้นหาเบอร์โทรหรือชื่อ" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <div className="card-flush overflow-x-auto">
+          <div className="table-wrap">
             <table className="w-full text-left text-sm [&_td]:px-3 [&_td]:py-2.5 [&_th]:px-3 [&_th]:py-2.5">
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
@@ -95,13 +96,13 @@ function Board({ restaurantId }: { restaurantId: string }) {
                   >
                     <td className="tabular-nums">{m.phone}</td>
                     <td>{m.name ?? '-'}</td>
-                    <td className="text-right font-semibold tabular-nums">{m.points.toLocaleString('th-TH')}</td>
+                    <td className="num font-semibold">{m.points.toLocaleString('th-TH')}</td>
                     <td className="text-gray-500">{new Date(m.created_at).toLocaleDateString('th-TH')}</td>
                   </tr>
                 ))}
                 {members.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="p-6 text-center text-gray-400">
+                    <td colSpan={4} className="empty-cell">
                       {search ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก · สมัครได้ที่หน้ารับชำระ'}
                     </td>
                   </tr>
@@ -127,13 +128,13 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 </div>
                 <button className="btn btn-secondary btn-sm">ปรับแต้ม</button>
               </form>
-              <h3 className="mt-5 mb-2 text-sm font-semibold text-gray-900">ประวัติล่าสุด</h3>
+              <h3 className="mt-5 mb-2 text-sm strong-text">ประวัติล่าสุด</h3>
               <ul className="divide-y text-sm">
                 {ledger.map((l) => (
                   <li key={l.id} className="flex items-start justify-between gap-2 py-2">
                     <span>
                       <span className="block text-gray-800">{REASON[l.reason]}</span>
-                      <span className="block text-xs text-gray-500">
+                      <span className="block hint">
                         {new Date(l.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
                         {l.note ? ` · ${l.note}` : ''}
                       </span>

@@ -403,7 +403,8 @@ T.tx.rollback()
 legacy = pgserver.get_server(pathlib.Path(tempfile.mkdtemp(prefix='plato-legacy-')) / 'pgdata', cleanup_mode='delete')
 db = psycopg.connect(legacy.get_uri(), autocommit=True)
 db.execute(STUB)
-mig = [f for f in files() if f.parent.name == 'migrations']
+# ทดสอบเส้นทางอัปเกรดของร้านที่ใช้งานอยู่ จึงใช้ไฟล์เดิมแยกรายไฟล์ใน migrations/archive (ชุดรวม 0001-0007 แยกที่ 0026 ไม่ได้)
+mig = sorted((pathlib.Path(__file__).resolve().parent.parent / 'migrations' / 'archive').glob('[0-9][0-9][0-9][0-9]_*.sql'))
 old, new = [f for f in mig if f.name < '0027'], [f for f in mig if f.name >= '0027']
 
 

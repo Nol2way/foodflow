@@ -6,6 +6,7 @@ import { DAY_SHORT } from '../lib/analytics'
 import RequireRole from '../components/RequireRole'
 import PromoSuggestions from '../components/PromoSuggestions'
 import type { MenuItem, Promotion } from '../lib/types'
+import { useCachedState } from '../lib/useCachedState'
 
 // จัดการโปรโมชัน (เจ้าของ, ผู้จัดการ) · พนักงานหน้าร้านเลือกใช้ตอนรับออเดอร์
 // ฐานข้อมูลตรวจเงื่อนไขและคำนวณส่วนลดเอง (staff_place_order, counter_pay_bill)
@@ -27,11 +28,11 @@ const EMPTY = {
 type Form = typeof EMPTY
 
 function Board({ restaurantId }: { restaurantId: string }) {
-  const [promos, setPromos] = useState<Promotion[]>([])
-  const [links, setLinks] = useState<{ promotion_id: string; menu_item_id: string }[]>([])
-  const [menu, setMenu] = useState<MenuItem[]>([])
-  const [live, setLive] = useState<Set<string>>(new Set())
-  const [usage, setUsage] = useState<Record<string, number>>({})
+  const [promos, setPromos] = useCachedState<Promotion[]>(`promos:${restaurantId}`, [])
+  const [links, setLinks] = useCachedState<{ promotion_id: string; menu_item_id: string }[]>(`promos.links:${restaurantId}`, [])
+  const [menu, setMenu] = useCachedState<MenuItem[]>(`promos.menu:${restaurantId}`, [])
+  const [live, setLive] = useCachedState<Set<string>>(`promos.live:${restaurantId}`, new Set())
+  const [usage, setUsage] = useCachedState<Record<string, number>>(`promos.usage:${restaurantId}`, {})
   // วันที่เดิมของโปรที่กำลังแก้ (โปรที่เริ่มไปแล้ว แก้ส่วนอื่นได้โดยไม่ต้องเลื่อนวันเริ่ม)
   const [original, setOriginal] = useState<{ starts_on: string; ends_on: string }>({ starts_on: '', ends_on: '' })
   const [form, setForm] = useState<Form>(EMPTY)
@@ -189,7 +190,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           <input className="input" type="number" min="0" step="0.01" placeholder={form.discount_type === 'percent' ? '%' : 'บาท'} value={form.value} onChange={(e) => set('value', e.target.value)} required />
           <input className="input" type="number" min="0" step="0.01" placeholder="ซื้อขั้นต่ำ (บาท)" value={form.min_subtotal} onChange={(e) => set('min_subtotal', e.target.value)} />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="toolbar">
           <span className="text-gray-500">จำนวนครั้งที่ใช้ได้</span>
           <input
             className="input w-36 py-1.5"
@@ -202,7 +203,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           />
           <span className="text-xs text-gray-400">นับ 1 ครั้งต่อ 1 ออเดอร์ (ใส่ตอนรับออเดอร์) หรือ 1 บิล (ใส่ตอนรับชำระ) · เว้นว่าง = ไม่จำกัด</span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="toolbar">
           <span className="text-gray-500">ช่วงวันที่</span>
           <input
             className="input py-1.5"
@@ -221,7 +222,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           <span>–</span>
           <input className="input py-1.5" type="time" value={form.end_time} onChange={(e) => set('end_time', e.target.value)} />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="toolbar">
           <span className="text-gray-500">วัน (ไม่เลือก = ทุกวัน)</span>
           {DAY_SHORT.map((d, i) => (
             <label key={d} className={`cursor-pointer rounded-full border px-3.5 py-1.5 transition ${form.days.includes(i) ? 'border-gray-900 bg-gray-900 text-white' : 'bg-white text-gray-600 hover:border-gray-300'}`}>
@@ -258,14 +259,14 @@ function Board({ restaurantId }: { restaurantId: string }) {
             <button type="button" className="btn btn-secondary" onClick={() => edit(null)}>ยกเลิก</button>
           )}
         </div>
-        <p className="text-xs text-gray-500">เวลาและวันคิดตามเขตเวลาของร้าน · ดูช่วงลูกค้าน้อย (ออฟพีค) ได้ที่หน้าวิเคราะห์ เพื่อตั้งโปรดึงลูกค้า</p>
+        <p className="hint">เวลาและวันคิดตามเขตเวลาของร้าน · ดูช่วงลูกค้าน้อย (ออฟพีค) ได้ที่หน้าวิเคราะห์ เพื่อตั้งโปรดึงลูกค้า</p>
       </form>
 
       <ul className="space-y-2">
         {promos.map((p) => {
           const its = itemsOf.get(p.id) ?? []
           return (
-            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+            <li key={p.id} className="toolbar justify-between rounded-lg border p-3 text-sm">
               <div>
                 <div className="font-medium">
                   {p.name}{' '}
@@ -280,7 +281,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 <div className="text-gray-500">
                   {describePromotion(p)} · {its.length ? its.map(menuName).join(', ') : 'ทั้งบิล'}
                 </div>
-                <div className="mt-0.5 text-xs text-gray-500">
+                <div className="mt-0.5 hint">
                   ใช้ไปแล้ว {(usage[p.id] ?? 0).toLocaleString('th-TH')}
                   {p.max_uses ? ` / ${p.max_uses.toLocaleString('th-TH')} ครั้ง (เหลือ ${Math.max(0, p.max_uses - (usage[p.id] ?? 0)).toLocaleString('th-TH')})` : ' ครั้ง'}
                 </div>

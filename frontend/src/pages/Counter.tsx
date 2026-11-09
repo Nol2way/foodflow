@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import CancelOrderDialog from '../components/CancelOrderDialog'
 import { useOrders } from '../lib/useOrders'
 import { rolesFor } from '../lib/roles'
 import { baht, orderLabel, itemQty } from '../lib/format'
@@ -11,6 +12,10 @@ import PromoPicker, { usePromoSelection, usePromotions } from '../components/Pro
 import PromptPayQR from '../components/PromptPayQR'
 import Receipt from '../components/Receipt'
 import MemberBox from '../components/MemberBox'
+import TaxShiftBar from '../components/TaxShiftBar'
+import { useCurrentShift } from '../components/ShiftModal'
+import { apiMessage } from '../lib/api'
+import { issueAbb, useTaxSetup } from '../lib/tax'
 import { useShopSettings } from '../lib/shop'
 import { pointsDiscount } from '../lib/loyalty'
 import type { KitchenOrder, Member, OrderStatus, PaymentMethod, ShopSettings } from '../lib/types'
@@ -18,6 +23,7 @@ import type { KitchenOrder, Member, OrderStatus, PaymentMethod, ShopSettings } f
 // หน้าร้าน: รวมบิลตามโต๊ะ (หลายออเดอร์ต่อโต๊ะได้) รับชำระเมื่อเสิร์ฟครบ และยกเลิกออเดอร์ที่ครัวยังไม่เริ่ม
 // โปรโมชันเลือกให้อัตโนมัติทั้งบิล (ใช้หลายโปรได้ถ้าไม่ชนกัน) ฐานข้อมูลคิดส่วนลดจริงตอนรับชำระ (counter_pay_bill)
 // 0017: เลือกวิธีชำระ (พร้อมเพย์แสดง QR ใส่ยอด) · สมาชิกสะสม/แลกแต้ม · จ่ายแล้วเปิดใบเสร็จพิมพ์ได้
+// 0031: กะแคชเชียร์ (บิลผูกกะอัตโนมัติ) · ร้านจด VAT + เครื่องมีเลขอนุมัติ = ออกใบอย่างย่อ (ABB) ให้ทันทีหลังรับชำระ
 const METHODS: { key: PaymentMethod; label: string }[] = [
   { key: 'cash', label: 'เงินสด' },
   { key: 'promptpay', label: 'พร้อมเพย์' },
@@ -51,6 +57,19 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const promotions = usePromotions(restaurantId)
   const shop = useShopSettings(restaurantId)
   const [receiptIds, setReceiptIds] = useState<string[] | null>(null)
+  const tax = useTaxSetup(restaurantId)
+  const current = useCurrentShift(restaurantId)
+
+  // ออกใบอย่างย่อทีละออเดอร์ (ม.86/6 ต่อธุรกรรม) · ไม่สำเร็จก็ยังพิมพ์ใบเสร็จธรรมดาได้ ออกย้อนหลังเป็นใบเต็มรูปได้
+  async function afterPaid(ids: string[]) {
+    if (tax.canIssueAbb && tax.terminal) {
+      const code = tax.terminal.terminal_code
+      const results = await Promise.allSettled(ids.map((id) => issueAbb(restaurantId, id, code)))
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+      if (failed) setError(`รับชำระแล้ว แต่ออกใบกำกับภาษีอย่างย่อไม่สำเร็จ: ${apiMessage(failed.reason)}`)
+    }
+    setReceiptIds(ids)
+  }
 
   const bills = useMemo(() => {
     const map = new Map<string, Bill>()
@@ -66,23 +85,40 @@ function Board({ restaurantId }: { restaurantId: string }) {
     return [...map.values()].sort((a, b) => Number(b.allServed) - Number(a.allServed) || a.label.localeCompare(b.label, 'th'))
   }, [orders])
 
-  async function cancel(o: KitchenOrder) {
-    if (!window.confirm('ยืนยันยกเลิกออเดอร์นี้?')) return
-    const { error: err } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', o.id).eq('status', 'received')
-    if (err) setError(err.message)
-    void reload()
-  }
+  // ยกเลิก: เปิดหน้าต่างให้เลือกว่าจะยกเลิกเมนูไหน กี่จาน หรือทั้งออเดอร์
+  const [cancelling, setCancelling] = useState<KitchenOrder | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   return (
     <div className="page-narrow">
-      <div className="page-header">
+      <div className="page-header flex-wrap gap-2">
         <h1 className="page-title">รับชำระเงิน</h1>
-        <Link to="/pos" className="btn btn-primary">
-          <Icon name="plus" className="h-4 w-4" />
-          รับออเดอร์
-        </Link>
+        <div className="toolbar">
+          <TaxShiftBar restaurantId={restaurantId} setup={tax} current={current} />
+          <Link to="/pos" className="btn btn-primary">
+            <Icon name="plus" className="h-4 w-4" />
+            รับออเดอร์
+          </Link>
+        </div>
       </div>
       {error && <p className="alert-error">{error}</p>}
+      {notice && (
+        <p className="alert-success row-between">
+          <span className="flex items-center gap-2">
+            <Icon name="check" className="h-4 w-4" />
+            {notice}
+          </span>
+          <button className="link-muted text-xs" onClick={() => setNotice(null)}>
+            ปิด
+          </button>
+        </p>
+      )}
+      {current.loaded && !current.shift && (
+        <p className="alert-error">ยังไม่ได้เปิดกะ · บิลที่รับชำระตอนนี้จะไม่ถูกนับในยอดเงินสดของกะใด กด “เปิดกะ” ก่อนรับเงิน</p>
+      )}
+      {tax.vatRegistered && tax.loaded && !tax.canIssueAbb && (
+        <p className="alert-error">ร้านจด VAT แต่ยังออกใบกำกับภาษีอย่างย่อไม่ได้: {!tax.seller ? 'ยังไม่ได้กรอกข้อมูลผู้ประกอบการ' : !tax.terminal ? 'ยังไม่ได้เลือกเครื่อง POS (เลือกในหน้าต่างเปิดกะ)' : 'เครื่อง POS นี้ยังไม่มีเลขอนุมัติจากกรมสรรพากร'}</p>
+      )}
 
       <div className="space-y-3">
         {bills.map((b) => (
@@ -92,17 +128,35 @@ function Board({ restaurantId }: { restaurantId: string }) {
             restaurantId={restaurantId}
             promotions={promotions}
             settings={shop.settings}
-            onCancel={(o) => void cancel(o)}
+            onCancel={setCancelling}
             onPaid={(ids) => {
-              if (ids) setReceiptIds(ids)
+              if (ids) void afterPaid(ids)
               void reload()
               void promotions.reload()
             }}
             onError={setError}
           />
         ))}
-        {bills.length === 0 && <p className="empty">ไม่มีบิลค้างชำระ</p>}
+        {bills.length === 0 && (
+          <div className="empty">
+            <Icon name="counter" className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+            ไม่มีบิลค้างชำระ
+          </div>
+        )}
       </div>
+      {cancelling && (
+        <CancelOrderDialog
+          order={cancelling}
+          onClose={() => setCancelling(null)}
+          onDone={(msg) => {
+            setCancelling(null)
+            setError(null)
+            setNotice(msg)
+            void reload()
+            void promotions.reload()
+          }}
+        />
+      )}
       {receiptIds && <Receipt orderIds={receiptIds} onClose={() => setReceiptIds(null)} />}
     </div>
   )
@@ -170,21 +224,32 @@ function BillCard({
   }
 
   return (
-    <article className={`card p-4 ${b.allServed ? 'border-emerald-300 ring-2 ring-emerald-50' : ''}`}>
-      <div className="flex items-center justify-between gap-2">
-        <strong className="text-lg text-gray-900">{b.label}</strong>
-        <strong className="text-xl tabular-nums text-gray-900">{baht(net)}</strong>
+    <article className={`card p-5 ${b.allServed ? 'border-emerald-300 ring-4 ring-emerald-50' : ''}`}>
+      <div className="row-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${b.allServed ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+            <Icon name={b.orders[0]?.order_type === 'takeaway' ? 'bag' : 'table'} className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <strong className="block truncate text-lg text-gray-900">{b.label}</strong>
+            <span className="hint">
+              {b.orders.length} ออเดอร์ · {b.allServed ? 'พร้อมชำระ' : 'กำลังดำเนินการ'}
+            </span>
+          </div>
+        </div>
+        <strong className="text-2xl tabular-nums tracking-tight text-gray-900">{baht(net)}</strong>
       </div>
       {b.orders.map((o) => (
         <div key={o.id} className="mt-3 border-t pt-3 text-sm">
-          <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+          <div className="mb-1 flex items-center justify-between hint">
             <span>
               {new Date(o.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}{' '}
               <span className={`badge ml-1 ${STATUS_BADGE[o.status] ?? 'badge-gray'}`}>{STATUS_LABEL[o.status]}</span>
             </span>
             {o.status === 'received' && (
-              <button className="link-danger text-xs" onClick={() => onCancel(o)}>
-                ยกเลิก
+              <button className="btn btn-sm btn-danger-soft" onClick={() => onCancel(o)}>
+                <Icon name="close" className="h-3.5 w-3.5" />
+                ยกเลิกรายการ
               </button>
             )}
           </div>
@@ -233,7 +298,7 @@ function BillCard({
             <span className="tabular-nums">−{baht(fromPoints)}</span>
           </div>
         )}
-        <div className="flex justify-between pt-1 text-base font-semibold text-gray-900">
+        <div className="flex justify-between pt-1 text-base strong-text">
           <span>ยอดชำระ</span>
           <span className="tabular-nums">{baht(net)}</span>
         </div>
@@ -270,9 +335,9 @@ function BillCard({
       {showQR && settings?.promptpay_id && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="QR พร้อมเพย์">
           <div className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-2xl">
-            <div className="mb-3 text-center font-semibold text-gray-900">{b.label} · สแกนจ่ายด้วยแอปธนาคาร</div>
+            <div className="mb-3 text-center strong-text">{b.label} · สแกนจ่ายด้วยแอปธนาคาร</div>
             <PromptPayQR id={settings.promptpay_id} amount={net} />
-            <p className="mt-3 text-center text-xs text-gray-500">ตรวจยอดเงินเข้าในแอปธนาคารของร้านก่อนกดยืนยัน</p>
+            <p className="mt-3 text-center hint">ตรวจยอดเงินเข้าในแอปธนาคารของร้านก่อนกดยืนยัน</p>
             <div className="mt-3 flex gap-2">
               <button className="btn btn-success flex-1" disabled={paying} onClick={() => void pay()}>
                 {paying ? 'กำลังบันทึก...' : 'ได้รับเงินแล้ว'}

@@ -30,7 +30,7 @@ export function Stat({ label, value, hint, tone }: { label: string; value: React
     <div className="stat">
       <div className="stat-label">{label}</div>
       <div className={`stat-value ${tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-red-600' : ''}`}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-gray-500">{hint}</div>}
+      {hint && <div className="mt-1 hint">{hint}</div>}
     </div>
   )
 }
@@ -47,7 +47,7 @@ export function CostBar({ label, value, min, max }: { label: string; value: numb
     <div className="card">
       <div className="flex items-baseline justify-between gap-2">
         <span className="stat-label">{label}</span>
-        <span className="text-xs text-gray-500">เป้า {min}–{max}%</span>
+        <span className="hint">เป้า {min}–{max}%</span>
       </div>
       <div className="mt-1 flex items-baseline gap-2">
         <span className="stat-value">{value === null ? '–' : `${value.toFixed(1)}%`}</span>
@@ -64,8 +64,8 @@ export function CostBar({ label, value, min, max }: { label: string; value: numb
 export function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
     <section className="mt-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      <div className="mb-3 toolbar justify-between">
+        <h2 className="text-base strong-text">{title}</h2>
         {action}
       </div>
       {children}

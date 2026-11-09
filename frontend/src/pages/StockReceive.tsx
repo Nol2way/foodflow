@@ -112,9 +112,9 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
   const base = useLoad(async () => {
     const [i, s] = await Promise.all([stockApi.ingredients(restaurantId), stockApi.suppliers(restaurantId)])
     return { ingredients: i.ingredients, suppliers: s.suppliers.filter((x) => x.is_active) }
-  }, [restaurantId])
+  }, [restaurantId], 'stock.receiveBase')
   const [supplierId, setSupplierId] = useState('')
-  const lastQ = useLoad(() => stockApi.lastPurchases(restaurantId, supplierId || null), [restaurantId, supplierId])
+  const lastQ = useLoad(() => stockApi.lastPurchases(restaurantId, supplierId || null), [restaurantId, supplierId], 'stock.lastPurchases')
   const [invoice, setInvoice] = useState('')
   const [date, setDate] = useState(today)
   const [note, setNote] = useState('')
@@ -272,7 +272,7 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
                       <input className="input w-full text-right" type="number" min="0" step="any" inputMode="decimal" placeholder={l.packs || '-'} value={l.billPacks} onChange={(e) => set(l.key, { billPacks: e.target.value })} />
                     </label>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 hint">
                     <span>เข้าสต็อก {fmtNum(baseQty)} {ing.unit}</span>
                     {Number(l.packSize) > 0 && l.packPrice !== '' && (
                       <span>
@@ -346,7 +346,7 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
       <div className="print-sheet card">
         <div className="flex flex-wrap justify-between gap-2 border-b pb-3">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">ใบรับของ (ตรวจรับเทียบบิล)</h2>
+            <h2 className="title-lg">ใบรับของ (ตรวจรับเทียบบิล)</h2>
             <p className="text-sm text-gray-500">
               วันที่รับ {new Date(receipt.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} · ผู้รับ {receipt.received_by_name ?? '-'}
             </p>
@@ -377,21 +377,21 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
                   <tr key={l.ingredient_id} className="align-top">
                     <td className="px-2 py-1.5">
                       {l.ingredient_name}
-                      {l.line_note && <div className="text-xs text-gray-500">{l.line_note}</div>}
+                      {l.line_note && <div className="hint">{l.line_note}</div>}
                     </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    <td className="px-2 py-1.5 num">
                       {l.invoice_unit ? `${fmtNum(Number(l.invoice_unit_qty))} ${l.invoice_unit}` : `${fmtNum(Number(l.invoice_qty ?? l.quantity))} ${l.unit}`}
-                      {l.invoice_unit && <div className="text-xs text-gray-500">= {fmtNum(Number(l.invoice_qty))} {l.unit}</div>}
+                      {l.invoice_unit && <div className="hint">= {fmtNum(Number(l.invoice_qty))} {l.unit}</div>}
                     </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    <td className="px-2 py-1.5 num">
                       {fmtNum(l.quantity)} {l.unit}
                       {l.pack_qty !== null && l.pack_size !== null && (
-                        <div className="text-xs text-gray-500">{fmtNum(Number(l.pack_qty))} × {fmtNum(Number(l.pack_size))} {l.unit}</div>
+                        <div className="hint">{fmtNum(Number(l.pack_qty))} × {fmtNum(Number(l.pack_size))} {l.unit}</div>
                       )}
-                      {l.expiry_date && <div className="text-xs text-gray-500">หมดอายุ {new Date(l.expiry_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</div>}
-                      {glaze !== null && <div className="text-xs text-gray-500">รวม {fmtNum(Number(l.gross_qty))} · น้ำแข็ง {pct(glaze)}</div>}
+                      {l.expiry_date && <div className="hint">หมดอายุ {new Date(l.expiry_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</div>}
+                      {glaze !== null && <div className="hint">รวม {fmtNum(Number(l.gross_qty))} · น้ำแข็ง {pct(glaze)}</div>}
                     </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">
+                    <td className="px-2 py-1.5 num">
                       {l.pack_price !== null ? `${baht(Number(l.pack_price))}/แพ็ค` : `${baht(Number(l.unit_cost))}/${l.unit}`}
                       {l.price_change_pct !== null && Number(l.price_change_pct) !== 0 && (
                         <div className="text-xs text-amber-800">
@@ -410,7 +410,7 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
                               {(Object.keys(CLAIM) as (keyof typeof CLAIM)[]).map((k) => <option key={k} value={k}>{CLAIM[k]}</option>)}
                             </select>
                           ) : (
-                            <div className="text-xs text-gray-500">{CLAIM[l.claim_status as keyof typeof CLAIM]}</div>
+                            <div className="hint">{CLAIM[l.claim_status as keyof typeof CLAIM]}</div>
                           )}
                           <div className="hidden text-xs print:block">{CLAIM[l.claim_status as keyof typeof CLAIM]}</div>
                         </>
@@ -478,22 +478,22 @@ function ReceiptList({ restaurantId, openId, canClaim, onOpen }: { restaurantId:
           เฉพาะใบที่ยังมียอดรอทวง
         </label>
       </div>
-      <ul className="card-flush divide-y text-sm">
+      <ul className="list-card">
         {shown.map((r) => (
           <li key={r.id}>
             <button className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 p-3 text-left hover:bg-gray-50" onClick={() => onOpen(r.id)}>
               <span className="min-w-40 flex-1">
                 <span className="block font-medium text-gray-900">{r.supplier ?? 'ไม่ระบุผู้ขาย'}{r.invoice_no && ` · ${r.invoice_no}`}</span>
-                <span className="text-xs text-gray-500">
+                <span className="hint">
                   {new Date(r.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} · {r.received_by_name ?? '-'} · {r.item_count} รายการ
                 </span>
               </span>
               {Number(r.claim_total) > 0 && <span className="badge badge-red">รอทวง {baht(Number(r.claim_total))}</span>}
-              <span className="w-28 text-right font-semibold tabular-nums">{baht(Number(r.invoice_total || r.total_cost))}</span>
+              <span className="w-28 num font-semibold">{baht(Number(r.invoice_total || r.total_cost))}</span>
             </button>
           </li>
         ))}
-        {shown.length === 0 && !error && <li className="p-6 text-center text-gray-400">ไม่มีใบรับของ</li>}
+        {shown.length === 0 && !error && <li className="empty-cell">ไม่มีใบรับของ</li>}
       </ul>
     </div>
   )
@@ -542,10 +542,10 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
           <span className="label">ถึง</span>
           <input className="input" type="date" value={to} max={today()} onChange={(e) => setTo(e.target.value)} />
         </label>
-        <p className="text-xs text-gray-500">เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล · น้ำแข็งไม่เกิน {settings.glazeMax}%</p>
+        <p className="hint">เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล · น้ำแข็งไม่เกิน {settings.glazeMax}%</p>
       </div>
       {error && <p className="alert-error">{error}</p>}
-      <div className="card-flush overflow-x-auto">
+      <div className="table-wrap">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="text-right">
@@ -565,7 +565,7 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
               const gap = r.gap_pct === null ? null : Number(r.gap_pct)
               const glaze = r.glaze_pct === null ? null : Number(r.glaze_pct)
               return (
-                <tr key={r.supplier} className="text-right tabular-nums">
+                <tr key={r.supplier} className="num">
                   <td className="px-3 py-2 text-left font-medium text-gray-900">{r.supplier}</td>
                   <td className="px-3 py-2">{r.receipts}</td>
                   <td className="px-3 py-2">{baht(Number(r.invoice_value))}</td>
@@ -582,7 +582,7 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
               )
             })}
             {rows.length === 0 && !error && (
-              <tr><td colSpan={9} className="p-6 text-center text-gray-400">ไม่มีใบรับของในช่วงนี้</td></tr>
+              <tr><td colSpan={9} className="empty-cell">ไม่มีใบรับของในช่วงนี้</td></tr>
             )}
           </tbody>
         </table>

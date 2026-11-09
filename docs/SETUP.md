@@ -31,40 +31,19 @@ npm run install:all      # ติดตั้งทั้ง frontend และ 
 ## 3. ฐานข้อมูล (`database/`)
 
 1. สร้างโปรเจกต์ใหม่ใน Supabase
-2. เปิด **SQL Editor** แล้วรันไฟล์ใน `database/migrations/` **ตามลำดับเลข** (0001 → 0018)
+2. เปิด **SQL Editor** แล้วรันไฟล์ใน `database/migrations/` **ตามลำดับเลข** (0001 → 0007)
 
    | ไฟล์ | เนื้อหา |
    |------|---------|
-   | `0001_schema.sql` | ตารางหลัก + RLS พื้นฐาน |
-   | `0002_customer_ordering.sql` | ฟังก์ชันออเดอร์รุ่นแรก + Realtime (ส่วนลูกค้าสั่งเองถูกยกเลิกใน 0007) |
-   | `0003_roles.sql` | บทบาท 5 แบบ + สิทธิ์รายบทบาท + สต็อก |
-   | `0004_stock_costs_analytics.sql` | ตัดสต็อกตามสูตร, ต้นทุนต่อเมนู, ฟังก์ชันวิเคราะห์ |
-   | `0005_import_and_hardening.sql` | นำเข้ายอดขาย CSV, ฟังก์ชันพนักงาน, กันลบเจ้าของคนสุดท้าย |
-   | `0006_accounting_summary.sql` | สรุปบัญชีคำนวณในฐานข้อมูล (ยอดถูกต้องแม้ออเดอร์เกิน 1,000 รายการ) |
-   | `0007_staff_ordering.sql` | **พนักงานเป็นผู้รับออเดอร์เท่านั้น** (`staff_place_order`), ปิดการเข้าถึงของผู้ไม่ล็อกอิน, ห้ามแก้ยอดเงินออเดอร์ |
-   | `0008_order_status_rules.sql` | บังคับลำดับสถานะออเดอร์ บิลที่ชำระแล้วยกเลิกได้เฉพาะเจ้าของพร้อมเหตุผล บันทึกผู้ยกเลิก |
-   | `0009_manager_promotions.sql` | บทบาทผู้จัดการ (เมนู โปรโมชัน พนักงาน นำเข้า CSV) + ระบบโปรโมชันและส่วนลด |
-   | `0010_kitchen_item_done.sql` | ครัวติ๊กเสร็จทีละเมนูในออเดอร์ที่กำลังทำ (`kitchen_set_item_done`) + Realtime ของ `order_items` |
-   | `0011_item_served.sql` | ติ๊กเสิร์ฟแล้วทีละเมนูในออเดอร์ที่พร้อมเสิร์ฟ (`set_item_served`) |
-   | `0012_promotion_rules.sql` | โปร: วันที่ย้อนหลังไม่ได้, จำกัดจำนวนครั้ง, ใช้หลายโปรพร้อมกัน (เมนูไม่ซ้ำ + ทั้งบิล 1 อัน), เลือกโปรตอนรับชำระ (`counter_pay_bill`) |
-   | `0013_display_magazine.sql` | จอ iPad แบบแมกกาซีน: เมนู "ร้านแนะนำ" + คำโปรย + รูป/วิดีโอ (Storage bucket `menu-media`), ลิงก์ลับต่อร้าน `/display/<token>` ไม่ต้องล็อกอิน |
-   | `0014_display_media.sql` | สื่อบนจอ: หลายรูป/วิดีโอต่อเมนู, ใส่ลิงก์ได้ (YouTube / ไฟล์ https), สไลด์โฆษณาร้าน (ตาราง `display_media`) · `seed_demo.sql` เพิ่มเมนูแนะนำ + รูป/คลิปตัวอย่างจาก Wikimedia Commons |
-   | `0015_display_customize.sql` | ปรับแต่งจอ: โปสเตอร์จากเทมเพลต (แก้ต่อได้, `display_media.poster`), ตั้งค่าสี/ฟอนต์/เวลา/สิ่งที่แสดง (`display_settings`) |
-   | `0016_manager_accounting.sql` | ผู้จัดการดูบัญชีได้ (สรุปบัญชี รายจ่าย ต้นทุนต่อเมนู) แต่บันทึก/แก้รายจ่ายไม่ได้ |
-   | `0017_payment_loyalty.sql` | ตั้งค่าร้าน (พร้อมเพย์ ใบเสร็จ แต้ม LINE), สมาชิกสะสมแต้ม + ประวัติแต้ม, วิธีชำระ, แลกแต้มตอนจ่าย, ใบเสร็จ (`bill_receipt`), ยกเลิกบิลแล้วคืนแต้ม |
-   | `0018_reports_insights.sql` | รายงานสรุปรายวัน (`daily_report`) สำหรับหน้าเว็บและ LINE, ข้อมูลแนะนำโปร (`promo_insights`) |
-   | `0019_stock_history.sql` | ประวัติสต็อก: ใครทำ คงเหลือหลังรายการ ออเดอร์ที่ตัด (`stock_history`) |
-   | `0020_multi_roles.sql` | พนักงาน 1 คนมีได้หลายบทบาท (1 แถวต่อบทบาท) + `staff_set_roles` |
-   | `0021_app_users.sql` | ผู้ใช้ของระบบเอง (`app_users`) แทน Supabase Auth: ย้ายบัญชีเดิมมาพร้อมรหัสผ่านเดิม, foreign key ชี้ `app_users` |
-   | `0022_stock_counts.sql` | ใบตรวจนับสต็อก: นับจริงเทียบยอดระบบ ปรับยอดให้ เก็บเป็นใบย้อนดู/พิมพ์ได้ (`submit_stock_count`) |
-   | `0023_seafood_inventory.sql` | ร้านอาหารทะเล: Yield %, ของเตรียม/น้ำจิ้ม (`produce_prep`), ใบรับของ + ต้นทุนเฉลี่ย (`submit_stock_receipt`), ของเสียแยกประเภท, ขายตามน้ำหนัก, รายงานส่วนต่าง (`stock_variance`) · ดู `docs/inventory-seafood.md` |
-   | `0024_units.sql` | หน่วยนับกลางของร้าน (`units`) + หน่วยแปลงต่อวัตถุดิบ (`ingredient_units` เช่น 1 ลัง = 10 kg) ใช้ตอนรับของ/ตรวจนับ เก็บค่าที่กรอกจริงในเอกสาร |
-   | `0025_receiving_check.sql` | นับ 2 แบบ: ใบรับของตรวจเทียบบิล (ตามบิล/รับจริง, % น้ำแข็ง, ขาด-เกิน-ตีกลับ, ติดตามยอดทวง `set_receipt_claim`) + ใบตรวจนับรายสัปดาห์/รายเดือน + รายงานผู้ขาย (`supplier_receiving_report`) |
-   | `0026_accounting.sql` | บัญชีคู่เชื่อมสต็อก: ผังบัญชี (`accounts`) สมุดรายวัน (`journal_entries`/`journal_lines` เดบิต = เครดิต แก้ไม่ได้) ลงอัตโนมัติจากบิล/สต็อก/รายจ่าย ปิดวัน (`day_closes`) bucket `expense-receipts` · สต็อกที่มีอยู่ลงเป็นยอดยกมาให้ · ดู `docs/accounting.md` |
-   | `0027_stock_ledger.sql` | สต็อกแบบ ledger + ล็อต: แปลงหน่วยเป็น g/ml/pcs (kg/ลิตรเดิมคูณ 1000 มูลค่าไม่เปลี่ยน) · ผู้ขาย (`suppliers`) · ล็อต (`stock_lots`) หยิบ FEFO คิดต้นทุน FIFO · ประเภทรายการ receive/recipe_deduct/recipe_return/count_adjust · ยอดแก้ตรงไม่ได้ · ledger append-only · ดู `docs/stock.md` |
-   | `0028_stock_recipes.sql` | สูตรแบบใหม่ (`recipes` + `recipe_lines` รองรับสูตรย่อย/สูตรซ้อน) ต้นทุนคำนวณใหม่เมื่อราคาเปลี่ยน รวมสูตรแม่ · ตัดเมื่อเริ่มทำ คืนเมื่อยกเลิก · ของไม่พอปิดเมนูอัตโนมัติ · ย้ายของเตรียมเดิมเป็นสูตรย่อย |
-   | `0029_stock_operations.sql` | รับเข้า (`stock_receive` เตือนราคา/ขนาดบรรจุเปลี่ยน) · นับ blind + ส่วนต่าง AvT (`stock_variance_report`) + ผู้ตรวจ (`verify_stock_count`) · yield test · par/แนะนำสั่ง · ภาพรวม · ประวัติ · กลับรายการ |
-   | `0030_stock_rls.sql` | สิทธิ์สต็อก: owner/manager/stock จัดการ · บัญชีอ่านอย่างเดียว · ครัว/หน้าร้านมองไม่เห็น · แยกรายร้าน |
+   | `0001_core.sql` | ตารางหลัก บทบาท พนักงานรับออเดอร์ ลำดับสถานะออเดอร์ โปรโมชัน ติ๊กเสร็จ/เสิร์ฟรายเมนู |
+   | `0002_display_payment_reports.sql` | จอ iPad แบบแมกกาซีน ผู้จัดการดูบัญชี ชำระเงิน/พร้อมเพย์ สมาชิกสะสมแต้ม รายงานรายวัน |
+   | `0003_users_inventory.sql` | ผู้ใช้ของระบบเอง (`app_users`) หลายบทบาทต่อคน ประวัติ/ใบนับ/ใบรับสต็อก ขายตามน้ำหนัก หน่วยนับ |
+   | `0004_accounting.sql` | บัญชีคู่เชื่อมสต็อก ผังบัญชี ลงบัญชีอัตโนมัติ ปิดวัน · ดู `docs/accounting.md` |
+   | `0005_stock.sql` | สต็อกแบบ ledger + ล็อต FEFO/FIFO สูตรซ้อน นับ blind ส่วนต่าง AvT yield par สิทธิ์สต็อก · ดู `docs/stock.md` |
+   | `0006_tax_shifts.sql` | ภาษีกรมสรรพากร (ใบกำกับอย่างย่อ/เต็มรูป e-Tax) และกะแคชเชียร์ |
+   | `0007_order_cancel_kitchen.sql` | เลือกยกเลิกบางเมนูในออเดอร์ · ขั้นทำอาหารเป็นของครัวเท่านั้น |
+
+   รายละเอียดว่าแต่ละไฟล์รวมจาก migration เดิมไฟล์ไหน และวิธีอัปเดต**ฐานข้อมูลที่เคยรันชุดเดิม 34 ไฟล์แล้ว** ดู [`database/migrations/README.md`](../database/migrations/README.md)
 
 3. ข้อมูลตัวอย่าง (ไม่บังคับ): `database/seed/seed.sql` (ร้าน เมนู โต๊ะ) → `database/seed/seed_demo.sql` (ออเดอร์ทดลองย้อนหลัง 6 สัปดาห์ ผู้ขาย วัตถุดิบ สูตร + สูตรย่อย) → `database/seed/seed_stock_demo.sql` (ไม่บังคับ: ใบรับ/ใบนับ/yield test ย้อนหลังให้หน้าสต็อกมีข้อมูล ลงบัญชีจริง) → `database/seed/seed_test_users.sql` (บัญชีทดสอบครบทุกบทบาท ล็อกอินได้ทันที รหัสผ่านดูที่ต้นไฟล์ · มีคำสั่งลบอยู่ท้ายไฟล์)
 4. สร้าง **เจ้าของร้านคนแรก** ด้วย SQL ที่คอมเมนต์ไว้ท้าย `seed.sql` (`app_create_user` + บทบาท `owner`) พนักงานคนต่อไปเจ้าของเพิ่มเองที่หน้า `/staff` (ระบบสร้างรหัสชั่วคราวให้ส่งต่อ พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก)
@@ -121,9 +100,29 @@ npm run dev                      # http://localhost:5173
 
 **ทดลองใช้:** ล็อกอินที่ `/login` ด้วยบัญชีหน้าร้าน (`staff`) หรือเจ้าของ → `/pos` เลือกโต๊ะ เลือกเมนู กด **ส่งเข้าครัว** → เปิด `/kitchen` อีกเครื่อง/อีกแท็บด้วยบัญชีครัว จะเห็นออเดอร์ขึ้นทันที → เสิร์ฟแล้วรับชำระที่ `/counter` · หน้าอื่นตามบทบาท: `/accounting` · `/stock` · `/analytics` (+ AI) · `/menu` · `/promotions` · `/import` · `/staff`
 
+### ลิงก์สาธารณะชั่วคราวจากเครื่องตัวเอง
+
+```bash
+npm run share     # ที่รากโปรเจกต์
+```
+เปิด backend + หน้าเว็บในเครื่อง แล้วสร้างลิงก์ `https://xxxx.trycloudflare.com` (พร้อม QR) ให้มือถือ/iPad/คนอื่นเปิดได้จากทุกที่ · ได้ลิงก์ใหม่ทุกครั้งที่รัน · Ctrl+C = ปิด ลิงก์ใช้ไม่ได้ทันที · ต้องมี `cloudflared` (`winget install Cloudflare.cloudflared`) · หาพอร์ตว่างเอง ไม่ชนกับ `npm run dev` ที่เปิดค้างไว้
+
 ## 6. Deploy
 
-**แบบ A (แนะนำ) Cloudflare Pages: หน้าเว็บ + API โดเมนเดียวกัน**
+**แบบที่ใช้อยู่ (แนะนำ) Cloudflare Worker ตัวเดียว: หน้าเว็บ + API + Cron โดเมนเดียวกัน**
+
+เว็บจริง: https://foodflow.sittha9986.workers.dev · ตั้งค่าใน `wrangler.jsonc` ที่รากโปรเจกต์ (เสิร์ฟ `frontend/dist` และส่ง `/api/*` ให้ backend)
+
+```bash
+npx --prefix backend wrangler login     # ครั้งแรกครั้งเดียว
+npm run deploy                          # build หน้าเว็บ แล้ว wrangler deploy (สั่งทุกครั้งที่แก้โค้ด)
+# ความลับ (ตั้งครั้งเดียว): SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET
+#   และไม่บังคับ GEMINI_API_KEY, LINE_CHANNEL_ACCESS_TOKEN
+backend/node_modules/.bin/wrangler secret put GEMINI_API_KEY
+```
+ตอน build ใช้ `frontend/.env.production` (`VITE_API_URL=` ว่าง = เรียก `/api` โดเมนเดียวกัน) ส่วน `VITE_SUPABASE_*` อ่านจาก `frontend/.env`
+
+**แบบ A Cloudflare Pages: หน้าเว็บ + API โดเมนเดียวกัน** (ไม่มี Cron)
 
 | ค่าใน Pages → Settings → Build | |
 |------|------|

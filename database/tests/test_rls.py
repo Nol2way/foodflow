@@ -50,36 +50,13 @@ alter default privileges in schema public grant all on sequences to anon, authen
 admin.execute(STUB)
 
 FILES = [
-    'migrations/0001_schema.sql',
-    'migrations/0002_customer_ordering.sql',
-    'migrations/0003_roles.sql',
-    'migrations/0004_stock_costs_analytics.sql',
-    'migrations/0005_import_and_hardening.sql',
-    'migrations/0006_accounting_summary.sql',
-    'migrations/0007_staff_ordering.sql',
-    'migrations/0008_order_status_rules.sql',
-    'migrations/0009_manager_promotions.sql',
-    'migrations/0010_kitchen_item_done.sql',
-    'migrations/0011_item_served.sql',
-    'migrations/0012_promotion_rules.sql',
-    'migrations/0013_display_magazine.sql',
-    'migrations/0014_display_media.sql',
-    'migrations/0015_display_customize.sql',
-    'migrations/0016_manager_accounting.sql',
-    'migrations/0017_payment_loyalty.sql',
-    'migrations/0018_reports_insights.sql',
-    'migrations/0019_stock_history.sql',
-    'migrations/0020_multi_roles.sql',
-    'migrations/0021_app_users.sql',
-    'migrations/0022_stock_counts.sql',
-    'migrations/0023_seafood_inventory.sql',
-    'migrations/0024_units.sql',
-    'migrations/0025_receiving_check.sql',
-    'migrations/0026_accounting.sql',
-    'migrations/0027_stock_ledger.sql',
-    'migrations/0028_stock_recipes.sql',
-    'migrations/0029_stock_operations.sql',
-    'migrations/0030_stock_rls.sql',
+    'migrations/0001_core.sql',
+    'migrations/0002_display_payment_reports.sql',
+    'migrations/0003_users_inventory.sql',
+    'migrations/0004_accounting.sql',
+    'migrations/0005_stock.sql',
+    'migrations/0006_tax_shifts.sql',
+    'migrations/0007_order_cancel_kitchen.sql',
     'seed/seed.sql',
     'seed/seed_demo.sql',
 ]
@@ -1263,6 +1240,55 @@ check('สรุป: รับเข้าล่าสุด / นับล่�
 check('สรุป: หน้าร้านไม่เห็นวัตถุดิบ', q(U['staff'], 'select count(*) from ingredient_last_activity(%s)', (r1,))[1][0][0] == 0)
 check('ตั้งค่า: เจ้าของตั้งเกณฑ์รับของและ % น้ำแข็งได้',
       q(O, "insert into shop_settings(restaurant_id, receive_tolerance_pct, glaze_max_pct) values (%s, 3, 10) on conflict (restaurant_id) do update set receive_tolerance_pct=3, glaze_max_pct=10", (r1,))[0] == 'ok')
+
+# ---------- 9.9) เลือกยกเลิกบางเมนู (0033) ----------
+mix = json.dumps([{"menu_item_id": str(KAPRAO), "quantity": 3, "note": None},
+                  {"menu_item_id": str(menu['ชาเย็น']), "quantity": 1, "note": None}])
+xo = order_as(U['staff'], mix)[1][0][0]
+lines = {str(m): i for i, m in q('su', 'select id, menu_item_id from order_items where order_id=%s', (xo,))[1]}
+k_line, t_line = str(lines[str(KAPRAO)]), str(lines[str(menu['ชาเย็น'])])
+check('ยกเลิกบางเมนู: ครัวยกเลิกไม่ได้',
+      q(U['kitchen'], 'select cancel_order_items(%s, %s::jsonb)', (xo, json.dumps([{"id": k_line, "quantity": 1}])))[0] == 'err')
+check('ยกเลิกบางเมนู: ร้านอื่นยกเลิกไม่ได้',
+      q(U['other'], 'select cancel_order_items(%s, %s::jsonb)', (xo, json.dumps([{"id": k_line}])))[0] == 'err')
+r = q(U['staff'], 'select cancel_order_items(%s, %s::jsonb, %s)', (xo, json.dumps([{"id": k_line, "quantity": 1}]), 'ลูกค้าเปลี่ยนใจ'))
+check('ยกเลิกบางเมนู: ลดกะเพรา 3 → 2 จาน ยอด 2x60 + 30 = 150', r[0] == 'ok' and r[1][0][0] is False and
+      one('select total = 150 and status = %s from orders where id=%s', ('received', xo)), r)
+r = q(U['staff'], 'select cancel_order_items(%s, %s::jsonb)', (xo, json.dumps([{"id": t_line}])))
+check('ยกเลิกบางเมนู: ยกเลิกชาเย็นทั้งบรรทัด เหลือยอด 120', r[0] == 'ok' and
+      one('select count(*) = 1 from order_items where order_id=%s', (xo,)) and one('select total = 120 from orders where id=%s', (xo,)), r)
+check('ยกเลิกบางเมนู: บันทึกประวัติครบ 2 รายการ พร้อมเหตุผล',
+      one("select count(*) = 2 and bool_or(reason = 'ลูกค้าเปลี่ยนใจ') from order_item_cancellations where order_id=%s", (xo,)))
+check('ยกเลิกบางเมนู: ร้านอื่นไม่เห็นประวัติ',
+      q(U['other'], 'select count(*) from order_item_cancellations where order_id=%s', (xo,))[1][0][0] == 0)
+r = q(U['staff'], 'select cancel_order_items(%s, %s::jsonb)', (xo, json.dumps([{"id": k_line}])))
+check('ยกเลิกบางเมนู: ยกเลิกเมนูสุดท้าย = ยกเลิกทั้งออเดอร์', r[0] == 'ok' and r[1][0][0] is True and
+      one('select status from orders where id=%s', (xo,)) == 'cancelled', r)
+xo2 = order_as(U['staff'], mix)[1][0][0]
+q(U['kitchen'], "update orders set status='preparing' where id=%s", (xo2,))
+line2 = one('select id from order_items where order_id=%s limit 1', (xo2,))
+check('ยกเลิกบางเมนู: ครัวเริ่มทำแล้วยกเลิกไม่ได้',
+      q(U['staff'], 'select cancel_order_items(%s, %s::jsonb)', (xo2, json.dumps([{"id": str(line2)}])))[0] == 'err')
+P_X = promo(M, 'ลด 10% ทดสอบยกเลิกบางเมนู', value=10)[1][0][0]
+xo3 = order_promo(P_X, mix)[1][0][0]
+t3 = one('select id from order_items where order_id=%s and menu_item_id=%s', (xo3, menu['ชาเย็น']))
+q(U['staff'], 'select cancel_order_items(%s, %s::jsonb)', (xo3, json.dumps([{"id": str(t3)}])))
+check('ยกเลิกบางเมนู: โปร 10% คิดใหม่จากยอดที่เหลือ (180 ลด 18 = 162)',
+      one('select (subtotal, discount_total, total) = (180.00, 18.00, 162.00) from orders where id=%s', (xo3,)))
+
+# ---------- 9.95) ขั้นทำอาหารเป็นของครัวเท่านั้น (0034) ----------
+ko = order_as(U['staff'], items(1))[1][0][0]
+check('ครัวเท่านั้น: หน้าร้านกดเริ่มทำไม่ได้',
+      q(U['staff'], "update orders set status='preparing' where id=%s", (ko,))[0] == 'err'
+      and one('select status from orders where id=%s', (ko,)) == 'received')
+check('ครัวเท่านั้น: ครัวกดเริ่มทำได้', q(U['kitchen'], "update orders set status='preparing' where id=%s", (ko,))[0] == 'ok')
+ki = one('select id from order_items where order_id=%s limit 1', (ko,))
+check('ครัวเท่านั้น: หน้าร้านติ๊กเสร็จรายเมนูไม่ได้', q(U['staff'], 'select kitchen_set_item_done(%s, true)', (ki,))[0] == 'err')
+check('ครัวเท่านั้น: หน้าร้านกดทำเสร็จไม่ได้', q(U['staff'], "update orders set status='ready' where id=%s", (ko,))[0] == 'err')
+check('ครัวเท่านั้น: ครัวกดทำเสร็จได้', q(U['kitchen'], "update orders set status='ready' where id=%s", (ko,))[0] == 'ok')
+check('ครัวเท่านั้น: หน้าร้านกดเสิร์ฟแล้วได้', q(U['staff'], "update orders set status='served' where id=%s", (ko,))[0] == 'ok')
+ko2 = order_as(U['staff'], items(1))[1][0][0]
+check('ครัวเท่านั้น: เจ้าของกดเริ่มทำได้', q(U['owner'], "update orders set status='preparing' where id=%s", (ko2,))[0] == 'ok')
 
 # ---------- 10) Realtime ----------
 check('realtime: ตาราง menu_items อยู่ใน publication (หน้ารับออเดอร์เห็นเมนูหมดทันที)',

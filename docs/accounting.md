@@ -6,7 +6,7 @@
 
 | ไฟล์ | หน้าที่ |
 |------|---------|
-| `database/migrations/0026_accounting.sql` | ตาราง ผังบัญชีเริ่มต้น RLS trigger ลงบัญชีอัตโนมัติ ฟังก์ชันรายงาน ปิดวัน |
+| `database/migrations/0004_accounting.sql` (เดิม 0026) | ตาราง ผังบัญชีเริ่มต้น RLS trigger ลงบัญชีอัตโนมัติ ฟังก์ชันรายงาน ปิดวัน |
 | `frontend/src/lib/accounting.ts` | สูตร Food/Prime Cost กำไร perpetual งบดุล เกณฑ์ VAT เหมา 60% แจ้งเตือน ไฟล์ส่งออก (ใช้ร่วมกับ backend) |
 | `frontend/src/pages/Accounting.tsx` + `components/accounting/*` | หน้า `/accounting`: แดชบอร์ด (3 โหมด) รายจ่าย ปิดวัน รายงาน ตั้งค่าบัญชี |
 | `backend/src/accounting.ts` + `openapi-accounting.ts` | REST API `/api/accounting/*` + Swagger |

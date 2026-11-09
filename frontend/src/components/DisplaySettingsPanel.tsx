@@ -96,13 +96,13 @@ export default function DisplaySettingsPanel({
         ) : (
           <div className="empty">สร้างลิงก์จอก่อน จึงจะเห็นพรีวิว</div>
         )}
-        <p className="mt-2 text-xs text-gray-500">พรีวิวเป็นจอจริงขนาด iPad แนวนอน เปลี่ยนตามค่าที่แก้ทันที (ยังไม่บันทึกจนกว่าจะกดบันทึก)</p>
+        <p className="mt-2 hint">พรีวิวเป็นจอจริงขนาด iPad แนวนอน เปลี่ยนตามค่าที่แก้ทันที (ยังไม่บันทึกจนกว่าจะกดบันทึก)</p>
       </div>
 
       <div className="space-y-4">
         <div>
           <span className="label">สีหลัก</span>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="toolbar">
             {ACCENTS.map((c) => (
               <button
                 key={c}

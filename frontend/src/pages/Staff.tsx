@@ -3,6 +3,7 @@ import { MANAGER_ASSIGNABLE, ROLE_LABEL, roleLabels, rolesFor, type Role } from 
 import { ApiError, api, apiMessage } from '../lib/api'
 import { useSession } from '../lib/auth'
 import RequireRole from '../components/RequireRole'
+import { useCachedState } from '../lib/useCachedState'
 
 interface Member {
   user_id: string
@@ -48,7 +49,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   // ผู้จัดการเลือกได้เฉพาะบทบาทต่ำกว่า และแก้คนที่มีบทบาทเจ้าของ/ผู้จัดการ หรือตัวเองไม่ได้
   const assignable = isOwner ? ROLES : MANAGER_ASSIGNABLE
   const canEdit = (m: Member) => isOwner || (m.roles.every((r) => MANAGER_ASSIGNABLE.includes(r)) && m.user_id !== session?.user.id)
-  const [staff, setStaff] = useState<Member[]>([])
+  const [staff, setStaff] = useCachedState<Member[]>(`staff.list:${restaurantId}`, [])
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [temp, setTemp] = useState<Temp | null>(null)
@@ -149,7 +150,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
           <RolePicker options={assignable} value={roles} onToggle={(r) => setRoles((prev) => toggle(prev, r))} />
         </div>
       </form>
-      <p className="mb-4 text-xs text-gray-500">
+      <p className="mb-4 hint">
         ถ้าอีเมลยังไม่มีบัญชี ระบบจะสร้างบัญชีพร้อมรหัสชั่วคราวให้ส่งต่อพนักงาน (พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก) · พนักงาน 1 คนมีได้หลายบทบาท เห็นหน้าของทุกบทบาทรวมกัน · ร้านต้องมีเจ้าของอย่างน้อย 1 คนเสมอ
         {!isOwner && ' · ผู้จัดการจัดการได้เฉพาะหน้าร้าน ครัว บัญชี และสต็อก'}
       </p>
@@ -158,7 +159,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
         <div className="alert-success">
           <p>รหัสชั่วคราวของ <strong>{temp.email}</strong> (แสดงครั้งเดียว ส่งให้พนักงานเอง)</p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="rounded-lg bg-white px-3 py-1.5 text-base font-semibold tracking-wider text-gray-900 select-all">{temp.password}</code>
+            <code className="rounded-lg bg-white px-3 py-1.5 text-base strong-text tracking-wider select-all">{temp.password}</code>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => void navigator.clipboard?.writeText(temp.password)}>
               คัดลอก
             </button>
@@ -168,10 +169,10 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
       )}
       {message && <p className="alert-warn">{message}</p>}
 
-      <ul className="card-flush divide-y text-sm">
+      <ul className="list-card">
         {staff.map((m) => (
           <li key={m.user_id} className="space-y-2 p-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="row-between">
               <span className="break-all font-medium text-gray-900">
                 {m.display_name && <span>{m.display_name} · </span>}
                 {m.email}
@@ -193,7 +194,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
             )}
           </li>
         ))}
-        {staff.length === 0 && <li className="p-6 text-center text-gray-400">ยังไม่มีข้อมูล</li>}
+        {staff.length === 0 && <li className="empty-cell">ยังไม่มีข้อมูล</li>}
       </ul>
     </div>
   )

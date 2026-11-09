@@ -17,9 +17,9 @@ export function MediaThumb({ m, size = 'h-20 w-28' }: { m: Pick<DisplayMediaRow,
   return (
     <span className={`${size} relative shrink-0 overflow-hidden rounded-lg bg-gray-100`}>
       {m.kind === 'video' ? (
-        <video src={src} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+        <video src={src} muted playsInline preload="metadata" className="media-cover" />
       ) : (
-        <img src={yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : src} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <img src={yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : src} alt="" loading="lazy" className="media-cover" />
       )}
       {m.kind !== 'image' && (
         <span className={`absolute right-0.5 bottom-0.5 rounded px-1 text-[9px] leading-tight text-white ${m.kind === 'youtube' ? 'bg-red-600' : 'bg-black/60'}`}>
@@ -141,8 +141,8 @@ export default function MediaManager({
                 <div className="min-w-0 flex-1 text-sm">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`badge ${m.kind === 'image' ? 'badge-gray' : m.kind === 'video' ? 'badge-blue' : 'badge-red'}`}>{KIND_LABEL[m.kind]}</span>
-                    <span className="text-xs text-gray-500">{m.poster ? 'โปสเตอร์' : m.storage_path ? 'อัปโหลด' : 'ลิงก์'}</span>
-                    {m.duration_sec && <span className="text-xs text-gray-500">· {m.duration_sec} วิ</span>}
+                    <span className="hint">{m.poster ? 'โปสเตอร์' : m.storage_path ? 'อัปโหลด' : 'ลิงก์'}</span>
+                    {m.duration_sec && <span className="hint">· {m.duration_sec} วิ</span>}
                     {!m.is_active && <span className="badge badge-amber">ซ่อนอยู่</span>}
                   </div>
                   {(m.title || m.caption) && <div className="truncate text-gray-800">{[m.title, m.caption].filter(Boolean).join(' — ')}</div>}
@@ -178,7 +178,7 @@ export default function MediaManager({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="toolbar">
         <label className={`btn btn-secondary btn-sm ${busy ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}>
           {busy ? 'กำลังอัปโหลด...' : 'อัปโหลดรูป/วิดีโอ'}
           <input
@@ -208,7 +208,7 @@ export default function MediaManager({
           <button className="btn btn-secondary btn-sm" disabled={!link.trim()}>เพิ่มลิงก์</button>
         </form>
       </div>
-      <p className="mt-1.5 text-xs text-gray-500">
+      <p className="mt-1.5 hint">
         ไฟล์ไม่เกิน {MEDIA_MAX_MB} MB · แนวนอนดูดีที่สุด · วิดีโอเล่นแบบไม่มีเสียง · {isAd ? 'สไลด์โฆษณาแทรกระหว่างเมนู' : 'มีหลายชิ้นจะเปลี่ยนชิ้นทุกรอบที่จอเล่นครบ'} · ใช้ภาพของคนอื่นให้ใส่เครดิต
       </p>
     </div>

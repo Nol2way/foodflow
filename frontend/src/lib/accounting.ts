@@ -396,3 +396,389 @@ export function toExcelXml(sheet: string, header: string[], rows: Cell[][]): str
     '</Table></Worksheet></Workbook>',
   ].join('\n')
 }
+
+// ===== ภาษีตามกรมสรรพากร (0031/0032): ข้อมูลผู้ประกอบการ · ภาษีซื้อ · หัก ณ ที่จ่าย · เอกสารภาษี · รายงาน =====
+// ทำงานในเครื่องทั้งหมด (สร้าง/ส่งออกไฟล์เอง) ไม่ส่งข้อมูลไปกรมสรรพากรหรือ API ภายนอก
+
+// เลขประจำตัวผู้เสียภาษี 13 หลัก · checksum mod 11 (ตรงกับ th_tax_id_valid ในฐานข้อมูล)
+export function thaiTaxIdValid(id: string): boolean {
+  if (!/^\d{13}$/.test(id)) return false
+  let sum = 0
+  for (let i = 0; i < 12; i++) sum += Number(id[i]) * (13 - i)
+  return (11 - (sum % 11)) % 10 === Number(id[12])
+}
+
+export const BRANCH_CODE_RE = /^\d{5}$/
+export const POSTCODE_RE = /^\d{5}$/
+export const POS_REG_NO_RE = /^[A-Za-z0-9/-]{1,30}$/
+export const TERMINAL_CODE_RE = /^[A-Z0-9]{1,10}$/
+export const HEAD_OFFICE = '00000'
+
+// ข้อมูลผู้ประกอบการ (ตาราง tax_settings) · พิมพ์บนใบกำกับภาษีและหัวรายงาน
+export interface TaxSettingsForm {
+  tax_id: string
+  company_name: string
+  branch_code: string
+  branch_name: string
+  registered_address: string
+  postcode: string
+}
+
+export const EMPTY_TAX_SETTINGS: TaxSettingsForm = {
+  tax_id: '',
+  company_name: '',
+  branch_code: HEAD_OFFICE,
+  branch_name: '',
+  registered_address: '',
+  postcode: '',
+}
+
+export function validateTaxSettings(f: TaxSettingsForm): string | null {
+  if (!thaiTaxIdValid(f.tax_id.trim())) return 'เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลักที่ถูกต้อง'
+  const name = f.company_name.trim()
+  if (name.length < 1 || name.length > 200) return 'กรอกชื่อผู้ประกอบการ/บริษัท (ไม่เกิน 200 ตัวอักษร)'
+  if (!BRANCH_CODE_RE.test(f.branch_code.trim())) return 'รหัสสาขาต้องเป็นตัวเลข 5 หลัก (สำนักงานใหญ่ = 00000)'
+  if (f.branch_name.trim().length > 100) return 'ชื่อสาขาไม่เกิน 100 ตัวอักษร'
+  const addr = f.registered_address.trim()
+  if (addr.length < 1 || addr.length > 500) return 'กรอกที่อยู่ตามที่จดทะเบียน (ไม่เกิน 500 ตัวอักษร)'
+  if (f.postcode.trim() && !POSTCODE_RE.test(f.postcode.trim())) return 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก'
+  return null
+}
+
+// แถวที่จะบันทึกลง tax_settings (ช่องว่าง = null)
+export function taxSettingsRow(restaurantId: string, f: TaxSettingsForm) {
+  return {
+    restaurant_id: restaurantId,
+    tax_id: f.tax_id.trim(),
+    company_name: f.company_name.trim(),
+    branch_code: f.branch_code.trim(),
+    branch_name: f.branch_name.trim() || null,
+    registered_address: f.registered_address.trim(),
+    postcode: f.postcode.trim() || null,
+  }
+}
+
+// เลขอนุมัติเครื่อง POS จากกรมสรรพากร (ว่าง = ยังไม่มี ออกใบอย่างย่อไม่ได้)
+export function validatePosRegNo(v: string): string | null {
+  const s = v.trim()
+  return s === '' || POS_REG_NO_RE.test(s) ? null : 'เลขอนุมัติเครื่อง POS ใช้ได้เฉพาะ A-Z 0-9 / - ไม่เกิน 30 ตัว'
+}
+
+// ----- ภาษีซื้อ / หัก ณ ที่จ่าย ของรายจ่าย -----
+export type WhtRate = 1 | 2 | 3 | 5
+export const WHT_RATES: WhtRate[] = [1, 2, 3, 5]
+export type WhtForm = 'pnd3' | 'pnd53'
+export const WHT_FORM_LABEL: Record<WhtForm, string> = { pnd3: 'ภ.ง.ด.3 (บุคคลธรรมดา)', pnd53: 'ภ.ง.ด.53 (นิติบุคคล)' }
+export const WHT_FORM_SHORT: Record<WhtForm, string> = { pnd3: 'ภ.ง.ด.3', pnd53: 'ภ.ง.ด.53' }
+
+// นิติบุคคลเลขผู้เสียภาษีขึ้นต้นด้วย 0 → ภ.ง.ด.53 · อื่นๆ → ภ.ง.ด.3 (ฐานข้อมูลบังคับให้ตรงกัน)
+export const whtFormFor = (taxId: string): WhtForm => (taxId.trim().startsWith('0') ? 'pnd53' : 'pnd3')
+
+export interface ExpenseTaxCalc {
+  vat: number // ภาษีซื้อ (แยกจากยอดรวม VAT)
+  base: number // ฐานก่อน VAT
+  wht: number // ภาษีหัก ณ ที่จ่าย (คิดจากฐานก่อน VAT ตรงกับ expenses_tax_fields)
+  netPaid: number // เงินที่จ่ายจริงให้ผู้ขาย
+}
+
+// ใช้สตางค์ทั้งหมดเพื่อไม่ให้ปัดเศษเพี้ยน · VAT = ROUND(gross * rate / (100 + rate)) เหมือน tax_doc_split
+export function expenseTax(amount: number, inputTax: boolean, whtRate: WhtRate | null, vatRate = 7): ExpenseTaxCalc {
+  const gross = Math.round((Number.isFinite(amount) && amount > 0 ? amount : 0) * 100)
+  const vat = inputTax ? Math.round((gross * vatRate) / (100 + vatRate)) : 0
+  const base = gross - vat
+  const wht = whtRate ? Math.round((base * whtRate) / 100) : 0
+  return { vat: vat / 100, base: base / 100, wht: wht / 100, netPaid: (gross - wht) / 100 }
+}
+
+export interface ExpenseTaxForm {
+  inputTax: boolean
+  supplierName: string
+  supplierTaxId: string
+  supplierBranch: string
+  invoiceNo: string
+  invoiceDate: string
+  whtRate: WhtRate | null
+  whtForm: WhtForm
+}
+
+export const EMPTY_EXPENSE_TAX: ExpenseTaxForm = {
+  inputTax: false,
+  supplierName: '',
+  supplierTaxId: '',
+  supplierBranch: HEAD_OFFICE,
+  invoiceNo: '',
+  invoiceDate: '',
+  whtRate: null,
+  whtForm: 'pnd53',
+}
+
+export const needsSupplier = (f: Pick<ExpenseTaxForm, 'inputTax' | 'whtRate'>) => f.inputTax || f.whtRate !== null
+
+export function validateExpenseTax(f: ExpenseTaxForm, amount: number, today?: string): string | null {
+  if (!needsSupplier(f)) return null
+  const name = f.supplierName.trim()
+  if (name.length < 1 || name.length > 200) return 'กรอกชื่อผู้ขาย/ผู้รับเงิน'
+  if (!thaiTaxIdValid(f.supplierTaxId.trim())) return 'เลขประจำตัวผู้เสียภาษีของผู้ขายต้องเป็น 13 หลักที่ถูกต้อง'
+  if (!BRANCH_CODE_RE.test(f.supplierBranch.trim())) return 'รหัสสาขาผู้ขายต้องเป็นตัวเลข 5 หลัก (สำนักงานใหญ่ = 00000)'
+  if (f.inputTax) {
+    const no = f.invoiceNo.trim()
+    if (no.length < 1 || no.length > 50) return 'กรอกเลขที่ใบกำกับภาษีซื้อ (ไม่เกิน 50 ตัวอักษร)'
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.invoiceDate) || Number.isNaN(Date.parse(f.invoiceDate))) return 'กรอกวันที่ในใบกำกับภาษีซื้อ'
+    if (today && f.invoiceDate > today) return 'วันที่ใบกำกับภาษีต้องไม่เป็นวันในอนาคต'
+  }
+  if (f.whtRate !== null) {
+    if (!WHT_RATES.includes(f.whtRate)) return 'อัตราหัก ณ ที่จ่ายต้องเป็น 1, 2, 3 หรือ 5%'
+    if (f.whtForm !== whtFormFor(f.supplierTaxId)) {
+      return f.whtForm === 'pnd53'
+        ? 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) · ผู้ขายรายนี้ต้องใช้ ภ.ง.ด.3'
+        : 'ภ.ง.ด.3 ใช้กับบุคคลธรรมดา · ผู้ขายรายนี้เป็นนิติบุคคล ต้องใช้ ภ.ง.ด.53'
+    }
+    if (!(amount > 0)) return 'กรอกจำนวนเงินก่อนคำนวณหัก ณ ที่จ่าย'
+  }
+  return null
+}
+
+// ช่องภาษีที่ส่งไปตาราง expenses (ฐานข้อมูลคิด wht_amount ซ้ำเอง)
+export function expenseTaxFields(f: ExpenseTaxForm, amount: number, vatRate = 7) {
+  const calc = expenseTax(amount, f.inputTax, f.whtRate, vatRate)
+  const supplier = needsSupplier(f)
+  return {
+    vat_amount: calc.vat,
+    supplier_name: supplier ? f.supplierName.trim() : null,
+    supplier_tax_id: supplier ? f.supplierTaxId.trim() : null,
+    supplier_branch_code: supplier ? f.supplierBranch.trim() : null,
+    tax_invoice_no: f.inputTax ? f.invoiceNo.trim() : null,
+    tax_invoice_date: f.inputTax ? f.invoiceDate : null,
+    wht_rate: f.whtRate,
+    wht_type: f.whtRate === null ? null : f.whtForm,
+  }
+}
+
+export const EXPENSE_TAX_ERRORS: Record<string, string> = {
+  expenses_tax_invoice_key: 'ใบกำกับภาษีซื้อเลขนี้ของผู้ขายรายนี้บันทึกไปแล้ว (ใช้ขอคืนได้ครั้งเดียว)',
+  expenses_wht_check: 'ข้อมูลหัก ณ ที่จ่ายไม่ตรงกัน (แบบ ภ.ง.ด. ต้องตรงกับประเภทผู้ขาย)',
+  expenses_tax_invoice_check: 'ใบกำกับภาษีซื้อต้องมีเลขที่ วันที่ ชื่อและเลขผู้เสียภาษีของผู้ขาย',
+  expenses_supplier_tax_id_check: 'เลขประจำตัวผู้เสียภาษีของผู้ขายไม่ถูกต้อง',
+  wht_supplier_tax_id_required: 'หัก ณ ที่จ่ายต้องมีเลขผู้เสียภาษีของผู้ขาย',
+  wht_manual_expense_only: 'หัก ณ ที่จ่ายใช้ได้เฉพาะรายจ่ายที่บันทึกเอง',
+}
+
+// ข้อผิดพลาดจาก insert expenses (constraint / unique index / trigger) → ข้อความไทย
+export function expenseTaxError(message: string): string | null {
+  for (const [k, v] of Object.entries(EXPENSE_TAX_ERRORS)) if (message.includes(k)) return v
+  return null
+}
+
+// ----- เอกสารภาษีขาย (ABB / TAX / CN) -----
+export type TaxDocType = 'ABB' | 'TAX' | 'CN'
+export type TaxDocStatus = 'draft' | 'confirmed' | 'voided'
+export const TAX_DOC_LABEL: Record<TaxDocType, string> = { ABB: 'ใบกำกับภาษีอย่างย่อ', TAX: 'ใบกำกับภาษีเต็มรูป', CN: 'ใบลดหนี้' }
+export const TAX_DOC_STATUS_LABEL: Record<TaxDocStatus, string> = { draft: 'ฉบับร่าง', confirmed: 'ยืนยันแล้ว', voided: 'ยกเลิก' }
+export const ETDA_TYPE_CODE: Record<TaxDocType, string> = { TAX: 'T03', ABB: 'T05', CN: '81' }
+
+// แถวจาก GET /api/tax/documents (ตัวเลข numeric มาเป็น string ได้)
+export interface TaxDocRow {
+  id: string
+  order_id: string
+  ref_document_id: string | null
+  doc_type: TaxDocType
+  doc_number: string | null
+  status: TaxDocStatus
+  terminal_code: string | null
+  pos_reg_no: string | null
+  buyer_name: string | null
+  buyer_tax_id: string | null
+  buyer_branch_code: string | null
+  vat_rate: number
+  taxable_amount: number
+  exempt_amount: number
+  vat_amount: number
+  total_amount: number
+  credit_note_reason: string | null
+  issue_date: string | null
+  created_by_name: string | null
+  created_at: string
+  confirmed_by_name: string | null
+  confirmed_at: string | null
+  voided_at: string | null
+  void_reason: string | null
+}
+
+export function normalizeTaxDoc(raw: Record<string, unknown>): TaxDocRow {
+  const d = raw as unknown as TaxDocRow
+  return {
+    ...d,
+    vat_rate: n(d.vat_rate),
+    taxable_amount: n(d.taxable_amount),
+    exempt_amount: n(d.exempt_amount),
+    vat_amount: n(d.vat_amount),
+    total_amount: n(d.total_amount),
+  }
+}
+
+// รวมร่าง (ยังไม่มีวันที่ออก) กับเอกสารในช่วงวันที่ ไม่ซ้ำ · ร่างขึ้นก่อน แล้วเรียงตามเวลาสร้างล่าสุด
+export function mergeTaxDocs(...lists: TaxDocRow[][]): TaxDocRow[] {
+  const map = new Map<string, TaxDocRow>()
+  for (const list of lists) for (const d of list) map.set(d.id, d)
+  return [...map.values()].sort(
+    (a, b) => Number(b.status === 'draft') - Number(a.status === 'draft') || b.created_at.localeCompare(a.created_at),
+  )
+}
+
+export function taxDocActions(d: Pick<TaxDocRow, 'status' | 'doc_number'>) {
+  return {
+    canConfirm: d.status === 'draft',
+    canPrint: d.status !== 'voided',
+    canDownloadXml: d.status === 'confirmed' && Boolean(d.doc_number),
+  }
+}
+
+export const xmlFileName = (docNumber: string) => `${docNumber.replace(/[^A-Za-z0-9_-]/g, '_')}.xml`
+
+// ยอดสรุปของรายการเอกสาร (เงินนับเฉพาะที่ยืนยันแล้ว · ใบลดหนี้ติดลบ)
+export function taxDocTotals(docs: Pick<TaxDocRow, 'doc_type' | 'status' | 'vat_amount' | 'total_amount'>[]) {
+  const count: Record<TaxDocStatus, number> = { draft: 0, confirmed: 0, voided: 0 }
+  const byType: Record<TaxDocType, number> = { ABB: 0, TAX: 0, CN: 0 }
+  let vat = 0
+  let total = 0
+  for (const d of docs) {
+    count[d.status]++
+    byType[d.doc_type]++
+    if (d.status !== 'confirmed') continue
+    const sign = d.doc_type === 'CN' ? -1 : 1
+    vat += sign * Math.round(d.vat_amount * 100)
+    total += sign * Math.round(d.total_amount * 100)
+  }
+  return { count, byType, vat: vat / 100, total: total / 100 }
+}
+
+// ----- รายงานภาษีรายเดือน (GET /api/accounting/reports/*) -----
+export type TaxReportKind = 'sales-tax' | 'purchase-tax' | 'pp30-summary' | 'wht'
+
+export interface TaxReportSeller {
+  company_name: string
+  tax_id: string
+  branch_code: string
+  registered_address: string
+}
+
+export interface SalesTaxLine {
+  no: number
+  date: string
+  doc_number: string
+  doc_type: TaxDocType
+  buyer_name: string
+  buyer_tax_id: string
+  branch: string
+  taxable: number
+  exempt: number
+  vat: number
+  total: number
+  note: string
+}
+
+export interface PurchaseTaxLine {
+  no: number
+  invoice_date: string
+  invoice_no: string
+  supplier_name: string
+  supplier_tax_id: string
+  branch: string
+  value: number
+  vat: number
+  total: number
+  posted_on: string
+}
+
+export interface WhtLine {
+  no: number
+  form: WhtForm
+  payee_tax_id: string
+  branch: string
+  payee_name: string
+  paid_on: string
+  income_type: string
+  rate: number
+  paid_amount: number
+  wht: number
+}
+
+interface TaxReportBase {
+  month: string
+  period: { from: string; to: string }
+  seller: TaxReportSeller | null
+}
+
+export interface SalesTaxReport extends TaxReportBase {
+  rows: SalesTaxLine[]
+  totals: { taxable: number; exempt: number; vat: number; total: number }
+}
+
+export interface PurchaseTaxReport extends TaxReportBase {
+  rows: PurchaseTaxLine[]
+  totals: { value: number; vat: number; total: number }
+  without_invoice: { count: number; vat: number }
+}
+
+export interface Pp30Summary {
+  sales_total: number
+  sales_exempt_or_zero: number
+  sales_taxable: number
+  output_vat: number
+  purchases_eligible: number
+  input_vat: number
+  net_vat: number
+  vat_payable: number
+  vat_credit: number
+}
+
+export interface Pp30Report extends TaxReportBase {
+  summary: Pp30Summary
+  counts: { sales_lines: number; purchase_invoices: number }
+  purchases_without_invoice: { count: number; vat: number }
+}
+
+export interface WhtSummaryPart {
+  count: number
+  paid_amount: number
+  wht: number
+}
+
+export interface WhtReport extends TaxReportBase {
+  type: WhtForm | 'all'
+  rows: WhtLine[]
+  summary: { pnd3: WhtSummaryPart; pnd53: WhtSummaryPart; total_wht: number }
+}
+
+export const monthOf = (date: string) => date.slice(0, 7)
+
+export function taxReportPath(kind: TaxReportKind, restaurantId: string, month: string, format: 'json' | 'csv' = 'json', type?: WhtForm) {
+  const q = new URLSearchParams({ restaurant_id: restaurantId, month, format })
+  if (kind === 'wht' && type) q.set('type', type)
+  return `/accounting/reports/${kind}?${q.toString()}`
+}
+
+export const taxReportFileName = (kind: TaxReportKind, month: string, type?: WhtForm) =>
+  kind === 'pp30-summary' ? `pp30-${month}.csv` : kind === 'wht' ? `wht-${type ?? 'all'}-${month}.csv` : `${kind}-${month}.csv`
+
+// แถวสรุป ภ.พ.30 (ข้อ 1-8 ตามแบบ) ใช้ทั้งการ์ดบนหน้าเว็บและทดสอบ
+export function pp30Lines(s: Pp30Summary): { no: string; label: string; amount: number; strong?: boolean }[] {
+  return [
+    { no: '1', label: 'ยอดขายในเดือนนี้', amount: s.sales_total },
+    { no: '2', label: 'หัก ยอดขายที่เสียภาษีในอัตรา 0 / ได้รับยกเว้น', amount: s.sales_exempt_or_zero },
+    { no: '3', label: 'ยอดขายที่ต้องเสียภาษี', amount: s.sales_taxable },
+    { no: '4', label: 'ภาษีขายเดือนนี้', amount: s.output_vat, strong: true },
+    { no: '5', label: 'ยอดซื้อที่มีสิทธินำภาษีซื้อมาหัก', amount: s.purchases_eligible },
+    { no: '6', label: 'ภาษีซื้อเดือนนี้', amount: s.input_vat, strong: true },
+    { no: '7', label: 'ภาษีที่ต้องชำระเดือนนี้', amount: s.vat_payable, strong: true },
+    { no: '8', label: 'ภาษีที่ชำระเกินเดือนนี้', amount: s.vat_credit, strong: true },
+  ]
+}
+
+// กำหนดยื่นแบบของเดือนภาษี (วันในเดือนถัดไป): ภ.พ.30 กระดาษ 15 / ออนไลน์ 23 · ภ.ง.ด.3/53 กระดาษ 7 / ออนไลน์ 15
+export function filingDue(month: string, form: 'pp30' | 'wht' = 'pp30'): { paper: string; online: string } {
+  const [y, m] = month.split('-').map(Number)
+  const ny = m === 12 ? y + 1 : y
+  const mm = String(m === 12 ? 1 : m + 1).padStart(2, '0')
+  return form === 'pp30' ? { paper: `${ny}-${mm}-15`, online: `${ny}-${mm}-23` } : { paper: `${ny}-${mm}-07`, online: `${ny}-${mm}-15` }
+}

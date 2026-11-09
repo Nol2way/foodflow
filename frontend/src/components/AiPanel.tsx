@@ -45,7 +45,7 @@ export default function AiPanel({ restaurantId, days }: { restaurantId: string; 
       {error && <p className="alert-error mt-3 mb-0">{error}</p>}
       {answer && <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{answer}</div>}
       {facts !== null && (
-        <details className="mt-3 text-xs text-gray-500">
+        <details className="mt-3 hint">
           <summary className="cursor-pointer">ดูตัวเลขที่ AI ใช้</summary>
           <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-gray-50 p-3">{JSON.stringify(facts, null, 2)}</pre>
         </details>

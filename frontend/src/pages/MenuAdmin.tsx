@@ -9,6 +9,7 @@ import MediaManager, { MediaThumb } from '../components/MediaManager'
 import PosterEditor, { type PosterTarget } from '../components/PosterEditor'
 import DisplaySettingsPanel from '../components/DisplaySettingsPanel'
 import type { DisplayMediaRow, MenuCategory, MenuItem } from '../lib/types'
+import { useCachedState } from '../lib/useCachedState'
 
 // จัดการเมนูและหมวด (เจ้าของ, ผู้จัดการ) · โต๊ะ (เจ้าของเท่านั้น)
 // สิทธิ์จริงบังคับที่ฐานข้อมูล: menu_items_owner / menu_categories_owner / tables_owner
@@ -27,9 +28,9 @@ function errText(message: string, code?: string): string {
 
 function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[] }) {
   const isOwner = myRoles.includes('owner')
-  const [categories, setCategories] = useState<MenuCategory[]>([])
-  const [items, setItems] = useState<MenuItem[]>([])
-  const [tables, setTables] = useState<DiningTable[]>([])
+  const [categories, setCategories] = useCachedState<MenuCategory[]>(`menu.categories:${restaurantId}`, [])
+  const [items, setItems] = useCachedState<MenuItem[]>(`menuadmin.items:${restaurantId}`, [])
+  const [tables, setTables] = useCachedState<DiningTable[]>(`menu.tables:${restaurantId}`, [])
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   const [editing, setEditing] = useState<MenuItem | null>(null)
@@ -44,12 +45,12 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   const [soldByWeight, setSoldByWeight] = useState(false)
   const [weightIngredientId, setWeightIngredientId] = useState('')
   const [hasWeight, setHasWeight] = useState(true)
-  const [weighable, setWeighable] = useState<{ id: string; name: string; unit: string }[]>([])
-  const [media, setMedia] = useState<DisplayMediaRow[]>([])
+  const [weighable, setWeighable] = useCachedState<{ id: string; name: string; unit: string }[]>(`menuadmin.weighable:${restaurantId}`, [])
+  const [media, setMedia] = useCachedState<DisplayMediaRow[]>(`menuadmin.media:${restaurantId}`, [])
   const [poster, setPoster] = useState<PosterTarget | null>(null)
   // false = ยังไม่ได้รัน migration 0013 (ซ่อนส่วนจอแสดงผล)
-  const [hasDisplay, setHasDisplay] = useState(true)
-  const [displayToken, setDisplayToken] = useState<string | null>(null)
+  const [hasDisplay, setHasDisplay] = useCachedState(`menuadmin.hasDisplay:${restaurantId}`, true)
+  const [displayToken, setDisplayToken] = useCachedState<string | null>(`menuadmin.displayToken:${restaurantId}`, null)
 
   const load = useCallback(async () => {
     const [c, full, t, d, dm] = await Promise.all([
@@ -258,7 +259,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
                 </select>
               )}
               {soldByWeight && (
-                <p className="text-xs text-gray-500 sm:col-span-2">
+                <p className="hint sm:col-span-2">
                   ราคาที่กรอก = ราคาต่อ 1 กก. · หน้ารับออเดอร์จะให้กรอกน้ำหนักที่ชั่ง ระบบคิดราคาและตัดสต็อกตามน้ำหนักจริง · น้ำจิ้ม/เครื่องเคียงใส่ในสูตรอาหารได้ตามปกติ
                 </p>
               )}
@@ -282,7 +283,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
         </form>
         {hasDisplay && editing && (
           <div className="mt-4 border-t pt-4">
-            <h3 className="mb-2 text-sm font-semibold text-gray-900">รูป/วิดีโอของ {editing.name} บนจอ iPad</h3>
+            <h3 className="mb-2 text-sm strong-text">รูป/วิดีโอของ {editing.name} บนจอ iPad</h3>
             <MediaManager
               restaurantId={restaurantId}
               menuItemId={editing.id}
@@ -297,7 +298,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
 
       <section className="mb-6">
         <h2 className="section-title">เมนูทั้งหมด ({items.length})</h2>
-        <div className="card-flush overflow-x-auto">
+        <div className="table-wrap">
           <table className="w-full text-left text-sm [&_td]:px-3 [&_td]:py-2.5 [&_th]:px-3 [&_th]:py-2.5 [&_tbody_tr:hover]:bg-gray-50">
             <thead className="bg-gray-50 text-gray-500">
               <tr>
@@ -319,7 +320,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
                     </span>
                   </td>
                   <td className="p-2 text-gray-500">{catName(it.category_id)}</td>
-                  <td className="p-2 text-right">{baht(it.price)}{it.sold_by_weight && <span className="block text-xs text-gray-500">ต่อ กก. (ชั่ง)</span>}</td>
+                  <td className="p-2 text-right">{baht(it.price)}{it.sold_by_weight && <span className="block hint">ต่อ กก. (ชั่ง)</span>}</td>
                   <td className="p-2">
                     <button
                       className={`badge ${it.is_available ? 'badge-green' : 'badge-gray'}`}
@@ -348,13 +349,13 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td className="p-6 text-center text-gray-400" colSpan={hasDisplay ? 6 : 5}>ยังไม่มีเมนู</td>
+                  <td className="empty-cell" colSpan={hasDisplay ? 6 : 5}>ยังไม่มีเมนู</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <p className="mt-1 text-xs text-gray-500">เมนูที่เคยขายแล้วลบไม่ได้ (เพื่อเก็บประวัติบัญชี) ให้ตั้งเป็น "หมด" แทน · สูตรอาหารแก้ที่หน้าสต็อก</p>
+        <p className="mt-1 hint">เมนูที่เคยขายแล้วลบไม่ได้ (เพื่อเก็บประวัติบัญชี) ให้ตั้งเป็น "หมด" แทน · สูตรอาหารแก้ที่หน้าสต็อก</p>
       </section>
 
       {hasDisplay && (
@@ -376,7 +377,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
             </div>
           </div>
           {displayLink && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 p-3">
+            <div className="mt-3 toolbar rounded-xl bg-gray-50 p-3">
               <code className="min-w-0 flex-1 truncate text-sm text-gray-700" title={displayLink}>{displayLink}</code>
               <button className="btn btn-secondary btn-sm" onClick={() => void copyDisplayLink(displayLink)}>คัดลอก</button>
               <a className="btn btn-secondary btn-sm" href={displayLink} target="_blank" rel="noreferrer">เปิดดู</a>
@@ -386,8 +387,8 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
             <p className="note mt-2">ใครมีลิงก์ก็เปิดดูได้ (เห็นเฉพาะเมนูแนะนำและโปร) ถ้าลิงก์หลุดให้กด "สร้างลิงก์ใหม่"</p>
           )}
           <div className="mt-5 border-t pt-4">
-            <h3 className="text-sm font-semibold text-gray-900">สไลด์โฆษณาร้าน ({ads.filter((a) => a.is_active).length})</h3>
-            <p className="mb-2 text-xs text-gray-500">คลิปบรรยากาศร้าน วิดีโอแนะนำ หรือภาพโปสเตอร์ ที่ไม่ผูกกับเมนูใด · กด "แก้ไข" เพื่อใส่หัวข้อ/คำบรรยาย</p>
+            <h3 className="text-sm strong-text">สไลด์โฆษณาร้าน ({ads.filter((a) => a.is_active).length})</h3>
+            <p className="mb-2 hint">คลิปบรรยากาศร้าน วิดีโอแนะนำ หรือภาพโปสเตอร์ ที่ไม่ผูกกับเมนูใด · กด "แก้ไข" เพื่อใส่หัวข้อ/คำบรรยาย</p>
             <MediaManager
               restaurantId={restaurantId}
               menuItemId={null}
@@ -397,8 +398,8 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
               onPoster={(m) => setPoster({ media: m, menuItemId: null })}
             />
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-gray-500">รูป/วิดีโอของแต่ละเมนู: กด "แก้ไข" ที่เมนูในตารางด้านล่าง</p>
+          <div className="mt-4 toolbar justify-between">
+            <p className="hint">รูป/วิดีโอของแต่ละเมนู: กด "แก้ไข" ที่เมนูในตารางด้านล่าง</p>
             <button className="btn btn-ghost btn-sm" onClick={() => void cleanStorage()} title="ลบไฟล์ใน Storage ที่ไม่มีสื่อไหนใช้แล้ว">
               ล้างไฟล์ที่ไม่ได้ใช้
             </button>
@@ -435,7 +436,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
           <input className="input flex-1" placeholder="ชื่อหมวดใหม่" maxLength={50} value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
           <button className="btn btn-secondary">เพิ่มหมวด</button>
         </form>
-        <ul className="card-flush divide-y text-sm">
+        <ul className="list-card">
           {categories.map((c) => (
             <li key={c.id} className="flex justify-between p-2">
               <span>{c.name}</span>

@@ -15,6 +15,7 @@ import { ruleSuggestions, type Insights } from '../../frontend/src/lib/promoSugg
 import { ACCOUNTING_ERRORS, accountingErrorCode } from '../../frontend/src/lib/accounting.ts'
 import { registerAccounting } from './accounting.ts'
 import { registerStock } from './stock.ts'
+import { TAX_ERRORS, registerTax, taxErrorCode, taxErrorStatus } from './tax.ts'
 import { STOCK_CONFLICTS, stockError, stockErrorCode } from '../../frontend/src/lib/stockMath.ts'
 
 export const AI_PER_MINUTE = 6
@@ -106,6 +107,11 @@ export function createApp() {
       if (acct && (err.code === 'P0001' || err.code === '')) {
         const conflict = ['day_closed', 'already_closed', 'already_reversed', 'expense_posted_use_void', 'order_posted_use_cancel', 'journal_immutable']
         return fail(c, conflict.includes(acct) ? 409 : 400, acct, { message: ACCOUNTING_ERRORS[acct] })
+      }
+      // เอกสารภาษี / กะแคชเชียร์ / หัก ณ ที่จ่าย (0031)
+      const tax = taxErrorCode(msg)
+      if (tax && (err.code === 'P0001' || err.code === '')) {
+        return fail(c, taxErrorStatus(tax), tax, { message: TAX_ERRORS[tax] })
       }
       if (err.code === '23505') return fail(c, 409, 'duplicate')
       if (err.code === '42501') return fail(c, 403, 'forbidden')
@@ -430,6 +436,9 @@ export function createApp() {
 
   // ----- สต็อกวัตถุดิบ (0027-0030) -----
   registerStock(app, { auth, requireRole, fail, body })
+
+  // ----- เอกสารภาษีกรมสรรพากร (0031-0032) · รายงานภาษีและกะอยู่ใน registerAccounting -----
+  registerTax(app, { auth, requireRole, fail, body })
 
   // ----- เอกสาร API (Swagger) -----
   app.get('/openapi.json', (c) => c.json(openapi))

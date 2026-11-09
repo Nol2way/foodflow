@@ -56,12 +56,46 @@
   --color-red-700: #b33434;
 }
 
+@theme {
+  /* เงานุ่มหลายชั้น: การ์ดลอยจากพื้นครีมโดยไม่ดูหนัก */
+  --shadow-card: 0 1px 2px rgb(43 45 66 / 0.04), 0 1px 3px rgb(43 45 66 / 0.06);
+  --shadow-lift: 0 4px 12px -2px rgb(43 45 66 / 0.08), 0 2px 4px -2px rgb(43 45 66 / 0.06);
+  --shadow-pop: 0 24px 48px -12px rgb(43 45 66 / 0.28);
+}
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    scrollbar-color: var(--color-gray-300) transparent;
+    scrollbar-width: thin;
   }
   body {
     @apply bg-surface font-sans text-gray-800 antialiased;
+    background-image: radial-gradient(1200px 600px at 100% -10%, rgb(200 85 61 / 0.05), transparent 60%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    @apply bg-brand-200 text-gray-900;
   }
   /* Tailwind v4 ใช้ currentColor เป็นสีขอบเริ่มต้น: ทำให้ขอบทุกจุดเป็นเทาอ่อน */
   *,
@@ -69,22 +103,41 @@
   ::after {
     border-color: var(--color-gray-200);
   }
+  h1,
+  h2,
+  h3 {
+    @apply text-balance;
+  }
   input,
   select,
   textarea {
     @apply rounded-xl border-gray-300 bg-white text-sm outline-none transition;
+  }
+  input:hover:not(:focus):not(:disabled),
+  select:hover:not(:focus):not(:disabled),
+  textarea:hover:not(:focus):not(:disabled) {
+    @apply border-gray-400;
   }
   input:focus,
   select:focus,
   textarea:focus {
     @apply border-brand-500 ring-3 ring-brand-500/20;
   }
-  input[type='checkbox'],
-  input[type='radio'] {
-    @apply h-4 w-4 accent-brand-500;
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    @apply cursor-not-allowed bg-gray-50 text-gray-400;
   }
-  input[type='checkbox']:focus,
-  input[type='radio']:focus {
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-400;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply h-4 w-4 shrink-0 cursor-pointer accent-brand-500;
+  }
+  input[type="checkbox"]:focus,
+  input[type="radio"]:focus {
     @apply ring-0;
   }
   button {
@@ -93,24 +146,37 @@
   button:disabled {
     @apply cursor-not-allowed;
   }
+  /* วงโฟกัสเมื่อใช้คีย์บอร์ด (ไม่ขึ้นตอนแตะ/คลิก) */
+  a:focus-visible,
+  button:focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
   table th {
-    @apply bg-gray-50 text-xs font-medium text-gray-500;
+    @apply bg-gray-50/80 text-xs font-semibold tracking-wide text-gray-500;
+  }
+  table tbody tr {
+    @apply transition-colors;
+  }
+  table tbody tr:hover {
+    @apply bg-brand-50/40;
   }
 }
 
 @layer components {
   /* ----- โครงหน้า ----- */
   .page {
-    @apply mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6;
+    @apply mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8;
+    animation: page-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .page-narrow {
-    @apply mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6;
+    @apply mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8;
+    animation: page-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .page-header {
-    @apply mb-5 flex flex-wrap items-center justify-between gap-3;
+    @apply mb-6 flex flex-wrap items-center justify-between gap-3;
   }
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-gray-900;
+    @apply text-2xl font-bold tracking-tight text-gray-900 sm:text-[1.75rem];
   }
   .page-subtitle {
     @apply mt-1 text-sm text-gray-500;
@@ -121,36 +187,42 @@
 
   /* ----- การ์ด ----- */
   .card {
-    @apply rounded-2xl border border-gray-200 bg-white p-4 shadow-sm;
+    @apply rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card;
   }
   .card-flush {
-    @apply overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm;
+    @apply overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-card;
+  }
+  .card-hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lift;
   }
 
-  /* ----- ปุ่ม ----- */
+  /* ----- ปุ่ม (สูงอย่างน้อย 40px แตะง่ายบนแท็บเล็ต) ----- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition select-none active:scale-[.98] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition duration-150 select-none active:scale-[.97] disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply min-h-8 rounded-lg px-3 py-1.5 text-xs;
   }
   .btn-lg {
-    @apply px-5 py-3 text-base;
+    @apply min-h-12 px-5 py-3 text-base;
   }
   .btn-primary {
-    @apply bg-brand-500 text-white shadow-sm hover:bg-brand-600;
+    @apply bg-brand-500 text-white shadow-sm shadow-brand-500/25 hover:bg-brand-600 hover:shadow-md hover:shadow-brand-500/25;
   }
   .btn-secondary {
-    @apply border border-gray-300 bg-white text-gray-700 shadow-xs hover:bg-gray-50;
+    @apply border border-gray-300 bg-white text-gray-700 shadow-xs hover:border-gray-400 hover:bg-gray-50;
   }
   .btn-success {
-    @apply bg-sage-600 text-white shadow-sm hover:bg-sage-700;
+    @apply bg-sage-600 text-white shadow-sm shadow-sage-600/25 hover:bg-sage-700;
   }
   .btn-danger {
-    @apply bg-red-600 text-white shadow-sm hover:bg-red-700;
+    @apply bg-red-600 text-white shadow-sm shadow-red-600/25 hover:bg-red-700;
+  }
+  .btn-danger-soft {
+    @apply border border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100;
   }
   .btn-ghost {
-    @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
+    @apply text-gray-600 hover:bg-gray-900/5 hover:text-gray-900;
   }
   .link {
     @apply text-sm font-medium text-brand-600 underline-offset-4 hover:underline;
@@ -162,57 +234,68 @@
     @apply text-sm text-gray-500 underline-offset-4 hover:text-gray-800 hover:underline;
   }
 
+  /* ----- ตัวเลือกแบบเม็ดยา (เหตุผล ตัวกรอง) ----- */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900;
+  }
+  .chip-on {
+    @apply border-brand-500 bg-brand-50 text-brand-700 hover:border-brand-500 hover:text-brand-700;
+  }
+
   /* ----- ฟอร์ม ----- */
   .input {
-    @apply rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-xs;
+    @apply min-h-10 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-xs;
   }
   .label {
-    @apply mb-1 block text-xs font-medium text-gray-600;
+    @apply mb-1.5 block text-xs font-semibold text-gray-600;
   }
 
   /* ----- ข้อความแจ้ง ----- */
   .alert-error {
     @apply mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700;
+    animation: fade-in 200ms ease-out both;
   }
   .alert-success {
     @apply mb-4 rounded-xl border border-sage-100 bg-sage-50 px-4 py-3 text-sm text-sage-700;
+    animation: fade-in 200ms ease-out both;
   }
   .alert-warn {
     @apply mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900;
+    animation: fade-in 200ms ease-out both;
   }
   .note {
     @apply rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900;
   }
   .empty {
-    @apply rounded-2xl border border-dashed border-gray-300 bg-white/60 p-6 text-center text-sm text-gray-400;
+    @apply rounded-2xl border border-dashed border-gray-300 bg-white/70 px-6 py-10 text-center text-sm text-gray-400;
   }
 
   /* ----- ป้าย ----- */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset;
   }
   .badge-gray {
-    @apply bg-gray-100 text-gray-600;
+    @apply bg-gray-100 text-gray-600 ring-gray-200;
   }
   .badge-brand {
-    @apply bg-brand-100 text-brand-700;
+    @apply bg-brand-50 text-brand-700 ring-brand-200;
   }
   .badge-blue {
-    @apply bg-blue-50 text-blue-700;
+    @apply bg-blue-50 text-blue-700 ring-blue-200;
   }
   .badge-green {
-    @apply bg-emerald-50 text-emerald-700;
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-200;
   }
   .badge-red {
-    @apply bg-red-50 text-red-700;
+    @apply bg-red-50 text-red-700 ring-red-200;
   }
   .badge-amber {
-    @apply bg-amber-50 text-amber-800;
+    @apply bg-amber-50 text-amber-800 ring-amber-200;
   }
 
   /* ----- ตัวเลขสรุป ----- */
   .stat {
-    @apply rounded-2xl border border-gray-200 bg-white p-4 shadow-sm;
+    @apply rounded-2xl border border-gray-200/80 bg-white p-4 shadow-card;
   }
   .stat-label {
     @apply text-xs font-medium text-gray-500;
@@ -227,6 +310,89 @@
   }
   .check-row-on {
     @apply bg-emerald-50 hover:bg-emerald-100;
+  }
+
+  /* ----- หน้าต่างลอย (มือถือ: เลื่อนขึ้นจากล่าง · จอใหญ่: กลางจอ) ----- */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 grid place-items-end bg-gray-950/50 backdrop-blur-[2px] sm:place-items-center sm:p-4;
+    animation: fade-in 160ms ease-out both;
+  }
+  .modal {
+    @apply w-full overflow-hidden rounded-t-3xl bg-white shadow-pop sm:rounded-2xl;
+    animation: modal-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /* ----- ชุดคลาสที่ใช้ซ้ำบ่อย (แทน utility ยาวๆ ในหลายไฟล์ ลดขนาดโค้ด) ----- */
+  .table-wrap {
+    @apply overflow-hidden overflow-x-auto rounded-2xl border border-gray-200/80 bg-white shadow-card;
+  }
+  .list-card {
+    @apply divide-y overflow-hidden rounded-2xl border border-gray-200/80 bg-white text-sm shadow-card;
+  }
+  .empty-cell {
+    @apply p-6 text-center text-gray-400;
+  }
+  .toolbar {
+    @apply flex flex-wrap items-center gap-2;
+  }
+  .row-between {
+    @apply flex items-center justify-between gap-2;
+  }
+  .title-lg {
+    @apply text-lg font-bold text-gray-900;
+  }
+  .strong-text {
+    @apply font-semibold text-gray-900;
+  }
+  .hint {
+    @apply text-xs text-gray-500;
+  }
+  .field-error {
+    @apply text-xs text-red-600;
+  }
+  .num {
+    @apply text-right tabular-nums;
+  }
+  .media-cover {
+    @apply h-full w-full object-cover;
+  }
+  .overlay {
+    @apply fixed inset-0 z-50 grid place-items-center bg-gray-900/40 p-4;
+  }
+
+  /* ----- ตัวหมุนกำลังโหลด ----- */
+  .spinner {
+    @apply inline-block h-6 w-6 rounded-full border-2 border-brand-200 border-t-brand-500;
+    animation: spin 700ms linear infinite;
+  }
+}
+
+/* ตาราง: ไม่อยู่ใน @layer ตั้งใจ ให้ระยะในช่องชนะ utility ของ td/th เหมือน [&_td]:px-3 เดิม */
+.tbl,
+.tbl-tight {
+  width: 100%;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+.tbl :is(td, th),
+.tbl-tight th {
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+}
+.tbl-tight td {
+  padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .page-narrow,
+  .modal,
+  .modal-backdrop,
+  .alert-error,
+  .alert-success,
+  .alert-warn,
+  .card-hover {
+    animation: none;
+    transition: none;
   }
 }
 

@@ -62,8 +62,8 @@ export default function MemberBox({
     const after = Math.max(0, payable - pointsDiscount(settings, redeem))
     return (
       <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-sm">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-semibold text-gray-900">
+        <div className="row-between">
+          <span className="strong-text">
             สมาชิก {member.name ? `${member.name} · ` : ''}
             <span className="tabular-nums">{member.phone}</span>
           </span>
@@ -83,7 +83,7 @@ export default function MemberBox({
           <strong className="tabular-nums">{pointsEarned(settings, after)}</strong> แต้ม
         </div>
         {max > 0 ? (
-          <label className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="mt-2 toolbar">
             <span>แลกแต้ม</span>
             <input
               type="number"
@@ -98,11 +98,11 @@ export default function MemberBox({
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => onRedeem(max)}>
               ใช้สูงสุด {max}
             </button>
-            {redeem > 0 && redeem < settings.loyalty_min_redeem && <span className="text-xs text-red-600">ขั้นต่ำ {settings.loyalty_min_redeem} แต้ม</span>}
+            {redeem > 0 && redeem < settings.loyalty_min_redeem && <span className="field-error">ขั้นต่ำ {settings.loyalty_min_redeem} แต้ม</span>}
             {redeem >= settings.loyalty_min_redeem && <span className="font-medium text-violet-700">ลด {baht(pointsDiscount(settings, redeem))}</span>}
           </label>
         ) : (
-          <div className="mt-1 text-xs text-gray-500">แลกได้เมื่อมีอย่างน้อย {settings.loyalty_min_redeem} แต้ม</div>
+          <div className="mt-1 hint">แลกได้เมื่อมีอย่างน้อย {settings.loyalty_min_redeem} แต้ม</div>
         )}
       </div>
     )
@@ -126,7 +126,7 @@ export default function MemberBox({
         </button>
       </form>
       {notFound && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-2 toolbar">
           <span className="text-gray-600">ยังไม่เป็นสมาชิก</span>
           <input className="input w-36" placeholder="ชื่อ (ไม่บังคับ)" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
           <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void register()}>
@@ -134,7 +134,7 @@ export default function MemberBox({
           </button>
         </div>
       )}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 field-error">{error}</p>}
     </div>
   )
 }

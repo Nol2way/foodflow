@@ -18,8 +18,8 @@ const blank = () => [0, 1, 2].map(() => ({ before: '', after: '' }))
 
 function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] }) {
   const canWrite = roles.some((r) => ['owner', 'manager', 'stock'].includes(r))
-  const ings = useLoad(() => stockApi.ingredients(restaurantId), [restaurantId])
-  const tests = useLoad(() => stockApi.yieldTests(restaurantId), [restaurantId])
+  const ings = useLoad(() => stockApi.ingredients(restaurantId), [restaurantId], 'stock.ingredients')
+  const tests = useLoad(() => stockApi.yieldTests(restaurantId), [restaurantId], 'stock.yieldTests')
   const [ingredientId, setIngredientId] = useState('')
   const [kind, setKind] = useState<YieldKind>('trim')
   const [trials, setTrials] = useState(blank)
@@ -99,16 +99,16 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               const one = Number(t.before) > 0 && Number(t.after) > 0 ? (Number(t.after) / Number(t.before)) * 100 : null
               return (
                 <fieldset key={i} className="rounded-xl border border-gray-200 p-3">
-                  <legend className="px-1 text-xs font-semibold text-gray-500">ครั้งที่ {i + 1}</legend>
+                  <legend className="px-1 hint font-semibold">ครั้งที่ {i + 1}</legend>
                   {(['before', 'after'] as const).map((f) => (
                     <label key={f} className="mt-1 flex items-center gap-2 text-sm">
                       <span className="w-24 text-gray-600">{KIND[kind][f]}</span>
-                      <input className="input w-full text-right tabular-nums" type="number" min="0" step="any" inputMode="decimal" required
+                      <input className="input w-full num" type="number" min="0" step="any" inputMode="decimal" required
                         value={t[f]} onChange={(e) => setTrials((ts) => ts.map((x, j) => (j === i ? { ...x, [f]: e.target.value } : x)))} />
                       <span className="w-8 text-gray-500">{ing?.unit ?? 'g'}</span>
                     </label>
                   ))}
-                  <div className="mt-2 text-right text-sm tabular-nums text-gray-700">{one === null ? '–' : `${fmtNum(one, 2)}%`}</div>
+                  <div className="mt-2 num text-sm text-gray-700">{one === null ? '–' : `${fmtNum(one, 2)}%`}</div>
                 </fieldset>
               )
             })}
@@ -152,7 +152,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
         {tests.data && tests.data.tests.length === 0 ? (
           <Empty>ยังไม่มี yield test</Empty>
         ) : (
-          <div className="card-flush overflow-x-auto">
+          <div className="table-wrap">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left">
@@ -170,13 +170,13 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                     <td className="px-3 py-2 text-gray-600">{dateTime(t.created_at)}</td>
                     <td className="px-3 py-2">
                       {t.ingredients?.name ?? '-'}
-                      {t.note && <div className="text-xs text-gray-500">{t.note}</div>}
+                      {t.note && <div className="hint">{t.note}</div>}
                     </td>
                     <td className="px-3 py-2">{KIND[t.kind].label}{t.applied && <span className="badge badge-green ml-1.5">ใช้แล้ว</span>}</td>
-                    <td className="px-3 py-2 text-right text-xs tabular-nums text-gray-600">
+                    <td className="px-3 py-2 num text-xs text-gray-600">
                       {t.trials.map((x) => `${fmtNum(Number(x.after))}/${fmtNum(Number(x.before))}`).join(' · ')}
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtNum(Number(t.avg_pct), 2)}%</td>
+                    <td className="px-3 py-2 num font-semibold">{fmtNum(Number(t.avg_pct), 2)}%</td>
                     <td className="px-3 py-2 text-gray-600">{t.tested_by_name ?? '-'}</td>
                   </tr>
                 ))}

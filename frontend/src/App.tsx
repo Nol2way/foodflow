@@ -2,31 +2,32 @@ import { lazy, Suspense } from 'react'
 import { Link, Route, Routes } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
 import { FullPageMessage } from './components/RequireRole'
+import { pageLoaders } from './pages/loaders'
 
 // โหลดโค้ดของแต่ละหน้าเมื่อเปิดหน้านั้น (iPad/มือถือไม่ต้องโหลดทั้งแอปตั้งแต่แรก)
-const Home = lazy(() => import('./pages/Home'))
-const Pos = lazy(() => import('./pages/Pos'))
-const Kitchen = lazy(() => import('./pages/Kitchen'))
-const Counter = lazy(() => import('./pages/Counter'))
-const Serve = lazy(() => import('./pages/Serve'))
-const Accounting = lazy(() => import('./pages/Accounting'))
-const Stock = lazy(() => import('./pages/Stock'))
-const Login = lazy(() => import('./pages/Login'))
-const ImportPage = lazy(() => import('./pages/Import'))
-const StaffPage = lazy(() => import('./pages/Staff'))
-const SetPassword = lazy(() => import('./pages/SetPassword'))
-const MenuAdmin = lazy(() => import('./pages/MenuAdmin'))
-const PromotionsPage = lazy(() => import('./pages/Promotions'))
-const Display = lazy(() => import('./pages/Display'))
-const Settings = lazy(() => import('./pages/Settings'))
-const Members = lazy(() => import('./pages/Members'))
-const Report = lazy(() => import('./pages/Report'))
-const StockHistory = lazy(() => import('./pages/StockHistory'))
-const StockCount = lazy(() => import('./pages/StockCount'))
-const StockReceive = lazy(() => import('./pages/StockReceive'))
-const StockVariance = lazy(() => import('./pages/StockVariance'))
-const StockYield = lazy(() => import('./pages/StockYield'))
-const StockSetup = lazy(() => import('./pages/StockSetup'))
+const Home = lazy(pageLoaders['/'])
+const Pos = lazy(pageLoaders['/pos'])
+const Kitchen = lazy(pageLoaders['/kitchen'])
+const Counter = lazy(pageLoaders['/counter'])
+const Serve = lazy(pageLoaders['/serve'])
+const Accounting = lazy(pageLoaders['/accounting'])
+const Stock = lazy(pageLoaders['/stock'])
+const Login = lazy(pageLoaders['/login'])
+const ImportPage = lazy(pageLoaders['/import'])
+const StaffPage = lazy(pageLoaders['/staff'])
+const SetPassword = lazy(pageLoaders['/set-password'])
+const MenuAdmin = lazy(pageLoaders['/menu'])
+const PromotionsPage = lazy(pageLoaders['/promotions'])
+const Display = lazy(pageLoaders['/display'])
+const Settings = lazy(pageLoaders['/settings'])
+const Members = lazy(pageLoaders['/members'])
+const Report = lazy(pageLoaders['/report'])
+const StockHistory = lazy(pageLoaders['/stock-history'])
+const StockCount = lazy(pageLoaders['/stock-count'])
+const StockReceive = lazy(pageLoaders['/stock-receive'])
+const StockVariance = lazy(pageLoaders['/stock-variance'])
+const StockYield = lazy(pageLoaders['/stock-yield'])
+const StockSetup = lazy(pageLoaders['/stock-setup'])
 
 export default function App() {
   return (
@@ -67,7 +68,7 @@ export default function App() {
             element={
               <FullPageMessage>
                 <div>
-                  <p className="text-lg font-semibold text-gray-900">ไม่พบหน้านี้</p>
+                  <p className="text-lg strong-text">ไม่พบหน้านี้</p>
                   <Link className="link mt-2 inline-block" to="/">
                     กลับหน้าแรก
                   </Link>

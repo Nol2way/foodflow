@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { peek, put } from './cache'
 import type { KitchenOrder, OrderStatus } from './types'
 
 // ดึงออเดอร์ของร้านตามสถานะ และรีเฟรชอัตโนมัติเมื่อมีการเปลี่ยนแปลง (Supabase Realtime)
 export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
-  const [orders, setOrders] = useState<KitchenOrder[]>([])
-  const [error, setError] = useState<string | null>(null)
   const statusKey = statuses.join(',')
+  const cacheKey = `orders:${restaurantId}:${statusKey}`
+  // เปิดหน้าครัว/เสิร์ฟ/รับชำระซ้ำ: แสดงออเดอร์ชุดล่าสุดทันที แล้ว Realtime/โหลดใหม่จะอัปเดตตาม
+  const [orders, setOrders] = useState<KitchenOrder[]>(() => peek<KitchenOrder[]>(cacheKey) ?? [])
+  const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     const { data, error: err } = await supabase
@@ -17,9 +20,11 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
       .eq('restaurant_id', restaurantId)
       .in('status', statusKey.split(','))
       .order('created_at')
-    if (err) setError(err.message)
-    else setOrders(data as unknown as KitchenOrder[])
-  }, [restaurantId, statusKey])
+    if (err) return setError(err.message)
+    const next = data as unknown as KitchenOrder[]
+    put(cacheKey, next)
+    setOrders(next)
+  }, [restaurantId, statusKey, cacheKey])
 
   useEffect(() => {
     void reload()

@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { signOut, useSession, useStaff } from '../lib/auth'
 import { canAccess, groupPages, pagesFor, roleLabels, type Role } from '../lib/roles'
 import Icon from './Icon'
+import { preloadPage, preloadPages } from '../pages/loaders'
 
 export interface StaffContext {
   restaurantId: string
@@ -12,7 +13,7 @@ export interface StaffContext {
 export function Logo({ className = '' }: { className?: string }) {
   return (
     <span className={`flex items-center gap-2 font-bold tracking-tight ${className || 'text-gray-900'}`}>
-      <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-500 text-white shadow-sm">
+      <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-md shadow-brand-500/30">
         <Icon name="kitchen" className="h-4.5 w-4.5" />
       </span>
       Plato
@@ -21,7 +22,19 @@ export function Logo({ className = '' }: { className?: string }) {
 }
 
 export function FullPageMessage({ children }: { children: ReactNode }) {
-  return <div className="grid min-h-screen place-items-center p-6 text-center text-sm text-gray-500">{children}</div>
+  const loading = children === 'กำลังโหลด...'
+  return (
+    <div className="grid min-h-screen place-items-center p-6 text-center text-sm text-gray-500">
+      {loading ? (
+        <div className="flex flex-col items-center gap-3" role="status">
+          <span className="spinner" />
+          {children}
+        </div>
+      ) : (
+        children
+      )}
+    </div>
+  )
 }
 
 // ครอบหน้าสำหรับพนักงาน: ตรวจล็อกอิน + บทบาท แล้วแสดงแถบเมนูตามสิทธิ์
@@ -38,6 +51,12 @@ export default function RequireRole({
   const [drawer, setDrawer] = useState(false)
 
   useEffect(() => setDrawer(false), [pathname])
+
+  // โหลดโค้ดหน้าอื่นที่ผู้ใช้เข้าได้ไว้ล่วงหน้าตอนเครื่องว่าง (เปลี่ยนหน้าแล้วขึ้นทันที)
+  const roleKey = staff.roles.join(',')
+  useEffect(() => {
+    if (roleKey) preloadPages(['/', ...pagesFor(roleKey.split(',') as Role[]).map((p) => p.path)])
+  }, [roleKey])
 
   if (loading || (session && staff.loading)) return <FullPageMessage>กำลังโหลด...</FullPageMessage>
   if (!session) return <Navigate to="/login" replace />
@@ -64,18 +83,26 @@ export default function RequireRole({
     <nav className="flex flex-col gap-5">
       {groupPages(pages).map((g) => (
         <div key={g.id} className="flex flex-col gap-1">
-          <div className="px-3 pb-1 text-xs font-semibold tracking-wide text-white/40">{g.title}</div>
+          <div className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-white/35 uppercase">{g.title}</div>
           {g.pages.map((p) => {
             const active = pathname === p.path
             return (
               <Link
                 key={p.path}
                 to={p.path}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-                  active ? 'bg-brand-500 font-semibold text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
+                onPointerEnter={() => preloadPage(p.path)}
+                onFocus={() => preloadPage(p.path)}
+                aria-current={active ? 'page' : undefined}
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                  active
+                    ? 'bg-gradient-to-r from-brand-500 to-brand-600 font-semibold text-white shadow-md shadow-black/20'
+                    : 'text-white/70 hover:bg-white/[.07] hover:text-white'
                 }`}
               >
-                <Icon name={p.icon} className={`h-5 w-5 ${active ? 'text-white' : 'text-white/50'}`} />
+                <Icon
+                  name={p.icon}
+                  className={`h-5 w-5 transition ${active ? 'text-white' : 'text-white/45 group-hover:text-white/80'}`}
+                />
                 {p.title}
               </Link>
             )
@@ -87,9 +114,15 @@ export default function RequireRole({
 
   const account = (
     <div className="border-t border-white/10 pt-3">
-      <div className="px-3 text-xs text-white/50">เข้าสู่ระบบในฐานะ</div>
-      <div className="px-3 text-sm font-medium text-white">{roleLabels(mine)}</div>
-      <div className="truncate px-3 text-xs text-white/50">{session.user.display_name ?? session.user.email}</div>
+      <div className="mb-1 flex items-center gap-3 rounded-xl bg-white/[.05] px-3 py-2.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-sm font-semibold text-white uppercase">
+          {(session.user.display_name ?? session.user.email ?? '?').trim().charAt(0)}
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium text-white">{session.user.display_name ?? session.user.email}</div>
+          <div className="truncate text-xs text-white/50">{roleLabels(mine)}</div>
+        </div>
+      </div>
       <Link
         to="/set-password"
         className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
@@ -110,7 +143,7 @@ export default function RequireRole({
   return (
     <div className="min-h-screen lg:pl-64">
       {/* แถบด้านข้าง (จอใหญ่) */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 bg-charcoal p-4 lg:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 bg-gradient-to-b from-charcoal to-gray-950 p-4 lg:flex">
         <Link to="/" className="px-2 pt-1">
           <Logo className="text-white" />
         </Link>
@@ -119,18 +152,21 @@ export default function RequireRole({
       </aside>
 
       {/* แถบด้านบน (มือถือ/แท็บเล็ต) */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-white/90 px-4 py-2.5 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-2.5 shadow-xs backdrop-blur-md lg:hidden">
         <button className="btn btn-ghost -ml-2 p-2" onClick={() => setDrawer(true)} aria-label="เปิดเมนู">
           <Icon name="bars" />
         </button>
-        <span className="font-semibold text-gray-900">{current?.title ?? 'Plato'}</span>
+        <span className="strong-text">{current?.title ?? 'Plato'}</span>
         <span className="badge badge-gray ml-auto max-w-[45%] truncate">{roleLabels(mine)}</span>
       </header>
 
       {drawer && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-gray-900/30" onClick={() => setDrawer(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col gap-6 bg-charcoal p-4 shadow-xl">
+          <div className="absolute inset-0 bg-gray-950/40 backdrop-blur-[2px]" style={{ animation: 'fade-in 160ms ease-out both' }} onClick={() => setDrawer(false)} />
+          <aside
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col gap-6 bg-gradient-to-b from-charcoal to-gray-950 p-4 shadow-2xl"
+            style={{ animation: 'drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both' }}
+          >
             <div className="flex items-center justify-between px-2 pt-1">
               <Link to="/">
                 <Logo className="text-white" />

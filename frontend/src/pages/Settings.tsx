@@ -80,8 +80,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 value={f.promptpay_id ?? ''}
                 onChange={(e) => set({ promptpay_id: e.target.value })}
               />
-              {!ppValid && <p className="mt-1 text-xs text-red-600">ใช้เบอร์มือถือ 10 หลัก เลขบัตร/เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก</p>}
-              <p className="mt-2 text-xs text-gray-500">
+              {!ppValid && <p className="mt-1 field-error">ใช้เบอร์มือถือ 10 หลัก เลขบัตร/เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก</p>}
+              <p className="mt-2 hint">
                 หน้ารับชำระจะสร้าง QR ใส่ยอดของบิลให้ลูกค้าสแกน · ทดลองสแกน QR ตัวอย่าง (1 บาท) ด้วยแอปธนาคารเพื่อตรวจว่าชื่อบัญชีถูกต้อง ก่อนใช้จริง
               </p>
             </div>
@@ -131,7 +131,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
               <input id="mr" className="input w-full" type="number" min={1} max={100000} value={f.loyalty_min_redeem} onChange={(e) => set({ loyalty_min_redeem: num(e.target.value, 1, 100000) })} />
             </div>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 hint">
             ตัวอย่าง: จ่าย 250 บาท ได้ {Math.floor(250 / f.loyalty_baht_per_point)} แต้ม · สะสม {f.loyalty_min_redeem} แต้ม แลกส่วนลดได้{' '}
             {(f.loyalty_min_redeem * f.loyalty_point_value).toLocaleString('th-TH')} บาท · แลกแต้มคิดหลังหักโปรแล้ว
           </p>
@@ -143,8 +143,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
             LINE ID ผู้รับ (userId / groupId)
           </label>
           <input id="lt" className="input w-full font-mono" placeholder="Uxxxxxxxx... (33 ตัวอักษร)" value={f.line_to ?? ''} onChange={(e) => set({ line_to: e.target.value.trim() })} />
-          {!lineValid && <p className="mt-1 text-xs text-red-600">รูปแบบไม่ถูกต้อง: ขึ้นต้นด้วย U, C หรือ R ตามด้วยตัวอักษร 0-9 a-f อีก 32 ตัว</p>}
-          <p className="mt-2 text-xs text-gray-500">
+          {!lineValid && <p className="mt-1 field-error">รูปแบบไม่ถูกต้อง: ขึ้นต้นด้วย U, C หรือ R ตามด้วยตัวอักษร 0-9 a-f อีก 32 ตัว</p>}
+          <p className="mt-2 hint">
             ระบบส่งสรุปยอดทุกวันตอน 22:00 ผ่าน LINE Official Account ของร้าน (ต้องตั้ง LINE_CHANNEL_ACCESS_TOKEN ที่ backend ก่อน ดูวิธีใน docs/SETUP.md) · ไม่ตั้งก็ยังเปิดดูและกดแชร์รายงานเข้า LINE เองได้ที่หน้ารายงานรายวัน
           </p>
         </section>

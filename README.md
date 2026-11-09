@@ -155,7 +155,8 @@ flowchart LR
 | รับออเดอร์ส่งเข้าครัว / รับชำระเงิน / ยกเลิกก่อนครัวเริ่ม | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | ยกเลิกบิลที่ชำระแล้ว (ต้องใส่เหตุผล) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | ดูออเดอร์ | ✅ | ❌ | ✅ | ✅ | ✅ (ดูยอด) | ❌ |
-| เลื่อนสถานะ รอครัว → กำลังทำ → พร้อม → เสิร์ฟ | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| เริ่มทำ / ทำเสร็จ / ติ๊กเสร็จรายเมนู (0034) | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| พร้อมเสิร์ฟ → เสิร์ฟแล้ว / ติ๊กเสิร์ฟรายเมนู | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ |
 | ตั้งเมนูหมด / เปิดขายอีกครั้ง (ระบบปิดให้เองเมื่อของไม่พอ) | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | **จัดการเมนู ราคา หมวดเมนู** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | จัดการโต๊ะ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -172,7 +173,7 @@ flowchart LR
 
 > ผู้จัดการแต่งตั้ง แก้ หรือนำออก เจ้าของและผู้จัดการคนอื่นไม่ได้ และเปลี่ยนบทบาทตัวเองไม่ได้ (กันเลื่อนสิทธิ์ตัวเอง) · ผู้จัดการเห็นเฉพาะออเดอร์ที่มาจากการนำเข้า ไม่เห็นออเดอร์จริงและบัญชี
 
-> สิทธิ์ทั้งหมดบังคับที่ฐานข้อมูลใน [`0003_roles.sql`](database/migrations/0003_roles.sql) [`0005_import_and_hardening.sql`](database/migrations/0005_import_and_hardening.sql) และ [`0007_staff_ordering.sql`](database/migrations/0007_staff_ordering.sql), [`0008`](database/migrations/0008_order_status_rules.sql) และ [`0009_manager_promotions.sql`](database/migrations/0009_manager_promotions.sql) backend ตรวจซ้ำอีกชั้น การซ่อนเมนูในหน้าเว็บเป็นเพียงความสะดวกของผู้ใช้
+> สิทธิ์ทั้งหมดบังคับที่ฐานข้อมูลใน [`0001_core.sql`](database/migrations/0001_core.sql) (บทบาท ออเดอร์ สถานะ ผู้จัดการ) [`0005_stock.sql`](database/migrations/0005_stock.sql) (สต็อก) และ [`0007_order_cancel_kitchen.sql`](database/migrations/0007_order_cancel_kitchen.sql) backend ตรวจซ้ำอีกชั้น การซ่อนเมนูในหน้าเว็บเป็นเพียงความสะดวกของผู้ใช้
 
 ---
 
@@ -222,7 +223,7 @@ foodflow/
 │   ├── wrangler.toml
 │   └── .dev.vars.example
 ├── database/              # PostgreSQL (Supabase)
-│   ├── migrations/        #   0001_schema → 0030_stock_rls รันตามลำดับเลข
+│   ├── migrations/        #   0001_core → 0007_order_cancel_kitchen รันตามลำดับเลข (ชุดเดิม 34 ไฟล์อยู่ใน archive/)
 │   ├── seed/              #   ข้อมูลตัวอย่าง + ข้อมูลทดลองย้อนหลัง
 │   └── tests/             #   ทดสอบ RLS/สิทธิ์/ออเดอร์/สต็อก/บัญชี/นำเข้า บน Postgres จริง
 ├── docs/                  # เอกสารทั้งหมด (SETUP, API, Swagger JSON, ออกแบบ, ทดสอบ, ประเมินผล)
@@ -254,7 +255,7 @@ git clone https://github.com/YOUR-USERNAME/foodflow
 cd foodflow
 npm run install:all
 
-# 1) ฐานข้อมูล: รัน database/migrations/0001 → 0030 ใน Supabase SQL Editor
+# 1) ฐานข้อมูล: รัน database/migrations/0001 → 0007 ใน Supabase SQL Editor
 # 2) backend (หน้าต่างที่ 1)
 cd backend && cp .dev.vars.example .dev.vars && npm run dev    # http://localhost:8787/api/docs = Swagger
 # 3) frontend (หน้าต่างที่ 2)
@@ -269,7 +270,7 @@ cd frontend && cp .env.example .env && npm run dev             # http://localhos
 |------|-------------|
 | frontend + backend แบบ Cloudflare Pages (แนะนำ) | Root directory = `frontend`, Build command = `npm run build:pages` แล้ว push ขึ้น `main` ได้ทั้งเว็บและ `/api` อัตโนมัติ |
 | backend แบบ Worker แยก (ทางเลือก) | **ต้องสั่งเองทุกครั้ง:** `cd backend && npm run deploy` |
-| database | รัน migration ใหม่ใน Supabase SQL Editor ตามลำดับเลข |
+| database | รัน migration ใหม่ใน Supabase SQL Editor ตามลำดับเลข (ฐานข้อมูลที่เคยรันชุดเดิมดู [database/migrations/README.md](database/migrations/README.md)) |
 
 > ⚠️ ถ้าใช้ Worker แยก จะไม่อัปเดตตาม GitHub อัตโนมัติ ถ้าแก้ endpoint แล้วลืม deploy หน้าเว็บจริงจะเรียก API ไม่เจอ (404)
 
