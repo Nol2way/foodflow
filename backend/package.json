@@ -10,7 +10,8 @@
     "openapi": "node scripts/export-openapi.ts"
   },
   "dependencies": {
-    "hono": "^4.13.13"
+    "hono": "^4.13.13",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261022.1",

@@ -26,6 +26,7 @@ export interface Vars {
   userId: string
   email: string
   token: string
+  credentialVersion: number
   roles: Role[] // บทบาทของผู้ใช้ในร้านที่เรียก (มีได้หลายบทบาท)
 }
 

@@ -1,7 +1,9 @@
-// ตัวโหลดโค้ดของแต่ละหน้า (แยก chunk) · ใช้ทั้งใน App (lazy) และโหลดล่วงหน้าเบื้องหลัง
+// ตัวโหลดโค้ดของแต่ละหน้า (แยก chunk) / ใช้ทั้งใน App (lazy) และโหลดล่วงหน้าเบื้องหลัง
 export const pageLoaders = {
   '/': () => import('./Home'),
   '/pos': () => import('./Pos'),
+  '/tables': () => import('./TableMap'),
+  '/bills': () => import('./Bills'),
   '/kitchen': () => import('./Kitchen'),
   '/counter': () => import('./Counter'),
   '/serve': () => import('./Serve'),
@@ -16,6 +18,8 @@ export const pageLoaders = {
   '/display': () => import('./Display'),
   '/settings': () => import('./Settings'),
   '/members': () => import('./Members'),
+  '/privacy': () => import('./Privacy'),
+  '/audit': () => import('./Audit'),
   '/report': () => import('./Report'),
   '/stock-history': () => import('./StockHistory'),
   '/stock-count': () => import('./StockCount'),

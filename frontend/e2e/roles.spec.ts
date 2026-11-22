@@ -37,8 +37,10 @@ test('ครัวเปิดหน้าบัญชีตรงๆ ไม่�
 test('ผู้จัดการดูบัญชีได้ แต่ไม่มีฟอร์มบันทึกรายจ่าย', async ({ page }) => {
   await login(page, USERS.manager)
   await page.goto('/accounting')
-  await expect(page.getByText('ผู้จัดการดูบัญชีได้อย่างเดียว')).toBeVisible()
+  await page.getByRole('tab', { name: 'รายจ่าย', exact: true }).click()
+  await expect(page.getByText('ผู้จัดการดูรายจ่ายได้อย่างเดียว', { exact: false })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'บันทึกรายจ่าย' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'บันทึกรายจ่าย', exact: true })).toHaveCount(0)
 })
 
 test('ร้านอื่นไม่เห็นเมนูของร้านเรา', async ({ page }) => {

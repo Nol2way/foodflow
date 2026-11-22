@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import Modal from './Modal'
+import { translateUi } from "../lib/uiText"
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { apiMessage } from '../lib/api'
 import { orderLabel } from '../lib/format'
@@ -67,6 +69,8 @@ export default function TaxDocModal({
   onOpenDocument: (documentId: string) => void
 }) {
   const [kind, setKind] = useState<Kind>(initialKind)
+  const createIntent = useRef(crypto.randomUUID())
+  const saving = useRef(false)
   const [query, setQuery] = useState('')
   const [orders, setOrders] = useState<PaidOrder[]>([])
   const [refs, setRefs] = useState<TaxDocument[]>([])
@@ -166,6 +170,8 @@ export default function TaxDocModal({
 
   // ===== เปลี่ยนแบบฟอร์ม =====
   function reset(next: Kind) {
+    if (saving.current) return
+    createIntent.current = crypto.randomUUID()
     setKind(next)
     setOrder(null)
     setRef(null)
@@ -285,7 +291,8 @@ export default function TaxDocModal({
 
   // ===== บันทึกร่าง / ยืนยัน =====
   async function save(): Promise<TaxDocument | null> {
-    if (problems.length) return null
+    if (problems.length || saving.current) return null
+    saving.current = true
     setBusy('save')
     setError(null)
     setNotice(null)
@@ -299,6 +306,7 @@ export default function TaxDocModal({
         })
       } else if (kind === 'TAX') {
         doc = await createDraft({
+          client_ref: createIntent.current,
           restaurant_id: restaurantId,
           doc_type: 'TAX',
           order_id: order!.id,
@@ -307,6 +315,7 @@ export default function TaxDocModal({
         })
       } else {
         doc = await createDraft({
+          client_ref: createIntent.current,
           restaurant_id: restaurantId,
           doc_type: 'CN',
           ref_document_id: ref!.doc.id,
@@ -325,12 +334,14 @@ export default function TaxDocModal({
       setError(e instanceof Error && !('status' in e) ? dbMessage(e.message) : apiMessage(e))
       return null
     } finally {
+      saving.current = false
       setBusy(null)
     }
   }
 
   async function confirm() {
-    if (!draft || dirty || !checked || !setup.terminal) return
+    if (!draft || dirty || !checked || !setup.terminal || saving.current) return
+    saving.current = true
     setBusy('confirm')
     setError(null)
     try {
@@ -340,19 +351,28 @@ export default function TaxDocModal({
     } catch (e) {
       setError(apiMessage(e))
     } finally {
+      saving.current = false
       setBusy(null)
     }
   }
 
   async function discard() {
-    if (!draft) return
+    if (!draft || saving.current) return
+    saving.current = true
     setBusy('discard')
-    const { error: e } = await supabase.rpc('tax_doc_void_draft', { p_document_id: draft.id, p_reason: 'ยกเลิกฉบับร่างจากหน้ารับชำระ' })
-    setBusy(null)
-    if (e) return setError(dbMessage(e.message))
-    void loadDrafts()
-    reset(kind)
-    setNotice('ยกเลิกฉบับร่างแล้ว')
+    try {
+      const { error: e } = await supabase.rpc('tax_doc_void_draft', { p_document_id: draft.id, p_reason: 'ยกเลิกฉบับร่างจากหน้ารับชำระ' })
+      if (e) return setError(dbMessage(e.message))
+      void loadDrafts()
+      saving.current = false
+      reset(kind)
+      setNotice('ยกเลิกฉบับร่างแล้ว')
+    } catch (e) {
+      setError(apiMessage(e))
+    } finally {
+      saving.current = false
+      setBusy(null)
+    }
   }
 
   const q = query.trim().toLowerCase()
@@ -360,18 +380,18 @@ export default function TaxDocModal({
   const locked = draft !== null && kind === 'TAX' // ร่าง TAX ผูกบิลแล้ว เปลี่ยนบิลไม่ได้ (ยกเลิกร่างก่อน)
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-label="ออกใบกำกับภาษี / ใบลดหนี้">
+    <Modal label={translateUi("ออกใบกำกับภาษี / ใบลดหนี้")} onClose={onClose} busy={busy !== null} className="max-w-3xl p-0">
       <div className="card mx-auto w-full max-w-2xl p-5">
         <div className="mb-4 row-between">
-          <h2 className="title-lg">ออกใบกำกับภาษี / ใบลดหนี้</h2>
-          <button className="grid h-8 w-8 place-items-center rounded-full hover:bg-gray-100" onClick={onClose} aria-label="ปิด">
+          <h2 className="title-lg">{translateUi("ออกใบกำกับภาษี / ใบลดหนี้")}</h2>
+          <button type="button" className="grid h-8 w-8 place-items-center rounded-full hover:bg-gray-100" onClick={onClose} disabled={busy !== null} aria-label={translateUi("ปิด")}>
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
 
         <div className="mb-4 inline-flex rounded-xl border bg-white p-1" role="tablist">
           {(['TAX', 'CN'] as Kind[]).map((k) => (
-            <button
+            <button type="button"
               key={k}
               role="tab"
               aria-selected={kind === k}
@@ -385,13 +405,13 @@ export default function TaxDocModal({
 
         {drafts.length > 0 && !draft && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
-            <div className="mb-1 font-medium text-amber-800">ฉบับร่างที่ค้างอยู่</div>
+            <div className="mb-1 font-medium text-amber-800">{translateUi("ฉบับร่างที่ค้างอยู่")}</div>
             <ul className="space-y-1">
               {drafts.map((d) => (
                 <li key={d.id}>
-                  <button className="flex w-full justify-between gap-2 text-left text-amber-900 hover:underline" onClick={() => void openDraft(d)}>
+                  <button type="button" className="flex w-full justify-between gap-2 text-left text-amber-900 hover:underline" onClick={() => void openDraft(d)}>
                     <span>
-                      {DOC_TITLE[d.doc_type]} · {d.buyer_name ?? 'ไม่ระบุผู้ซื้อ'}
+                      {DOC_TITLE[d.doc_type]} / {d.buyer_name ?? 'ไม่ระบุผู้ซื้อ'}
                     </span>
                     <span className="tabular-nums">{money(d.total_amount)}</span>
                   </button>
@@ -419,7 +439,7 @@ export default function TaxDocModal({
               <ul className="max-h-52 divide-y overflow-y-auto rounded-xl border text-sm">
                 {visibleOrders.map((o) => (
                   <li key={o.id}>
-                    <button
+                    <button type="button"
                       disabled={o.hasTax}
                       onClick={() => {
                         setOrder(o)
@@ -431,22 +451,22 @@ export default function TaxDocModal({
                         <span className="font-medium">{o.label}</span>
                         <span className="block hint">
                           {thaiDateTime(o.paid_at)}
-                          {o.abb ? ` · ${o.abb.doc_number}` : ''}
-                          {o.hasTax ? ' · มีใบกำกับเต็มรูปแล้ว' : ''}
+                          {o.abb ? ` / ${o.abb.doc_number}` : ''}
+                          {o.hasTax ? ' / มีใบกำกับเต็มรูปแล้ว' : ''}
                         </span>
                       </span>
                       <span className="tabular-nums">{money(o.total)}</span>
                     </button>
                   </li>
                 ))}
-                {visibleOrders.length === 0 && <li className="empty py-4">ไม่พบบิลที่ชำระแล้ว</li>}
+                {visibleOrders.length === 0 && <li className="empty py-4">{translateUi("ไม่พบบิลที่ชำระแล้ว")}</li>}
               </ul>
             )
           ) : draft || ref ? (
             ref && (
               <SelectedBox
-                title={`${ref.doc.doc_number} · ${DOC_TITLE[ref.doc.doc_type]}`}
-                subtitle={`ลดหนี้ไปแล้ว ${money(ref.credited)} · ลดได้อีก ${money(remaining)}`}
+                title={`${ref.doc.doc_number} / ${DOC_TITLE[ref.doc.doc_type]}`}
+                subtitle={`ลดหนี้ไปแล้ว ${money(ref.credited)} / ลดได้อีก ${money(remaining)}`}
                 amount={ref.doc.total_amount}
                 onClear={draft ? undefined : () => setRef(null)}
               />
@@ -455,18 +475,18 @@ export default function TaxDocModal({
             <ul className="max-h-52 divide-y overflow-y-auto rounded-xl border text-sm">
               {refs.map((d) => (
                 <li key={d.id}>
-                  <button onClick={() => void pickRef(d)} className="row-between w-full px-3 py-2 text-left hover:bg-gray-50">
+                  <button type="button" onClick={() => void pickRef(d)} className="row-between w-full px-3 py-2 text-left hover:bg-gray-50">
                     <span>
                       <span className="font-medium">{d.doc_number}</span>
                       <span className="block hint">
-                        {thaiDateTime(d.confirmed_at)} · {d.buyer_name ?? 'ลูกค้าทั่วไป'}
+                        {thaiDateTime(d.confirmed_at)} / {d.buyer_name ?? 'ลูกค้าทั่วไป'}
                       </span>
                     </span>
                     <span className="tabular-nums">{money(d.total_amount)}</span>
                   </button>
                 </li>
               ))}
-              {refs.length === 0 && <li className="empty py-4">ไม่พบเอกสาร</li>}
+              {refs.length === 0 && <li className="empty py-4">{translateUi("ไม่พบเอกสาร")}</li>}
             </ul>
           )}
         </section>
@@ -475,7 +495,7 @@ export default function TaxDocModal({
         {kind === 'CN' && ref && (
           <section className="mb-4 grid gap-3 sm:grid-cols-[160px_1fr]">
             <label className="block">
-              <span className="label">ยอดลดหนี้ (รวม VAT)</span>
+              <span className="label">{translateUi("ยอดลดหนี้ (รวม VAT)")}</span>
               <input
                 className="input w-full num"
                 type="number"
@@ -492,7 +512,7 @@ export default function TaxDocModal({
               />
             </label>
             <label className="block">
-              <span className="label">เหตุผลในการลดหนี้</span>
+              <span className="label">{translateUi("เหตุผลในการลดหนี้")}</span>
               <input
                 className="input w-full"
                 list="cn-reasons"
@@ -518,7 +538,7 @@ export default function TaxDocModal({
           <h3 className="label">{kind === 'TAX' ? '2. ข้อมูลผู้ซื้อ (บังคับ)' : '2. ข้อมูลผู้ซื้อ (ตามใบเดิม แก้ได้)'}</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <span className="hint">เลขประจำตัวผู้เสียภาษี 13 หลัก</span>
+              <span className="hint">{translateUi("เลขประจำตัวผู้เสียภาษี 13 หลัก")}</span>
               <div className="flex gap-1.5">
                 <input
                   className={`input w-full tabular-nums ${taxIdError ? 'border-red-400' : taxIdOk ? 'border-emerald-400' : ''}`}
@@ -528,15 +548,13 @@ export default function TaxDocModal({
                   onChange={(e) => edit('tax_id', e.target.value.replace(/\D/g, '').slice(0, 13))}
                   aria-invalid={Boolean(taxIdError)}
                 />
-                <button className="btn btn-secondary" disabled={!taxIdOk || busy === 'lookup'} onClick={() => void lookup('tax')}>
-                  ค้นหา
-                </button>
+                <button type="button" className="btn btn-secondary" disabled={!taxIdOk || busy === 'lookup'} onClick={() => void lookup('tax')}>{"" + translateUi("ค้นหา") + " "}</button>
               </div>
               {taxIdError && <p className="mt-1 field-error">{taxIdError}</p>}
-              {taxIdOk && <p className="mt-1 text-xs text-emerald-600">✓ เลขถูกต้อง</p>}
+              {taxIdOk && <p className="mt-1 text-xs text-emerald-600">{translateUi("✓ เลขถูกต้อง")}</p>}
             </div>
             <div>
-              <span className="hint">เบอร์โทร (ค้นหาผู้ซื้อที่เคยออกใบ)</span>
+              <span className="hint">{translateUi("เบอร์โทร (ค้นหาผู้ซื้อที่เคยออกใบ)")}</span>
               <div className="flex gap-1.5">
                 <input
                   className="input w-full tabular-nums"
@@ -545,17 +563,15 @@ export default function TaxDocModal({
                   value={buyer.phone}
                   onChange={(e) => setBuyer((b) => ({ ...b, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                 />
-                <button className="btn btn-secondary" disabled={!/^0\d{8,9}$/.test(buyer.phone) || busy === 'lookup'} onClick={() => void lookup('phone')}>
-                  ค้นหา
-                </button>
+                <button type="button" className="btn btn-secondary" disabled={!/^0\d{8,9}$/.test(buyer.phone) || busy === 'lookup'} onClick={() => void lookup('phone')}>{"" + translateUi("ค้นหา") + " "}</button>
               </div>
             </div>
             <label className="block sm:col-span-2">
-              <span className="hint">ชื่อผู้ซื้อ / บริษัท</span>
+              <span className="hint">{translateUi("ชื่อผู้ซื้อ / บริษัท")}</span>
               <input className="input w-full" maxLength={200} value={buyer.name} onChange={(e) => edit('name', e.target.value)} />
             </label>
             <div>
-              <span className="hint">สาขา (5 หลัก · 00000 = สำนักงานใหญ่)</span>
+              <span className="hint">{translateUi("สาขา (5 หลัก / 00000 = สำนักงานใหญ่)")}</span>
               <div className="flex gap-1.5">
                 <input
                   className="input w-full tabular-nums"
@@ -564,13 +580,11 @@ export default function TaxDocModal({
                   value={buyer.branch_code}
                   onChange={(e) => edit('branch_code', e.target.value.replace(/\D/g, '').slice(0, 5))}
                 />
-                <button type="button" className="btn btn-secondary whitespace-nowrap" onClick={() => edit('branch_code', '00000')}>
-                  สนญ.
-                </button>
+                <button type="button" className="btn btn-secondary whitespace-nowrap" onClick={() => edit('branch_code', '00000')}>{"" + translateUi("สนญ.") + " "}</button>
               </div>
             </div>
             <label className="block sm:col-span-2">
-              <span className="hint">ที่อยู่ตามทะเบียน</span>
+              <span className="hint">{translateUi("ที่อยู่ตามทะเบียน")}</span>
               <textarea className="input w-full" rows={2} maxLength={500} value={buyer.address} onChange={(e) => edit('address', e.target.value)} />
             </label>
           </div>
@@ -584,13 +598,13 @@ export default function TaxDocModal({
         {draft && (
           <div className="mb-3 rounded-xl bg-gray-50 p-3 text-sm">
             <div className="flex justify-between">
-              <span>ฉบับร่าง {DOC_TITLE[draft.doc_type]}</span>
-              <span className="badge badge-amber">ร่าง</span>
+              <span>{"" + translateUi("ฉบับร่าง") + " "}{DOC_TITLE[draft.doc_type]}</span>
+              <span className="badge badge-amber">{translateUi("ร่าง")}</span>
             </div>
             <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-gray-600">
-              <span>ก่อน VAT {money(draft.taxable_amount + draft.exempt_amount)}</span>
+              <span>{"" + translateUi("ก่อน VAT") + " "}{money(draft.taxable_amount + draft.exempt_amount)}</span>
               <span>VAT {draft.vat_rate}% {money(draft.vat_amount)}</span>
-              <span className="text-right strong-text">รวม {money(draft.total_amount)}</span>
+              <span className="text-right strong-text">{"" + translateUi("รวม") + " "}{money(draft.total_amount)}</span>
             </div>
           </div>
         )}
@@ -608,20 +622,18 @@ export default function TaxDocModal({
         {draft && !dirty && (
           <label className="mb-3 flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-            <span>ตรวจสอบข้อมูลแล้ว · เอกสารที่ยืนยันจะได้เลขที่ถาวรและแก้ไขไม่ได้ (แก้ได้ด้วยใบลดหนี้เท่านั้น)</span>
+            <span>{translateUi("ตรวจสอบข้อมูลแล้ว / เอกสารที่ยืนยันจะได้เลขที่ถาวรและแก้ไขไม่ได้ (แก้ได้ด้วยใบลดหนี้เท่านั้น)")}</span>
           </label>
         )}
 
         <div className="flex flex-wrap justify-end gap-2">
           {draft && (
-            <button className="btn btn-secondary mr-auto text-red-600" disabled={busy !== null} onClick={() => void discard()}>
-              ยกเลิกร่าง
-            </button>
+            <button type="button" className="btn btn-secondary mr-auto text-red-600" disabled={busy !== null} onClick={() => void discard()}>{"" + translateUi("ยกเลิกร่าง") + " "}</button>
           )}
-          <button className="btn btn-secondary" disabled={problems.length > 0 || busy !== null || (draft !== null && !dirty)} onClick={() => void save()}>
+          <button type="button" className="btn btn-secondary" disabled={problems.length > 0 || busy !== null || (draft !== null && !dirty)} onClick={() => void save()}>
             {busy === 'save' ? 'กำลังบันทึก...' : draft ? 'บันทึกการแก้ไขร่าง' : 'บันทึกฉบับร่าง'}
           </button>
-          <button
+          <button type="button"
             className="btn btn-primary"
             disabled={!draft || dirty || !checked || !setup.terminal || busy !== null}
             title={!setup.terminal ? 'เลือกเครื่อง POS ก่อน' : dirty ? 'บันทึกร่างก่อนยืนยัน' : undefined}
@@ -632,7 +644,7 @@ export default function TaxDocModal({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -646,9 +658,7 @@ function SelectedBox({ title, subtitle, amount, onClear }: { title: string; subt
       <span className="flex items-center gap-2">
         <span className="tabular-nums">{money(amount)}</span>
         {onClear && (
-          <button className="link-muted text-xs" onClick={onClear}>
-            เปลี่ยน
-          </button>
+          <button type="button" className="link-muted text-xs" onClick={onClear}>{"" + translateUi("เปลี่ยน") + " "}</button>
         )}
       </span>
     </div>

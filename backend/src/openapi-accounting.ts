@@ -1,4 +1,4 @@
-// เอกสาร OpenAPI ของโมดูลบัญชี (รวมเข้า openapi.ts) · route อยู่ที่ src/accounting.ts
+// เอกสาร OpenAPI ของโมดูลบัญชี (รวมเข้า openapi.ts) / route อยู่ที่ src/accounting.ts
 
 const uuid = { type: 'string', format: 'uuid' } as const
 const date = { type: 'string', format: 'date', examples: ['2026-10-26'] } as const
@@ -35,7 +35,7 @@ const WRITE = 'เจ้าของ พนักงานบัญชี'
 export const accountingTag = {
   name: 'บัญชี',
   description: [
-    'บัญชีคู่ (double-entry) ลงอัตโนมัติจากบิล สต็อก และรายจ่าย · เดบิต = เครดิต ทุกรายการ · ลงแล้วแก้ไม่ได้ ใช้กลับรายการ',
+    'บัญชีคู่ (double-entry) ลงอัตโนมัติจากบิล สต็อก และรายจ่าย / เดบิต = เครดิต ทุกรายการ / ลงแล้วแก้ไม่ได้ ใช้กลับรายการ',
     'แสดงผล 3 โหมดจากข้อมูลชุดเดียวกัน (ง่าย / มาตรฐาน / มืออาชีพ)',
     '**ไม่ใช่เครื่องมือยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ**',
   ].join('\n'),
@@ -44,9 +44,9 @@ export const accountingTag = {
 export const taxTag = {
   name: 'ภาษีกรมสรรพากร',
   description: [
-    'เอกสารภาษี ABB (ใบกำกับภาษีอย่างย่อ) · TAX (ใบเสร็จรับเงิน/ใบกำกับภาษี) · CN (ใบลดหนี้) · รายงานภาษีรายเดือน · กะแคชเชียร์',
-    'สร้างฉบับร่าง → ยืนยันเอง: ออกเลขที่ต่อเนื่องไม่ขาดช่วง (ประเภท-เครื่อง-YYYYMM-NNNNNN) + สร้าง XML ETDA ขมธอ.3-2560 v2.0 (TypeCode TAX=T03 · ABB=T05 · CN=81) เก็บไว้ดาวน์โหลด',
-    'VAT แยกจากยอดรวม: ROUND((ยอดรวม - ยกเว้น) x 7 / 107, 2) · ไม่มีการเรียก API ภายนอก',
+    'เอกสารภาษี ABB (ใบกำกับภาษีอย่างย่อ) / TAX (ใบเสร็จรับเงิน/ใบกำกับภาษี) / CN (ใบลดหนี้) / รายงานภาษีรายเดือน / กะแคชเชียร์',
+    'สร้างฉบับร่าง → ยืนยันเอง: ออกเลขที่ต่อเนื่องไม่ขาดช่วง (ประเภท-เครื่อง-YYYYMM-NNNNNN) + สร้าง XML ETDA ขมธอ.3-2560 v2.0 (TypeCode TAX=T03 / ABB=T05 / CN=81) เก็บไว้ดาวน์โหลด',
+    'VAT แยกจากยอดรวม: ROUND((ยอดรวม - ยกเว้น) x 7 / 107, 2) / ไม่มีการเรียก API ภายนอก',
     '**ไม่ใช่การยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ และตรวจ XML กับ XSD ก่อนใช้งานจริง**',
   ].join('\n'),
 }
@@ -125,8 +125,8 @@ export const accountingSchemas = {
     properties: {
       netSales: money, foodCost: money, cogsActual: { ...money, description: 'ตามสูตร + ส่วนต่างสต็อก' },
       grossProfit: money, labor: money, opex: money, expenses: money, netProfit: money,
-      foodCostPct: { type: ['number', 'null'], description: 'ต้นทุนอาหาร / ยอดขายสุทธิ x 100 (เป้า 28–35%)' },
-      primeCostPct: { type: ['number', 'null'], description: '(ต้นทุนอาหาร + ค่าแรง) / ยอดขายสุทธิ x 100 (เป้า 60–65%)' },
+      foodCostPct: { type: ['number', 'null'], description: 'ต้นทุนอาหาร / ยอดขายสุทธิ x 100 (เป้า 28-35%)' },
+      primeCostPct: { type: ['number', 'null'], description: '(ต้นทุนอาหาร + ค่าแรง) / ยอดขายสุทธิ x 100 (เป้า 60-65%)' },
       netMarginPct: { type: ['number', 'null'] },
     },
   },
@@ -272,7 +272,7 @@ export const accountingPaths = {
           code: { type: 'string', pattern: '^[0-9]{4}$', examples: ['5300'] },
           name: { type: 'string', examples: ['ค่าซ่อมบำรุง'] },
           type: { enum: ['asset', 'liability', 'equity', 'revenue', 'expense'] },
-          grp: { type: 'string', description: 'expense: food_cost | labor | opex · revenue: sales | other_income · ...' },
+          grp: { type: 'string', description: 'expense: food_cost | labor | opex / revenue: sales | other_income / ...' },
         },
       }),
       responses: { ...ok('สร้างแล้ว', { type: 'object' }, '201'), ...errors({ '409': 'รหัสซ้ำ (duplicate)' }) },
@@ -284,7 +284,7 @@ export const accountingPaths = {
       responses: { ...ok('สูงสุด 1,000 รายการ', { type: 'object', properties: { expenses: { type: 'array', items: { type: 'object' } } } }), ...errors() },
     }),
     post: op('บันทึกรายจ่าย (บังคับเลือกหมวด) ลงบัญชีอัตโนมัติ', WRITE, 'accountingAddExpense', {
-      description: `สิทธิ์: ${WRITE}\n\nDr หมวดรายจ่าย (+ ภาษีซื้อ) / Cr เงินสด ธนาคาร หรือเจ้าหนี้ · วันที่ที่ปิดวันแล้วบันทึกไม่ได้ (409 day_closed) · รูปใบเสร็จอัปโหลดเข้า Storage bucket expense-receipts แล้วส่ง path มาใน receipt_url`,
+      description: `สิทธิ์: ${WRITE}\n\nDr หมวดรายจ่าย (+ ภาษีซื้อ) / Cr เงินสด ธนาคาร หรือเจ้าหนี้ / วันที่ที่ปิดวันแล้วบันทึกไม่ได้ (409 day_closed) / รูปใบเสร็จอัปโหลดเข้า Storage bucket expense-receipts แล้วส่ง path มาใน receipt_url`,
       requestBody: body({
         type: 'object',
         required: ['restaurant_id', 'account_id', 'amount'],
@@ -298,12 +298,12 @@ export const accountingPaths = {
           note: { type: 'string' },
           receipt_url: { type: 'string', description: 'path รูปใบเสร็จใน bucket expense-receipts (<restaurant_id>/...)' },
           supplier_name: { type: 'string', maxLength: 200 },
-          supplier_tax_id: { type: 'string', pattern: '^[0-9]{13}$', description: 'ขึ้นต้น 0 = นิติบุคคล (ภ.ง.ด.53) · อื่น = บุคคลธรรมดา (ภ.ง.ด.3)' },
+          supplier_tax_id: { type: 'string', pattern: '^[0-9]{13}$', description: 'ขึ้นต้น 0 = นิติบุคคล (ภ.ง.ด.53) / อื่น = บุคคลธรรมดา (ภ.ง.ด.3)' },
           supplier_branch_code: { type: 'string', pattern: '^[0-9]{5}$', default: '00000' },
           tax_invoice_no: { type: 'string', maxLength: 50, description: 'เลขที่ใบกำกับภาษีซื้อ (ต้องมี tax_invoice_date + ผู้ขาย) → เข้ารายงานภาษีซื้อ' },
           tax_invoice_date: date,
           wht_rate: { enum: [1, 2, 3, 5], description: 'หัก ณ ที่จ่าย % ของยอดก่อน VAT (ต้องมีผู้ขาย) → ลงบัญชีภาษีหัก ณ ที่จ่ายค้างจ่าย' },
-          wht_type: { enum: ['pnd3', 'pnd53'], description: 'แบบยื่น (ไม่ส่ง = เลือกจากเลขผู้เสียภาษี) · ต้องตรงประเภทผู้ขาย: ขึ้นต้น 0 = ภ.ง.ด.53' },
+          wht_type: { enum: ['pnd3', 'pnd53'], description: 'แบบยื่น (ไม่ส่ง = เลือกจากเลขผู้เสียภาษี) / ต้องตรงประเภทผู้ขาย: ขึ้นต้น 0 = ภ.ง.ด.53' },
         },
       }),
       responses: { ...ok('บันทึกแล้ว', { type: 'object' }, '201'), ...errors({ '409': 'วันนั้นปิดวันแล้ว (day_closed)' }) },
@@ -355,7 +355,7 @@ export const accountingPaths = {
   },
   '/api/accounting/day-close': {
     post: op('ปิดวัน: นับเงินสด ยืนยัน ล็อกรายการของวัน แล้วส่งสรุปเข้า LINE', 'เจ้าของ ผู้จัดการ', 'accountingDayClose', {
-      description: 'สิทธิ์: เจ้าของ ผู้จัดการ\n\nส่วนต่างเงินสดลงบัญชีเงินสดขาด/เกิน · หลังปิดวันเพิ่มรายการในวันนั้นไม่ได้ (รายการอัตโนมัติเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ · line: sent | not_configured | failed (ส่งไม่ได้ก็ยังปิดวันสำเร็จ)',
+      description: 'สิทธิ์: เจ้าของ ผู้จัดการ\n\nส่วนต่างเงินสดลงบัญชีเงินสดขาด/เกิน / หลังปิดวันเพิ่มรายการในวันนั้นไม่ได้ (รายการอัตโนมัติเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ / line: sent | not_configured | failed (ส่งไม่ได้ก็ยังปิดวันสำเร็จ)',
       requestBody: body({
         type: 'object',
         required: ['restaurant_id', 'date', 'counted_cash'],
@@ -387,7 +387,7 @@ export const accountingPaths = {
       parameters: [
         restaurant, from, to,
         q('report', { enum: ['journal', 'trial_balance', 'summary', 'menu_profit', 'expenses'], default: 'journal' }, 'รายงาน', false),
-        q('format', { enum: ['csv', 'xls'], default: 'csv' }, 'csv = UTF-8 BOM · xls = Excel XML Spreadsheet', false),
+        q('format', { enum: ['csv', 'xls'], default: 'csv' }, 'csv = UTF-8 BOM / xls = Excel XML Spreadsheet', false),
       ],
       responses: {
         '200': {
@@ -402,7 +402,7 @@ export const accountingPaths = {
   // ===== รายงานภาษีรายเดือน =====
   '/api/accounting/reports/sales-tax': {
     get: op('รายงานภาษีขาย (ประกอบ ภ.พ.30)', READ, 'taxSalesReport', {
-      description: `สิทธิ์: ${READ}\n\nเฉพาะเอกสารที่ยืนยันแล้ว ตามวันที่ออก · ABB รวม 1 บรรทัดต่อวันต่อเครื่อง (ช่วงเลขที่) · ใบลดหนี้ติดลบ · ใบเต็มรูปที่แปลงจาก ABB แสดงอ้างอิงยอด 0 (ไม่นับซ้ำ)`,
+      description: `สิทธิ์: ${READ}\n\nเฉพาะเอกสารที่ยืนยันแล้ว ตามวันที่ออก / ABB รวม 1 บรรทัดต่อวันต่อเครื่อง (ช่วงเลขที่) / ใบลดหนี้ติดลบ / ใบเต็มรูปที่แปลงจาก ABB แสดงอ้างอิงยอด 0 (ไม่นับซ้ำ)`,
       parameters: [restaurant, month, reportFormat],
       responses: reportResponses('รายการ + ยอดรวม', {
         type: 'object',
@@ -416,7 +416,7 @@ export const accountingPaths = {
   },
   '/api/accounting/reports/purchase-tax': {
     get: op('รายงานภาษีซื้อ', READ, 'taxPurchaseReport', {
-      description: `สิทธิ์: ${READ}\n\nรายจ่ายที่มีใบกำกับภาษีซื้อและยังไม่ยกเลิก ตามวันที่ลงบัญชี (spent_on) · without_invoice = รายจ่ายที่มี VAT แต่ไม่มีใบกำกับ (นำมาหักไม่ได้)`,
+      description: `สิทธิ์: ${READ}\n\nรายจ่ายที่มีใบกำกับภาษีซื้อและยังไม่ยกเลิก ตามวันที่ลงบัญชี (spent_on) / without_invoice = รายจ่ายที่มี VAT แต่ไม่มีใบกำกับ (นำมาหักไม่ได้)`,
       parameters: [restaurant, month, reportFormat],
       responses: reportResponses('รายการ + ยอดรวม', {
         type: 'object',
@@ -432,7 +432,7 @@ export const accountingPaths = {
   '/api/accounting/reports/pp30-summary': {
     get: op('สรุป ภ.พ.30 (ภาษีขาย - ภาษีซื้อ)', READ, 'taxPp30Summary', {
       parameters: [restaurant, month, reportFormat],
-      responses: reportResponses('vat_payable > 0 = ต้องชำระ · vat_credit > 0 = ชำระเกิน', {
+      responses: reportResponses('vat_payable > 0 = ต้องชำระ / vat_credit > 0 = ชำระเกิน', {
         type: 'object',
         properties: {
           month: { type: 'string' }, seller: { $ref: '#/components/schemas/TaxSeller' },
@@ -476,7 +476,7 @@ export const accountingPaths = {
       responses: { ...ok('ล่าสุดก่อน สูงสุด 1,000 (ไม่รวม XML)', { type: 'object', properties: { documents: { type: 'array', items: { $ref: '#/components/schemas/TaxDocument' } } } }), ...errors() },
     }, taxTag.name),
     post: op('สร้างเอกสารภาษี (ฉบับร่าง หรือยืนยันทันที)', TAX_ISSUE, 'taxCreateDocument', {
-      description: `สิทธิ์: ${TAX_ISSUE}\n\nABB/TAX: จากออเดอร์ที่ชำระแล้ว (ยอดรวม VAT) · TAX + ref_document_id = แปลงจาก ABB · CN: ต้องมี ref_document_id + amount + credit_note_reason\n\nconfirm=true + terminal_code = ยืนยันทันที ถ้ายืนยันไม่ผ่านจะคืน document_id ของฉบับร่าง`,
+      description: `สิทธิ์: ${TAX_ISSUE}\n\nABB/TAX: จากออเดอร์ที่ชำระแล้ว (ยอดรวม VAT) / TAX + ref_document_id = แปลงจาก ABB / CN: ต้องมี ref_document_id + amount + credit_note_reason\n\nconfirm=true + terminal_code = ยืนยันทันที ถ้ายืนยันไม่ผ่านจะคืน document_id ของฉบับร่าง`,
       requestBody: body({
         type: 'object',
         required: ['restaurant_id', 'doc_type'],
@@ -487,18 +487,20 @@ export const accountingPaths = {
           exempt_amount: { ...money, default: 0, description: 'ยอดที่ได้รับยกเว้น VAT (ABB/TAX จากออเดอร์)' },
           amount: { ...money, description: 'CN: ยอดลดหนี้รวม VAT (รวมทุกใบไม่เกินยอดเอกสารต้นทาง)' },
           credit_note_reason: { type: 'string', maxLength: 300 },
+          client_ref: { ...uuid, description: 'Stable UUID for retries of this creation action; do not reuse for another draft' },
           confirm: { type: 'boolean', default: false }, terminal_code: { type: 'string', pattern: '^[A-Za-z0-9]{1,10}$' },
         },
       }),
       responses: {
         ...ok('สร้างแล้ว', { type: 'object', properties: { document: { $ref: '#/components/schemas/TaxDocument' } } }, '201'),
+        '202': { description: 'Document created but follow-up outcome unknown; response includes document_id and recovery_url' },
         ...errors({ '409': 'มีเอกสารแล้ว (document_exists, tax_invoice_exists) / ยอดลดหนี้เกิน / ยืนยันไม่ผ่าน (มี document_id)' }),
       },
     }, taxTag.name),
   },
   '/api/tax/documents/{id}/confirm': {
     post: op('ยืนยันฉบับร่าง: ออกเลขที่ไม่ขาดช่วง + สร้าง XML ETDA', TAX_ISSUE, 'taxConfirmDocument', {
-      description: `สิทธิ์: ${TAX_ISSUE}\n\nnext_tax_doc_no ออกเลขในธุรกรรมเดียวกับการบันทึก (rollback = เลขไม่ถูกใช้) · เก็บสำเนาข้อมูลผู้ขายและเครื่อง · หลังยืนยันแก้/ลบไม่ได้ (ยกเลิกด้วยใบลดหนี้) · ABB ต้องใช้เครื่องที่มีเลขอนุมัติ POS`,
+      description: `สิทธิ์: ${TAX_ISSUE}\n\nnext_tax_doc_no ออกเลขในธุรกรรมเดียวกับการบันทึก (rollback = เลขไม่ถูกใช้) / เก็บสำเนาข้อมูลผู้ขายและเครื่อง / หลังยืนยันแก้/ลบไม่ได้ (ยกเลิกด้วยใบลดหนี้) / ABB ต้องใช้เครื่องที่มีเลขอนุมัติ POS`,
       parameters: [path('id', 'เอกสารฉบับร่าง')],
       requestBody: body({ type: 'object', required: ['restaurant_id', 'terminal_code'], properties: { restaurant_id: uuid, terminal_code: { type: 'string', examples: ['POS01'] } } }),
       responses: {
@@ -520,7 +522,7 @@ export const accountingPaths = {
   // ===== กะแคชเชียร์ =====
   '/api/shifts/open': {
     post: op('เปิดกะ (เงินทอนตั้งต้น)', SHIFT_WHO, 'shiftOpen', {
-      description: `สิทธิ์: ${SHIFT_WHO}\n\nผู้ใช้ 1 คน / เครื่อง 1 เครื่อง เปิดได้ 1 กะ · บิลที่ชำระระหว่างกะผูกกับกะของผู้รับเงินอัตโนมัติ`,
+      description: `สิทธิ์: ${SHIFT_WHO}\n\nผู้ใช้ 1 คน / เครื่อง 1 เครื่อง เปิดได้ 1 กะ / บิลที่ชำระระหว่างกะผูกกับกะของผู้รับเงินอัตโนมัติ`,
       requestBody: body({ type: 'object', required: ['restaurant_id', 'starting_cash'], properties: { restaurant_id: uuid, starting_cash: money, terminal_code: { type: 'string' } } }),
       responses: { ...ok('เปิดกะแล้ว', { type: 'object', properties: { shift: { type: 'object' } } }, '201'), ...errors({ '409': 'มีกะเปิดอยู่แล้ว (shift_already_open)' }) },
     }, taxTag.name),
@@ -537,7 +539,7 @@ export const accountingPaths = {
   },
   '/api/shifts/close': {
     post: op('ปิดกะ: นับเงินสด + Z-Report', SHIFT_WHO, 'shiftClose', {
-      description: `สิทธิ์: ${SHIFT_WHO}\n\nที่ควรมี = เงินทอนตั้งต้น + ขายเงินสด + เงินเข้า - เงินออก · ส่วนต่าง = นับจริง - ที่ควรมี · ปิดแล้วแก้ไม่ได้`,
+      description: `สิทธิ์: ${SHIFT_WHO}\n\nที่ควรมี = เงินทอนตั้งต้น + ขายเงินสด + เงินเข้า - เงินออก / ส่วนต่าง = นับจริง - ที่ควรมี / ปิดแล้วแก้ไม่ได้`,
       requestBody: body({ type: 'object', required: ['restaurant_id', 'shift_id', 'actual_cash'], properties: { restaurant_id: uuid, shift_id: uuid, actual_cash: money, note: { type: 'string', maxLength: 300 } } }),
       responses: {
         ...ok('ปิดกะแล้ว', { type: 'object', properties: { shift: { type: 'object' }, z_report: { $ref: '#/components/schemas/ZReport' } } }),

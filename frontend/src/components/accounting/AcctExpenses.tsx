@@ -1,5 +1,7 @@
-// รายจ่าย: บังคับเลือกหมวด · วิธีจ่าย · แนบรูปใบเสร็จ (bucket expense-receipts) · ลงบัญชีอัตโนมัติ
-// ใบกำกับภาษีซื้อ (ขอคืนภาษีซื้อ) คิด VAT จากยอดรวมอัตโนมัติ · ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) คิดจากฐานก่อน VAT
+import { translateUi } from "../../lib/uiText"
+import { useLocalPagination } from '../Pagination'
+// รายจ่าย: บังคับเลือกหมวด / วิธีจ่าย / แนบรูปใบเสร็จ (bucket expense-receipts) / ลงบัญชีอัตโนมัติ
+// ใบกำกับภาษีซื้อ (ขอคืนภาษีซื้อ) คิด VAT จากยอดรวมอัตโนมัติ / ภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) คิดจากฐานก่อน VAT
 // ลงแล้วแก้ยอดไม่ได้ ต้อง "ยกเลิกรายจ่าย" (กลับรายการ) แล้วบันทึกใหม่
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -119,6 +121,7 @@ export default function AcctExpenses({
   const total = live.reduce((s, r) => s + r.amount, 0)
   const totalVat = live.filter((r) => r.tax_invoice_no).reduce((s, r) => s + r.vat_amount, 0)
   const totalWht = live.reduce((s, r) => s + r.wht_amount, 0)
+  const pagination = useLocalPagination(rows, `${restaurantId}:${from}:${to}`, translateUi('รายจ่าย'))
 
   const amount = Number(f.amount || 0)
   const inputTax = vatRegistered && tax.inputTax
@@ -169,7 +172,7 @@ export default function AcctExpenses({
       if (path) void supabase.storage.from(RECEIPT_BUCKET).remove([path])
       return setMsg({ ok: false, text: expenseTaxError(error.message) ?? accountingError(error.message) })
     }
-    const extra = [calc.vat > 0 && `ภาษีซื้อ ${baht(calc.vat)}`, calc.wht > 0 && `หัก ณ ที่จ่าย ${baht(calc.wht)}`].filter(Boolean).join(' · ')
+    const extra = [calc.vat > 0 && `ภาษีซื้อ ${baht(calc.vat)}`, calc.wht > 0 && `หัก ณ ที่จ่าย ${baht(calc.wht)}`].filter(Boolean).join(' / ')
     setMsg({ ok: true, text: `บันทึก ${byId.get(f.account_id)?.name ?? 'รายจ่าย'} ${baht(amount)} แล้ว${extra ? ` (${extra})` : ''}` })
     setF({ ...f, amount: '', note: '' })
     // เก็บข้อมูลผู้ขายไว้ (มักบันทึกหลายใบจากผู้ขายรายเดิม) ล้างเฉพาะเลขที่ใบกำกับ
@@ -196,7 +199,7 @@ export default function AcctExpenses({
     window.open(data.signedUrl, '_blank', 'noopener')
   }
 
-  // หมวดที่ร้านเพิ่มเอง: รหัสถัดไปในช่วงของกลุ่ม (ต้นทุนอาหาร 50xx · ค่าแรง 51xx · ค่าใช้จ่ายอื่น 53xx-58xx)
+  // หมวดที่ร้านเพิ่มเอง: รหัสถัดไปในช่วงของกลุ่ม (ต้นทุนอาหาร 50xx / ค่าแรง 51xx / ค่าใช้จ่ายอื่น 53xx-58xx)
   async function addCategory(e: FormEvent) {
     e.preventDefault()
     if (!newCat || !newCat.name.trim()) return
@@ -224,12 +227,11 @@ export default function AcctExpenses({
       {canWrite ? (
         <form onSubmit={(e) => void save(e)} className="card grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="ex-cat">
-              หมวดรายจ่าย <span className="text-red-600">*</span>
+            <label className="label" htmlFor="ex-cat">{"" + translateUi("หมวดรายจ่าย") + " "}<span className="text-red-600">*</span>
             </label>
             <div className="flex gap-2">
               <select id="ex-cat" className="input w-full" value={f.account_id} onChange={(e) => setF({ ...f, account_id: e.target.value })} required>
-                <option value="">— เลือกหมวด —</option>
+                <option value="">{translateUi("- เลือกหมวด -")}</option>
                 {(['food_cost', 'labor', 'opex'] as const).map((g) => (
                   <optgroup key={g} label={GROUP_LABEL[g]}>
                     {cats
@@ -242,21 +244,16 @@ export default function AcctExpenses({
                   </optgroup>
                 ))}
               </select>
-              <button type="button" className="btn btn-secondary" onClick={() => setNewCat({ name: '', grp: 'opex' })}>
-                + หมวด
-              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => setNewCat({ name: '', grp: 'opex' })}>{"" + translateUi("+ หมวด") + " "}</button>
             </div>
           </div>
           <div>
-            <label className="label" htmlFor="ex-amt">
-              จำนวนเงินตามใบเสร็จ (รวม VAT) <span className="text-red-600">*</span>
+            <label className="label" htmlFor="ex-amt">{"" + translateUi("จำนวนเงินตามใบเสร็จ (รวม VAT)") + " "}<span className="text-red-600">*</span>
             </label>
             <input id="ex-amt" className="input w-full" type="number" inputMode="decimal" min="0" step="0.01" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} required />
           </div>
           <div>
-            <label className="label" htmlFor="ex-pay">
-              จ่ายด้วย
-            </label>
+            <label className="label" htmlFor="ex-pay">{"" + translateUi("จ่ายด้วย") + " "}</label>
             <select id="ex-pay" className="input w-full" value={f.payment} onChange={(e) => setF({ ...f, payment: e.target.value })}>
               {Object.entries(PAYMENT_LABEL).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -266,21 +263,17 @@ export default function AcctExpenses({
             </select>
           </div>
           <div>
-            <label className="label" htmlFor="ex-date">
-              วันที่จ่าย
-            </label>
+            <label className="label" htmlFor="ex-date">{"" + translateUi("วันที่จ่าย") + " "}</label>
             <input id="ex-date" className="input w-full" type="date" max={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required />
           </div>
           <div>
-            <label className="label" htmlFor="ex-note">
-              หมายเหตุ
-            </label>
+            <label className="label" htmlFor="ex-note">{"" + translateUi("หมายเหตุ") + " "}</label>
             <input id="ex-note" className="input w-full" maxLength={300} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
           </div>
 
           {/* ----- ภาษีซื้อ / หัก ณ ที่จ่าย ----- */}
           <fieldset className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:col-span-2 sm:grid-cols-2">
-            <legend className="px-1 text-sm font-semibold text-gray-800">ภาษี</legend>
+            <legend className="px-1 text-sm font-semibold text-gray-800">{translateUi("ภาษี")}</legend>
             {vatRegistered ? (
               <label className="flex items-start gap-2 sm:col-span-2">
                 <input
@@ -291,27 +284,23 @@ export default function AcctExpenses({
                   aria-describedby="ex-input-tax-hint"
                 />
                 <span>
-                  <span className="text-sm font-medium">มีใบกำกับภาษีเต็มรูป (ขอคืนภาษีซื้อ)</span>
-                  <span id="ex-input-tax-hint" className="block hint">
-                    คิด VAT {vatRate}% จากยอดรวมให้อัตโนมัติ · ไม่มีใบกำกับภาษีเต็มรูป = นำภาษีซื้อมาหักไม่ได้
-                  </span>
+                  <span className="text-sm font-medium">{translateUi("มีใบกำกับภาษีเต็มรูป (ขอคืนภาษีซื้อ)")}</span>
+                  <span id="ex-input-tax-hint" className="block hint">{"" + translateUi("คิด VAT") + " "}{vatRate}{"" + translateUi("% จากยอดรวมให้อัตโนมัติ / ไม่มีใบกำกับภาษีเต็มรูป = นำภาษีซื้อมาหักไม่ได้") + " "}</span>
                 </span>
               </label>
             ) : (
-              <p className="hint sm:col-span-2">ร้านยังไม่จด VAT จึงไม่มีการขอคืนภาษีซื้อ</p>
+              <p className="hint sm:col-span-2">{translateUi("ร้านยังไม่จด VAT จึงไม่มีการขอคืนภาษีซื้อ")}</p>
             )}
 
             <div>
-              <label className="label" htmlFor="ex-wht">
-                หักภาษี ณ ที่จ่าย
-              </label>
+              <label className="label" htmlFor="ex-wht">{"" + translateUi("หักภาษี ณ ที่จ่าย") + " "}</label>
               <select
                 id="ex-wht"
                 className="input w-full"
                 value={tax.whtRate ?? ''}
                 onChange={(e) => setTax({ ...tax, whtRate: e.target.value ? (Number(e.target.value) as WhtRate) : null })}
               >
-                <option value="">ไม่หัก</option>
+                <option value="">{translateUi("ไม่หัก")}</option>
                 {WHT_RATES.map((r) => (
                   <option key={r} value={r}>
                     {r}%{r === 1 ? ' (ค่าขนส่ง)' : r === 2 ? ' (ค่าโฆษณา)' : r === 3 ? ' (ค่าบริการ/จ้างทำของ)' : ' (ค่าเช่า)'}
@@ -321,8 +310,8 @@ export default function AcctExpenses({
             </div>
             {tax.whtRate !== null && (
               <div>
-                <span className="label">แบบยื่น</span>
-                <div className="flex gap-2" role="radiogroup" aria-label="แบบยื่นภาษีหัก ณ ที่จ่าย">
+                <span className="label">{translateUi("แบบยื่น")}</span>
+                <div className="flex gap-2" role="radiogroup" aria-label={translateUi("แบบยื่นภาษีหัก ณ ที่จ่าย")}>
                   {(['pnd3', 'pnd53'] as const).map((form) => (
                     <button
                       key={form}
@@ -337,7 +326,7 @@ export default function AcctExpenses({
                   ))}
                 </div>
                 {suggestedForm && suggestedForm !== tax.whtForm && (
-                  <span className="mt-1 block text-xs text-amber-700">เลขผู้เสียภาษีนี้ต้องใช้ {WHT_FORM_SHORT[suggestedForm]}</span>
+                  <span className="mt-1 block text-xs text-amber-700">{"" + translateUi("เลขผู้เสียภาษีนี้ต้องใช้") + " "}{WHT_FORM_SHORT[suggestedForm]}</span>
                 )}
               </div>
             )}
@@ -345,14 +334,12 @@ export default function AcctExpenses({
             {showSupplier && (
               <>
                 <div className="sm:col-span-2">
-                  <label className="label" htmlFor="ex-sup-name">
-                    ชื่อผู้ขาย / ผู้รับเงิน <span className="text-red-600">*</span>
+                  <label className="label" htmlFor="ex-sup-name">{"" + translateUi("ชื่อผู้ขาย / ผู้รับเงิน") + " "}<span className="text-red-600">*</span>
                   </label>
                   <input id="ex-sup-name" className="input w-full" maxLength={200} value={tax.supplierName} onChange={(e) => setTax({ ...tax, supplierName: e.target.value })} required />
                 </div>
                 <div>
-                  <label className="label" htmlFor="ex-sup-tax">
-                    เลขประจำตัวผู้เสียภาษี (13 หลัก) <span className="text-red-600">*</span>
+                  <label className="label" htmlFor="ex-sup-tax">{"" + translateUi("เลขประจำตัวผู้เสียภาษี (13 หลัก)") + " "}<span className="text-red-600">*</span>
                   </label>
                   <input
                     id="ex-sup-tax"
@@ -369,14 +356,12 @@ export default function AcctExpenses({
                     {tax.supplierTaxId.length < 13
                       ? `${tax.supplierTaxId.length}/13 หลัก`
                       : taxIdOk
-                        ? `${formatTaxId(tax.supplierTaxId)} · ${whtFormFor(tax.supplierTaxId) === 'pnd53' ? 'นิติบุคคล' : 'บุคคลธรรมดา'}`
+                        ? `${formatTaxId(tax.supplierTaxId)} / ${whtFormFor(tax.supplierTaxId) === 'pnd53' ? 'นิติบุคคล' : 'บุคคลธรรมดา'}`
                         : 'เลขผู้เสียภาษีไม่ถูกต้อง (ตรวจหลักสุดท้าย)'}
                   </span>
                 </div>
                 <div>
-                  <label className="label" htmlFor="ex-sup-branch">
-                    รหัสสาขาผู้ขาย (5 หลัก)
-                  </label>
+                  <label className="label" htmlFor="ex-sup-branch">{"" + translateUi("รหัสสาขาผู้ขาย (5 หลัก)") + " "}</label>
                   <input
                     id="ex-sup-branch"
                     className="input w-full tabular-nums"
@@ -394,14 +379,12 @@ export default function AcctExpenses({
             {inputTax && (
               <>
                 <div>
-                  <label className="label" htmlFor="ex-inv-no">
-                    เลขที่ใบกำกับภาษี <span className="text-red-600">*</span>
+                  <label className="label" htmlFor="ex-inv-no">{"" + translateUi("เลขที่ใบกำกับภาษี") + " "}<span className="text-red-600">*</span>
                   </label>
                   <input id="ex-inv-no" className="input w-full" maxLength={50} value={tax.invoiceNo} onChange={(e) => setTax({ ...tax, invoiceNo: e.target.value })} required />
                 </div>
                 <div>
-                  <label className="label" htmlFor="ex-inv-date">
-                    วันที่ในใบกำกับภาษี <span className="text-red-600">*</span>
+                  <label className="label" htmlFor="ex-inv-date">{"" + translateUi("วันที่ในใบกำกับภาษี") + " "}<span className="text-red-600">*</span>
                   </label>
                   <input id="ex-inv-date" className="input w-full" type="date" max={today} value={tax.invoiceDate} onChange={(e) => setTax({ ...tax, invoiceDate: e.target.value })} required />
                 </div>
@@ -410,32 +393,29 @@ export default function AcctExpenses({
 
             {(inputTax || tax.whtRate !== null) && (
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-gray-50 p-3 text-sm sm:col-span-2" aria-live="polite">
-                <dt className="text-gray-500">มูลค่าก่อน VAT</dt>
+                <dt className="text-gray-500">{translateUi("มูลค่าก่อน VAT")}</dt>
                 <dd className="num">{baht(calc.base)}</dd>
                 {inputTax && (
                   <>
-                    <dt className="text-gray-500">ภาษีซื้อ {vatRate}%</dt>
+                    <dt className="text-gray-500">{"" + translateUi("ภาษีซื้อ") + " "}{vatRate}%</dt>
                     <dd className="num">{baht(calc.vat)}</dd>
                   </>
                 )}
                 {tax.whtRate !== null && (
                   <>
-                    <dt className="text-gray-500">
-                      หัก ณ ที่จ่าย {tax.whtRate}% ({WHT_FORM_SHORT[tax.whtForm]})
+                    <dt className="text-gray-500">{"" + translateUi("หัก ณ ที่จ่าย") + " "}{tax.whtRate}% ({WHT_FORM_SHORT[tax.whtForm]})
                     </dt>
                     <dd className="num text-red-600">−{baht(calc.wht)}</dd>
                   </>
                 )}
-                <dt className="font-semibold">จ่ายผู้ขายจริง</dt>
+                <dt className="font-semibold">{translateUi("จ่ายผู้ขายจริง")}</dt>
                 <dd className="num font-semibold">{baht(calc.netPaid)}</dd>
               </dl>
             )}
           </fieldset>
 
           <div className="sm:col-span-2">
-            <label className="label" htmlFor="ex-file">
-              รูปใบเสร็จ / ใบกำกับภาษี (ไม่บังคับ)
-            </label>
+            <label className="label" htmlFor="ex-file">{"" + translateUi("รูปใบเสร็จ / ใบกำกับภาษี (ไม่บังคับ)") + " "}</label>
             <input id="ex-file" type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </div>
           <button className="btn btn-primary sm:col-span-2" disabled={busy}>
@@ -443,23 +423,21 @@ export default function AcctExpenses({
           </button>
         </form>
       ) : (
-        <p className="note">ผู้จัดการดูรายจ่ายได้อย่างเดียว · บันทึกได้เฉพาะเจ้าของร้านและพนักงานบัญชี</p>
+        <p className="note">{translateUi("ผู้จัดการดูรายจ่ายได้อย่างเดียว / บันทึกได้เฉพาะเจ้าของร้านและพนักงานบัญชี")}</p>
       )}
 
       {newCat && (
         <form onSubmit={(e) => void addCategory(e)} className="card mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
-          <input className="input" placeholder="ชื่อหมวดใหม่ เช่น ค่าซ่อมบำรุง" maxLength={80} value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} autoFocus required />
-          <select className="input" value={newCat.grp} onChange={(e) => setNewCat({ ...newCat, grp: e.target.value })} aria-label="กลุ่ม">
+          <input className="input" placeholder={translateUi("ชื่อหมวดใหม่ เช่น ค่าซ่อมบำรุง")} maxLength={80} value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} autoFocus required />
+          <select className="input" value={newCat.grp} onChange={(e) => setNewCat({ ...newCat, grp: e.target.value })} aria-label={translateUi("กลุ่ม")}>
             {Object.entries(GROUP_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>
             ))}
           </select>
-          <button className="btn btn-primary">เพิ่มหมวด</button>
-          <button type="button" className="btn btn-ghost" onClick={() => setNewCat(null)}>
-            ยกเลิก
-          </button>
+          <button className="btn btn-primary">{translateUi("เพิ่มหมวด")}</button>
+          <button type="button" className="btn btn-ghost" onClick={() => setNewCat(null)}>{"" + translateUi("ยกเลิก") + " "}</button>
         </form>
       )}
 
@@ -467,53 +445,49 @@ export default function AcctExpenses({
         title={`รายจ่าย ${baht(total)}`}
         action={
           <div className="flex items-center gap-2 text-sm">
-            <input className="input" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="ตั้งแต่" />
-            <span>ถึง</span>
-            <input className="input" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label="ถึง" />
+            <input className="input" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label={translateUi("ตั้งแต่")} />
+            <span>{translateUi("ถึง")}</span>
+            <input className="input" type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} aria-label={translateUi("ถึง")} />
           </div>
         }
       >
         {(totalVat > 0 || totalWht > 0) && (
-          <p className="mb-2 text-xs text-gray-600">
-            ภาษีซื้อที่มีใบกำกับ {baht(totalVat)} · ภาษีหัก ณ ที่จ่ายค้างนำส่ง {baht(totalWht)}
+          <p className="mb-2 text-xs text-gray-600">{"" + translateUi("ภาษีซื้อที่มีใบกำกับ") + " "}{baht(totalVat)}{" " + translateUi("/ ภาษีหัก ณ ที่จ่ายค้างนำส่ง") + " "}{baht(totalWht)}
           </p>
         )}
-        <ul className="list-card">
-          {rows.map((x) => (
+        {pagination.controls}
+        <ul className="list-card history-scroll">
+          {pagination.items.map((x) => (
             <li key={x.id} className={`p-3 ${x.voided_at ? 'bg-gray-50 text-gray-400' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-medium text-gray-900">
                     <span className={x.voided_at ? 'line-through' : ''}>{byId.get(x.account_id ?? '')?.name ?? 'ไม่ระบุหมวด'}</span>
-                    {x.voided_at && <span className="badge badge-red ml-2">ยกเลิก: {x.void_reason}</span>}
+                    {x.voided_at && <span className="badge badge-red ml-2">{"" + translateUi("ยกเลิก:") + " "}{x.void_reason}</span>}
                     {x.source !== 'manual' && <span className="badge badge-gray ml-2">{SOURCE_NOTE[x.source]}</span>}
-                    {x.tax_invoice_no && <span className="badge badge-green ml-2">ใบกำกับภาษีซื้อ</span>}
+                    {x.tax_invoice_no && <span className="badge badge-green ml-2">{translateUi("ใบกำกับภาษีซื้อ")}</span>}
                     {x.wht_type && <span className="badge badge-amber ml-2">{WHT_FORM_SHORT[x.wht_type]} {x.wht_rate}%</span>}
                   </div>
                   <div className="hint">
-                    {x.spent_on} · {PAYMENT_LABEL[x.payment_method] ?? x.payment_method}
-                    {x.vat_amount > 0 && ` · ภาษีซื้อ ${baht(x.vat_amount)}`}
-                    {x.wht_amount > 0 && ` · หัก ณ ที่จ่าย ${baht(x.wht_amount)}`}
-                    {x.note && ` · ${x.note}`}
+                    {x.spent_on} / {PAYMENT_LABEL[x.payment_method] ?? x.payment_method}
+                    {x.vat_amount > 0 && ` / ภาษีซื้อ ${baht(x.vat_amount)}`}
+                    {x.wht_amount > 0 && ` / หัก ณ ที่จ่าย ${baht(x.wht_amount)}`}
+                    {x.note && ` / ${x.note}`}
                   </div>
                   {x.supplier_name && (
                     <div className="hint">
-                      {x.supplier_name} · {formatTaxId(x.supplier_tax_id)} · {branchLabel(x.supplier_branch_code)}
-                      {x.tax_invoice_no && ` · ใบกำกับ ${x.tax_invoice_no} (${x.tax_invoice_date})`}
+                      {x.supplier_name} / {formatTaxId(x.supplier_tax_id)} / {branchLabel(x.supplier_branch_code)}
+                      {x.tax_invoice_no && ` / ใบกำกับ ${x.tax_invoice_no} (${x.tax_invoice_date})`}
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`tabular-nums ${x.voided_at ? 'line-through' : 'font-semibold text-gray-900'}`}>{baht(x.amount)}</span>
                   {x.receipt_url && (
-                    <button className="link" onClick={() => void openReceipt(x.receipt_url!)}>
-                      ใบเสร็จ
-                    </button>
+                    <button className="link" onClick={() => void openReceipt(x.receipt_url!)}>{"" + translateUi("ใบเสร็จ") + " "}</button>
                   )}
                   {canWrite && x.source === 'manual' && !x.voided_at && (
-                    <button className="link-danger" onClick={() => setVoiding({ id: x.id, reason: '' })}>
-                      ยกเลิก
-                    </button>
+                    <button className="link-danger" onClick={() => setVoiding({ id: x.id, reason: '' })}>{"" + translateUi("ยกเลิก") + " "}</button>
                   )}
                 </div>
               </div>
@@ -521,28 +495,21 @@ export default function AcctExpenses({
                 <div className="mt-2 flex flex-wrap gap-2">
                   <input
                     className="input min-w-0 flex-1"
-                    placeholder="เหตุผลที่ยกเลิก (บังคับ)"
+                    placeholder={translateUi("เหตุผลที่ยกเลิก (บังคับ)")}
                     value={voiding.reason}
                     maxLength={300}
                     onChange={(e) => setVoiding({ ...voiding, reason: e.target.value })}
                     autoFocus
                   />
-                  <button className="btn btn-danger btn-sm" onClick={() => void voidExpense()}>
-                    ยืนยันยกเลิก
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setVoiding(null)}>
-                    ไม่ยกเลิก
-                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => void voidExpense()}>{"" + translateUi("ยืนยันยกเลิก") + " "}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setVoiding(null)}>{"" + translateUi("ไม่ยกเลิก") + " "}</button>
                 </div>
               )}
             </li>
           ))}
-          {rows.length === 0 && <li className="empty-cell">ยังไม่มีรายจ่ายในช่วงนี้</li>}
+          {rows.length === 0 && <li className="empty-cell">{translateUi("ยังไม่มีรายจ่ายในช่วงนี้")}</li>}
         </ul>
-        <p className="mt-2 hint">
-          ซื้อวัตถุดิบเข้าสต็อกให้บันทึกที่ "ใบรับของ" (ลงเป็นสต็อก แล้วตัดเป็นต้นทุนเมื่อใช้ตามสูตร) · ของที่ไม่ได้นับสต็อก เช่น น้ำแข็ง ใช้หมวด "วัตถุดิบนอกสต็อก" ·
-          ภาษีหัก ณ ที่จ่ายต้องออกหนังสือรับรอง (50 ทวิ) ให้ผู้รับเงินและนำส่งภายในวันที่ 7 ของเดือนถัดไป (ยื่นออนไลน์ภายในวันที่ 15)
-        </p>
+        <p className="mt-2 hint">{"" + translateUi("ซื้อวัตถุดิบเข้าสต็อกให้บันทึกที่ \"ใบรับของ\" (ลงเป็นสต็อก แล้วตัดเป็นต้นทุนเมื่อใช้ตามสูตร) / ของที่ไม่ได้นับสต็อก เช่น น้ำแข็ง ใช้หมวด \"วัตถุดิบนอกสต็อก\" / ภาษีหัก ณ ที่จ่ายต้องออกหนังสือรับรอง (50 ทวิ) ให้ผู้รับเงินและนำส่งภายในวันที่ 7 ของเดือนถัดไป (ยื่นออนไลน์ภายในวันที่ 15)") + " "}</p>
       </Section>
     </div>
   )

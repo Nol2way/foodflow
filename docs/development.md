@@ -1,67 +1,39 @@
-# กระบวนการพัฒนา Plato
+# กระบวนการพัฒนา FoodFlow
 
-## 1. แนวทางการพัฒนา
+การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) / การปล่อยและทดสอบ: [operations](operations.md) / [ผล verification](audits/2026-11-22-remediation-results.md)
 
-พัฒนาแบบ **ทำเป็นรอบ (Iterative)** เน้นให้ร้านนำร่องใช้งานจริงให้เร็วที่สุด แล้วปรับตามข้อมูลและฟีดแบ็กจริง ไม่ทำครบทุกฟีเจอร์ก่อนเอาไปทดลอง
 
-## 2. เครื่องมือ
+## โครงสร้างปัจจุบัน
 
-| ด้าน | เครื่องมือ |
-|------|------------|
-| โค้ด | VS Code, Git, GitHub |
-| หน้าเว็บ | React, TypeScript, Vite, Tailwind CSS |
-| Backend | Cloudflare Workers, Hono, Wrangler |
-| ฐานข้อมูล | Supabase (PostgreSQL, Auth, Realtime) |
-| พยากรณ์ | Python 3.10+, Prophet, FastAPI |
-| ออกแบบ | Figma (wireframe), Mermaid (diagram) |
-| จัดการงาน | GitHub Issues + Projects |
+React/TypeScript/Vite/Tailwind + Hono บน Cloudflare + Supabase PostgreSQL/RLS/Realtime ล็อกอินด้วย `app_users` และ backend JWT ไม่ใช่ Supabase Auth มี Gemini เดิมเป็นตัวเลือก แต่รอบสองคนไม่เพิ่ม AI ไม่มี Python/Prophet/FastAPI service ใน repository นี้
 
-## 3. โครงสร้างโค้ด
+ดู [บริบทรายวิชา](course-context.md) ตัวอย่าง Express/MySQL ในรายวิชาไม่ใช่ stack ของ repository
 
-```
-foodflow/
-├── frontend/             # หน้าเว็บ React (src/pages, src/components, src/lib) + functions/api สำหรับ Pages
-├── backend/              # Hono: src/app.ts (routes), src/openapi.ts (Swagger), test/
-├── database/             # migrations/ (รันตามลำดับเลข), seed/, tests/
-└── docs/                 # เอกสารโครงงาน + openapi.json
-```
+## แผนและเจ้าของงาน
 
-กติกา: แก้หรือเพิ่ม endpoint ต้องแก้ `backend/src/openapi.ts` แล้วรัน `npm run openapi` ทุกครั้ง (ชุดทดสอบ backend จะไม่ผ่านถ้าเอกสาร Swagger ไม่ตรงกับ route) · แก้ฐานข้อมูลให้เพิ่มไฟล์ migration เลขถัดไป ห้ามแก้ไฟล์เดิมที่รันบนเว็บจริงแล้ว
+ใช้ [ใบงานสองคน](tasks/2-people/README.md): คนที่ 1 หน้าร้าน/ครัว/ออเดอร์ คนที่ 2 สมาชิก/โปร/รายงาน/ระบบกลาง ทั้งคู่ทำ frontend/backend/SQL เริ่มบั๊กก่อนฟีเจอร์ แผน 4 คนเดิมถูกแทนแล้ว จอง migration `0009-0019` และ `0020-0029` ตามลำดับ ต้องทดสอบ dependency บนฐานสะอาด
 
-## 4. Git Workflow
+## Git
 
-- สาขาหลัก `main` ต้องใช้งานได้เสมอ (หน้าเว็บ deploy อัตโนมัติจากสาขานี้)
-- แตกสาขาตามงาน: `feature/<ชื่อ>`, `fix/<ชื่อ>`, `docs/<ชื่อ>`
-- รวมเข้า `main` ผ่าน Pull Request อย่างน้อยให้เพื่อนในทีม 1 คนรีวิว
-- ข้อความ commit ใช้รูปแบบ `feat:`, `fix:`, `docs:`, `refactor:` ตามด้วยคำอธิบายสั้นๆ
-- ห้าม commit ไฟล์ `.env` หรือกุญแจลับ (ตรวจด้วย `.gitignore`)
+`origin` เป็น fork, `upstream` เป็น Nol2way/foodflow แตก branch ตามงาน เช่น `fix/p1-order-payment` รวมผ่าน PR พร้อมพฤติกรรมและหลักฐานตรวจ ไม่ถือว่า push แล้ว deploy จนกว่าจะตั้ง CI/integration ของ fork ห้าม commit `.env*` (ยกเว้นตัวอย่าง), `.dev.vars`, token หรือข้อมูลลูกค้า
 
-## 5. Milestones
+## กติกาโค้ด
 
-| Milestone | เนื้อหา | ระยะเวลาโดยประมาณ |
-|-----------|---------|:------------------:|
-| M0 | สัมภาษณ์เจ้าของร้าน เลือกร้านนำร่อง | 1-2 สัปดาห์ |
-| M1 | ออกแบบฐานข้อมูล + wireframe + multi-tenant | 1-2 สัปดาห์ |
-| M2 | ระบบออเดอร์ (หน้ารับออเดอร์ของพนักงาน, หน้าจอครัว, รวมบิล, Realtime) | 3-4 สัปดาห์ |
-| M3 | ระบบบัญชี (รายรับ-รายจ่าย, ต้นทุนต่อเมนู, Dashboard) | 3 สัปดาห์ |
-| M4 | นำเข้า CSV + AI รอบแรก (คาดการณ์, สรุปรายเช้า) | 4-5 สัปดาห์ |
-| M5 | ทดลองใช้จริงที่ร้านนำร่อง | 4 สัปดาห์ |
-| M6 | ระบบสต็อก (สูตรอาหาร, ตัดสต็อก, แจ้งเตือน) | 4 สัปดาห์ |
-| M7 | เตรียมขาย (ความปลอดภัย, PDPA, ชำระเงินรายเดือน) | 2-3 สัปดาห์ |
+- Endpoint เปลี่ยนต้องแก้ `backend/src/openapi*.ts` และรัน `npm run openapi`
+- หน้าใหม่เพิ่ม router, lazy loader, `lib/roles.ts`; ซ่อนปุ่มไม่แทนสิทธิ์ backend/RLS
+- เงิน/สต็อกคำนวณและเขียน atomic ในฐานข้อมูล ไม่เชื่อยอด client
+- ตารางข้อมูลร้านเปิด RLS และทดสอบข้ามร้าน; privileged function ต้องตรวจสิทธิ์และ search path ไม่ใช้ user-editable metadata ตัดสินสิทธิ์
+- เพิ่ม migration ใหม่ ไม่แก้ไฟล์ที่รันไปแล้ว ดู [migration guide](../database/migrations/README.md)
+- payment/order RPC, shop_settings, router/roles/OpenAPI เป็นจุดร่วม รวมตาม dependency ในใบงาน
 
-## 6. ข้อตกลงด้านโค้ด
+## นิยามเสร็จ
 
-- ใช้ TypeScript ทั้งหน้าเว็บและ backend
-- ตรวจสอบข้อมูลขาเข้าทุก endpoint (เช่นด้วย Zod)
-- การเขียนข้อมูลที่เกี่ยวกับเงินและสต็อกต้องทำในธุรกรรมเดียว
-- ทุกตารางที่มีข้อมูลร้านต้องเปิด RLS และมี policy ก่อนใช้งาน
-- ห้ามให้ LLM คำนวณตัวเลขทางบัญชีหรือพยากรณ์เอง ใช้โค้ด/โมเดลสถิติคำนวณ แล้วให้ LLM อธิบายผล
+1. Regression/acceptance test ครอบคลุมพฤติกรรมและสิทธิ์
+2. Backend typecheck/test และ frontend build/test ผ่าน
+3. SQL ผ่านบนฐานทดสอบสะอาดและทดสอบ RLS/บัญชี/สต็อก
+4. ตรวจ UI/error cases และระบุว่า E2E ใช้ mock หรือ Supabase จริง
+5. อัปเดตใบงาน requirement คู่มือและ OpenAPI ไม่คัดลอกจำนวน test เก่ามาเป็นผลใหม่
 
-## 7. การ deploy
+## รันและ deploy
 
-| ส่วน | วิธี |
-|------|------|
-| หน้าเว็บ | push ขึ้น `main` แล้ว Cloudflare Pages build ให้อัตโนมัติ |
-| Backend | Pages Functions: deploy พร้อมหน้าเว็บอัตโนมัติ · Worker แยก: `cd backend && npm run deploy` (ต้องสั่งเอง) |
-| ฐานข้อมูล | รัน migration ใน Supabase SQL Editor หรือ Supabase CLI |
-| Forecast service | deploy เป็นคอนเทนเนอร์/บริการแยก แล้วตั้ง `FORECAST_SERVICE_URL` |
+ดู [SETUP](SETUP.md) ใช้ `npm ci` ตาม lockfile ปิด dev server ก่อนติดตั้งซ้ำบน Windows เพื่อไม่ให้ native binaries ถูกล็อก Worker รวมใช้ root `wrangler.jsonc`; backend แยกใช้ `backend/wrangler.toml`; Pages ใช้ `frontend/functions/api/[[path]].ts` และไม่มี Cron ตั้ง secret ในบัญชีปลายทางก่อน deploy

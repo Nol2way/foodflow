@@ -3,6 +3,7 @@
 สร้างเซิร์ฟเวอร์ Postgres ในเครื่อง จำลอง auth/role ของ Supabase แล้วรัน migrations ทุกไฟล์ตามลำดับเลข + seed
 """
 import pathlib
+import os
 import sys
 import tempfile
 
@@ -13,6 +14,23 @@ except ImportError:
 import psycopg
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+def quoted_payment(cur, sql, args):
+    """Legacy fixtures now explicitly preview the bill and send the reviewed amount."""
+    if 'select counter_pay_bill(' not in sql or 'p_expected_total' in sql:
+        return sql, args
+    cur.execute('savepoint quote_preview')
+    cur.execute('reset role')
+    if len(args) == 3 and '%s::uuid[])' in sql and args[2] is not None:
+        cur.execute('select apply_promotions(%s,%s::uuid[],%s::uuid[])', args)
+    cur.execute('select coalesce(sum(total),0) from orders where id=any(%s::uuid[])', (args[1],))
+    total = cur.fetchone()[0]
+    if len(args) == 4 and "'cash', %s, %s" in sql:
+        cur.execute('select loyalty_point_value from shop_settings where restaurant_id=%s',(args[0],))
+        row=cur.fetchone()
+        if row: total -= args[3]*row[0]
+    cur.execute('rollback to savepoint quote_preview')
+    return sql[:-1]+', p_expected_total => %s)', (*args,total)
 
 STUB = """
 create role anon nologin;
@@ -41,11 +59,20 @@ def files():
 
 def start():
     """คืน (uri, admin connection แบบ autocommit) หลังรัน migrations + seed แล้ว"""
-    scratch = pathlib.Path(tempfile.mkdtemp(prefix='plato-pg-'))
-    srv = pgserver.get_server(scratch / 'pgdata', cleanup_mode='delete')
-    uri = srv.get_uri()
+    service_url = os.environ.get('FOODFLOW_TEST_POSTGRES_URL')
+    if service_url:
+        from local_postgres import create_database
+        srv, uri = create_database(service_url)
+    else:
+        scratch = pathlib.Path(tempfile.mkdtemp(prefix='plato-pg-'))
+        srv = pgserver.get_server(scratch / 'pgdata', cleanup_mode='delete')
+        uri = srv.get_uri()
     admin = psycopg.connect(uri, autocommit=True)
-    admin.execute(STUB)
+    stub = STUB
+    if service_url:
+        for statement in ['create role anon nologin;', 'create role authenticated nologin;', 'create role service_role nologin bypassrls;']:
+            stub = stub.replace(statement, 'do $$ begin ' + statement + ' exception when duplicate_object then null; end $$;')
+    admin.execute(stub)
     for f in files():
         text = f.read_text(encoding='utf-8')
         text = text.replace('create extension if not exists "pgcrypto";', '')
@@ -83,8 +110,10 @@ class Runner:
                 cur.execute('set local role anon')
                 cur.execute("select set_config('request.jwt.claim.sub','',true)")
             else:
+                cur.execute("select set_config('request.jwt.claims', json_build_object('credential_version',credential_version)::text,true) from app_users where id=%s", (str(uid),))
                 cur.execute('set local role authenticated')
                 cur.execute("select set_config('request.jwt.claim.sub',%s,true)", (str(uid),))
+            sql, args = quoted_payment(cur, sql, args)
             cur.execute(sql, args)
             rows = cur.fetchall() if cur.description else None
             rc = cur.rowcount

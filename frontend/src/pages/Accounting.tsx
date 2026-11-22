@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -13,7 +14,7 @@ import { Disclaimer } from '../components/accounting/ui'
 import { useCachedState } from '../lib/useCachedState'
 
 // บัญชี (0026): บัญชีคู่ลงอัตโนมัติข้างหลัง แสดงผลได้ 3 โหมดจากข้อมูลชุดเดียวกัน
-// เจ้าของ: ทุกอย่าง · ผู้จัดการ: ดูได้ + ปิดวัน · พนักงานบัญชี: รายจ่าย รายงาน ส่งออก (ฐานข้อมูลบังคับซ้ำ)
+// เจ้าของ: ทุกอย่าง / ผู้จัดการ: ดูได้ + ปิดวัน / พนักงานบัญชี: รายจ่าย รายงาน ส่งออก (ฐานข้อมูลบังคับซ้ำ)
 
 type Tab = 'dashboard' | 'expenses' | 'close' | 'reports' | 'settings'
 const TABS: { key: Tab; label: string }[] = [
@@ -74,33 +75,27 @@ function Onboarding({ restaurantId, onDone }: { restaurantId: string; onDone: ()
 
   return (
     <div className="card mb-5 border-brand-200 bg-brand-50/40">
-      <h2 className="section-title">เริ่มใช้บัญชี: ตอบ 2 ข้อ แล้วระบบเลือกโหมดให้</h2>
+      <h2 className="section-title">{translateUi("เริ่มใช้บัญชี: ตอบ 2 ข้อ แล้วระบบเลือกโหมดให้")}</h2>
       {error && <p className="alert-error">{error}</p>}
       <div className="grid gap-3 text-sm sm:grid-cols-2">
         <div>
-          <p className="mb-1">1. จดทะเบียนเป็นบริษัท/ห้างหุ้นส่วนไหม?</p>
+          <p className="mb-1">{translateUi("1. จดทะเบียนเป็นบริษัท/ห้างหุ้นส่วนไหม?")}</p>
           {yesNo(company, setCompany, 'จดบริษัท')}
         </div>
         <div>
-          <p className="mb-1">2. จดทะเบียนภาษีมูลค่าเพิ่ม (VAT) ไหม?</p>
+          <p className="mb-1">{translateUi("2. จดทะเบียนภาษีมูลค่าเพิ่ม (VAT) ไหม?")}</p>
           {yesNo(vat, setVat, 'จด VAT')}
         </div>
       </div>
       {company === false && vat === false && (
         <label className="mt-3 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={simple} onChange={(e) => setSimple(e.target.checked)} />
-          อยากเห็นแค่เงินเข้า-เงินออกแบบง่ายที่สุด
-        </label>
+          <input type="checkbox" checked={simple} onChange={(e) => setSimple(e.target.checked)} />{"" + translateUi("อยากเห็นแค่เงินเข้า-เงินออกแบบง่ายที่สุด") + " "}</label>
       )}
       {mode && (
-        <p className="mt-3 text-sm">
-          แนะนำโหมด <b>{MODE_LABEL[mode]}</b>
-          {mode === 'pro' ? ' (สมุดรายวัน งบการเงิน ภาษีขาย/ซื้อ)' : mode === 'standard' ? ' (กำไร Food Cost Prime Cost)' : ' (เงินเข้า เงินออก คงเหลือ)'} · เปลี่ยนได้ตลอด
-        </p>
+        <p className="mt-3 text-sm">{"" + translateUi("แนะนำโหมด") + " "}<b>{MODE_LABEL[mode]}</b>
+          {mode === 'pro' ? ' (สมุดรายวัน งบการเงิน ภาษีขาย/ซื้อ)' : mode === 'standard' ? ' (กำไร Food Cost Prime Cost)' : ' (เงินเข้า เงินออก คงเหลือ)'}{" " + translateUi("/ เปลี่ยนได้ตลอด") + " "}</p>
       )}
-      <button className="btn btn-primary mt-3" disabled={!mode} onClick={() => void save()}>
-        เริ่มใช้งาน
-      </button>
+      <button className="btn btn-primary mt-3" disabled={!mode} onClick={() => void save()}>{"" + translateUi("เริ่มใช้งาน") + " "}</button>
     </div>
   )
 }
@@ -143,10 +138,10 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
     <div className="page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">บัญชี</h1>
-          <p className="page-subtitle">ลงบัญชีอัตโนมัติจากบิล สต็อก และรายจ่าย</p>
+          <h1 className="page-title">{translateUi("บัญชี")}</h1>
+          <p className="page-subtitle">{translateUi("ลงบัญชีอัตโนมัติจากบิล สต็อก และรายจ่าย")}</p>
         </div>
-        <div className="flex rounded-xl border border-gray-300 bg-white p-0.5" role="radiogroup" aria-label="โหมดแสดงผล">
+        <div className="flex rounded-xl border border-gray-300 bg-white p-0.5" role="radiogroup" aria-label={translateUi("โหมดแสดงผล")}>
           {(Object.keys(MODE_LABEL) as AccountingMode[]).map((m) => (
             <button
               key={m}
@@ -169,7 +164,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
         </p>
       ))}
 
-      <div className="mb-5 flex gap-1 overflow-x-auto border-b" role="tablist" aria-label="ส่วนของบัญชี">
+      <div className="mb-5 flex gap-1 overflow-x-auto border-b" role="tablist" aria-label={translateUi("ส่วนของบัญชี")}>
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -190,7 +185,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
       {dash && tab === 'close' && <AcctDayClose restaurantId={restaurantId} today={dash.today} canClose={canClose} isOwner={isOwner} onChanged={() => void load()} />}
       {dash && tab === 'reports' && <AcctReports restaurantId={restaurantId} today={dash.today} mode={current} />}
       {dash && tab === 'settings' && <AcctSettings restaurantId={restaurantId} settings={dash.settings} isOwner={isOwner} canWrite={canWrite} onSaved={() => void load()} />}
-      {!dash && !error && <p className="empty">กำลังโหลด...</p>}
+      {!dash && !error && <p className="empty">{translateUi("กำลังโหลด...")}</p>}
 
       <Disclaimer />
     </div>

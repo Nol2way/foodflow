@@ -1,4 +1,53 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@media screen {
+  html.dark { color-scheme: dark; --color-surface: #171923; --color-gray-50: #242735; --color-gray-100: #2b3040; --color-gray-200: #41475a; --color-gray-300: #586078; --color-gray-400: #9aa5bc; --color-gray-500: #aab3c5; --color-gray-600: #bcc4d5; --color-gray-700: #d1d8e6; --color-gray-800: #e3e8f2; --color-gray-900: #f4f6fb; }
+  html.dark body { background: #171923; color: #e3e8f2; }
+  html.dark :is(.card, .input, .bg-white, input, select, textarea) { background-color: #242735; color: #e3e8f2; }
+  html.dark .bg-gray-900 { background-color: #3a4055; }
+  html.dark :is(.bg-brand-50, .bg-emerald-50, .bg-amber-50, .bg-red-50, .bg-sage-50) { background-color: #303545; }
+  html.dark :is(.text-brand-700, .text-emerald-700, .text-amber-900, .text-red-700) { color: #f0c6a6; }
+}
+@media print {
+  dialog[open] { margin: 0 !important; position: static !important; max-height: none !important; overflow: visible !important; width: 80mm !important; box-shadow: none !important; }
+  dialog::backdrop { display: none !important; }
+  html.dark { color-scheme: light; }
+  html.dark body, html.dark .receipt, html.dark .print-area { background: white !important; color: black !important; }
+}
+
+/* Shared interaction rules, independent of route containers and animations. */
+.app-sidebar { background: #252738; color: #fff; }
+.app-sidebar a:focus-visible, .app-sidebar button:focus-visible { outline-color: #fff; }
+.skip-link { position: fixed; left: 1rem; top: 1rem; z-index: 100; transform: translateY(-200%); padding: .75rem 1rem; background: white; color: #252738; border: 2px solid #ad4532; border-radius: .5rem; }
+.skip-link:focus { transform: none; }
+.input[aria-invalid="true"] { border-color: var(--color-red-700); outline-color: var(--color-red-700); }
+.skeleton-block { border-radius: var(--radius-xl); background: var(--color-gray-200); animation: skeleton-pulse 1.6s ease-in-out infinite; }
+.history-scroll { max-height: min(65dvh, 44rem); overflow: auto; overscroll-behavior: contain; }
+.history-scroll thead { position: sticky; top: 0; z-index: 1; background: var(--color-gray-50); }
+.history-scroll :is(td, th) { padding: .5rem .75rem; vertical-align: top; }
+.bill-details > summary::marker { content: ''; }
+.bill-details[open] > summary { background: var(--color-brand-50); }
+@media print { .history-scroll { max-height: none; overflow: visible; } .pagination-bar { display: none; } }
+.app-sidebar .skeleton-block { background: rgb(255 255 255 / .16); }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-block { animation: none; } }
+dialog.app-dialog { color: var(--color-gray-800); overscroll-behavior: contain; }
+dialog.app-dialog::backdrop { background: rgb(15 23 42 / .55); }
+@media screen {
+  html.dark dialog.app-dialog { background: #242735; }
+  html.dark .btn-primary { background: #ad4532; color: white; }
+  html.dark .btn-success { background: #38583c; color: white; }
+  html.dark .btn-danger { background: #a42d2d; color: white; }
+  html.dark :is(.alert-error, .field-error, .text-red-600, .text-red-700) { color: #ffb4b4; }
+  html.dark :is(.alert-success, .text-emerald-700, .text-sage-700) { color: #b8e3bf; }
+  html.dark :is(.alert-warn, .text-amber-700, .text-amber-800) { color: #f6d58f; }
+  html.dark :is(.text-brand-600, .text-brand-700, .link) { color: #f4b8a6; }
+  html.dark .btn-primary, html.dark .btn-success, html.dark .btn-danger { color: white; }
+}
+@media (pointer: coarse) {
+  button[aria-label], a[aria-label] { min-width: 44px; min-height: 44px; }
+}
 
 /* ===== Plato design tokens ===== */
 @theme {
@@ -19,6 +68,8 @@
   --color-charcoal-light: #3a3d56;
   --color-gray-900: #2b2d42;
   --color-gray-950: #1f2031;
+  --color-gray-400: #6b7280;
+  --color-gray-500: #606979;
 
   /* สีรอง: Cream (พื้นหลังหน้าร้าน) และ Sage (สำเร็จ เช่น ชำระแล้ว) */
   --color-surface: #faf6f0;
@@ -54,6 +105,12 @@
   --color-red-500: #dd6262;
   --color-red-600: #d64545;
   --color-red-700: #b33434;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.6;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.875rem;
 }
 
 @theme {
@@ -85,14 +142,15 @@
 
 @layer base {
   html {
+    font-size: 16px;
+    line-height: 1.6;
     -webkit-tap-highlight-color: transparent;
     scrollbar-color: var(--color-gray-300) transparent;
     scrollbar-width: thin;
   }
   body {
     @apply bg-surface font-sans text-gray-800 antialiased;
-    background-image: radial-gradient(1200px 600px at 100% -10%, rgb(200 85 61 / 0.05), transparent 60%);
-    background-attachment: fixed;
+    overflow-wrap: break-word;
   }
   ::selection {
     @apply bg-brand-200 text-gray-900;
@@ -130,7 +188,7 @@
   }
   input::placeholder,
   textarea::placeholder {
-    @apply text-gray-400;
+    @apply text-gray-500;
   }
   input[type="checkbox"],
   input[type="radio"] {
@@ -138,7 +196,8 @@
   }
   input[type="checkbox"]:focus,
   input[type="radio"]:focus {
-    @apply ring-0;
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 3px;
   }
   button {
     @apply cursor-pointer;
@@ -166,11 +225,9 @@
   /* ----- โครงหน้า ----- */
   .page {
     @apply mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-8;
-    animation: page-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .page-narrow {
     @apply mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8;
-    animation: page-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .page-header {
     @apply mb-6 flex flex-wrap items-center justify-between gap-3;
@@ -193,30 +250,31 @@
     @apply overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-card;
   }
   .card-hover {
-    @apply transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-lift;
+    @apply transition-colors duration-150 hover:border-gray-400;
   }
 
-  /* ----- ปุ่ม (สูงอย่างน้อย 40px แตะง่ายบนแท็บเล็ต) ----- */
+  /* ----- ปุ่ม: เป้าสัมผัส 44px และไม่ขยับตำแหน่งเมื่อกด ----- */
   .btn {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition duration-150 select-none active:scale-[.97] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 select-none disabled:cursor-not-allowed disabled:opacity-60;
+    text-align: center;
   }
   .btn-sm {
-    @apply min-h-8 rounded-lg px-3 py-1.5 text-xs;
+    @apply min-h-11 rounded-lg px-3 py-2 text-sm;
   }
   .btn-lg {
     @apply min-h-12 px-5 py-3 text-base;
   }
   .btn-primary {
-    @apply bg-brand-500 text-white shadow-sm shadow-brand-500/25 hover:bg-brand-600 hover:shadow-md hover:shadow-brand-500/25;
+    @apply bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-700;
   }
   .btn-secondary {
     @apply border border-gray-300 bg-white text-gray-700 shadow-xs hover:border-gray-400 hover:bg-gray-50;
   }
   .btn-success {
-    @apply bg-sage-600 text-white shadow-sm shadow-sage-600/25 hover:bg-sage-700;
+    @apply bg-sage-700 text-white hover:bg-emerald-800;
   }
   .btn-danger {
-    @apply bg-red-600 text-white shadow-sm shadow-red-600/25 hover:bg-red-700;
+    @apply bg-red-700 text-white hover:bg-red-800;
   }
   .btn-danger-soft {
     @apply border border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100;
@@ -236,7 +294,7 @@
 
   /* ----- ตัวเลือกแบบเม็ดยา (เหตุผล ตัวกรอง) ----- */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900;
+    @apply inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-900;
   }
   .chip-on {
     @apply border-brand-500 bg-brand-50 text-brand-700 hover:border-brand-500 hover:text-brand-700;
@@ -244,10 +302,10 @@
 
   /* ----- ฟอร์ม ----- */
   .input {
-    @apply min-h-10 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-xs;
+    @apply min-h-11 min-w-0 max-w-full rounded-xl border border-gray-400 bg-white px-3 py-2 text-base;
   }
   .label {
-    @apply mb-1.5 block text-xs font-semibold text-gray-600;
+    @apply mb-2 block text-sm font-semibold text-gray-700;
   }
 
   /* ----- ข้อความแจ้ง ----- */
@@ -267,7 +325,7 @@
     @apply rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900;
   }
   .empty {
-    @apply rounded-2xl border border-dashed border-gray-300 bg-white/70 px-6 py-10 text-center text-sm text-gray-400;
+    @apply rounded-2xl border border-dashed border-gray-300 bg-white/70 px-6 py-10 text-center text-sm text-gray-600;
   }
 
   /* ----- ป้าย ----- */
@@ -330,7 +388,7 @@
     @apply divide-y overflow-hidden rounded-2xl border border-gray-200/80 bg-white text-sm shadow-card;
   }
   .empty-cell {
-    @apply p-6 text-center text-gray-400;
+    @apply p-6 text-center text-gray-600;
   }
   .toolbar {
     @apply flex flex-wrap items-center gap-2;
@@ -348,7 +406,7 @@
     @apply text-xs text-gray-500;
   }
   .field-error {
-    @apply text-xs text-red-600;
+    @apply mt-1 text-sm text-red-700;
   }
   .num {
     @apply text-right tabular-nums;

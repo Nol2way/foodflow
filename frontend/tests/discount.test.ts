@@ -41,6 +41,10 @@ t('หลายโปร: โปรทั้งบิล 2 อันชนกั
 t('หลายโปร: รายเมนูเมนูซ้ำชนกัน', () => assert.match(promoConflict(rule('tea5', 'amount', 5, ['tea']), [tea50], lines) ?? '', /ซ้ำ/))
 t('หลายโปร: รายเมนูต่างเมนูใช้ร่วมกันได้', () => assert.equal(promoConflict(kap10, [tea50], lines), null))
 t('เลือกอัตโนมัติ: โปรที่ลดมากสุดและไม่ชนกัน', () =>
-  assert.deepEqual(bestSelection([bill20b, tea50, bill10, kap10, rule('tea5', 'amount', 5, ['tea'])], lines), ['tea50', 'kap10', 'bill20b']))
+  assert.deepEqual(bestSelection([bill20b, tea50, bill10, kap10, rule('tea5', 'amount', 5, ['tea'])], lines), ['bill20b', 'kap10', 'tea50']))
+t('optimal compatible offers beat the largest single offer', () => {
+  const offers = [rule('both', 'amount', 60, ['a', 'b']), rule('a', 'amount', 40, ['a']), rule('b', 'amount', 40, ['b'])]
+  assert.deepEqual(bestSelection(offers, [{ menuItemId: 'a', amount: 100 }, { menuItemId: 'b', amount: 100 }]), ['a', 'b'])
+})
 t('เลือกอัตโนมัติ: ข้ามโปรที่ยอดไม่ถึงขั้นต่ำ', () => assert.deepEqual(bestSelection([rule('big', 'percent', 50, [], 1000)], lines), []))
 console.log(`\nผ่าน ${n} ชุดทดสอบ`)

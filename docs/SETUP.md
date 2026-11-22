@@ -1,4 +1,7 @@
-# SETUP — วิธีรันและดีพลอย Plato
+# SETUP - วิธีรันและดีพลอย Plato
+
+ขั้นตอน release, หมุน secret, backup/restore และข้อจำกัดบริการจริง: [operations](operations.md) ฟีเจอร์ใหม่: [features](features.md)
+
 
 โปรเจกต์แบ่งเป็น 4 ส่วน
 
@@ -16,37 +19,42 @@
 | Node.js | 22.18 ขึ้นไป (ชุดทดสอบใช้ TypeScript โดยตรง) | `node -v` |
 | npm | 10 ขึ้นไป | `npm -v` |
 | Git | ล่าสุด | `git --version` |
-| Python (เฉพาะทดสอบฐานข้อมูล) | 3.10 ขึ้นไป | `python3 --version` |
+| Python (เฉพาะทดสอบฐานข้อมูล) | 3.13 ตาม `.python-version` | `python3 --version` |
 | บัญชี Supabase | ฟรีได้ | [supabase.com](https://supabase.com) |
 | บัญชี Cloudflare (ตอน deploy) | ฟรีได้ | [cloudflare.com](https://cloudflare.com) |
 
 ## 2. ดึงโค้ดและติดตั้ง
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/foodflow
+git clone https://github.com/manatsawintho-ragoon/foodflow
 cd foodflow
-npm run install:all      # ติดตั้งทั้ง frontend และ backend
+npm --prefix frontend ci
+npm --prefix backend ci
 ```
 
 ## 3. ฐานข้อมูล (`database/`)
 
-1. สร้างโปรเจกต์ใหม่ใน Supabase
-2. เปิด **SQL Editor** แล้วรันไฟล์ใน `database/migrations/` **ตามลำดับเลข** (0001 → 0007)
+1. สำหรับฐานใหม่ สร้างโปรเจกต์ใน Supabase; หากใช้ฐานเดิม ให้ตรวจ schema และประวัติ migration ก่อน อย่ารันชุดเริ่มต้นซ้ำ
+2. เปิด **SQL Editor** แล้วรันไฟล์ใน `database/migrations/` **ตามลำดับเลข** (0001 → 0011)
 
    | ไฟล์ | เนื้อหา |
    |------|---------|
    | `0001_core.sql` | ตารางหลัก บทบาท พนักงานรับออเดอร์ ลำดับสถานะออเดอร์ โปรโมชัน ติ๊กเสร็จ/เสิร์ฟรายเมนู |
    | `0002_display_payment_reports.sql` | จอ iPad แบบแมกกาซีน ผู้จัดการดูบัญชี ชำระเงิน/พร้อมเพย์ สมาชิกสะสมแต้ม รายงานรายวัน |
    | `0003_users_inventory.sql` | ผู้ใช้ของระบบเอง (`app_users`) หลายบทบาทต่อคน ประวัติ/ใบนับ/ใบรับสต็อก ขายตามน้ำหนัก หน่วยนับ |
-   | `0004_accounting.sql` | บัญชีคู่เชื่อมสต็อก ผังบัญชี ลงบัญชีอัตโนมัติ ปิดวัน · ดู `docs/accounting.md` |
-   | `0005_stock.sql` | สต็อกแบบ ledger + ล็อต FEFO/FIFO สูตรซ้อน นับ blind ส่วนต่าง AvT yield par สิทธิ์สต็อก · ดู `docs/stock.md` |
+   | `0004_accounting.sql` | บัญชีคู่เชื่อมสต็อก ผังบัญชี ลงบัญชีอัตโนมัติ ปิดวัน / ดู `docs/accounting.md` |
+   | `0005_stock.sql` | สต็อกแบบ ledger + ล็อต FEFO/FIFO สูตรซ้อน นับ blind ส่วนต่าง AvT yield par สิทธิ์สต็อก / ดู `docs/stock.md` |
    | `0006_tax_shifts.sql` | ภาษีกรมสรรพากร (ใบกำกับอย่างย่อ/เต็มรูป e-Tax) และกะแคชเชียร์ |
-   | `0007_order_cancel_kitchen.sql` | เลือกยกเลิกบางเมนูในออเดอร์ · ขั้นทำอาหารเป็นของครัวเท่านั้น |
+   | `0007_order_cancel_kitchen.sql` | เลือกยกเลิกบางเมนูในออเดอร์ / ขั้นทำอาหารเป็นของครัวเท่านั้น |
+   | `0008_fix_accounting_stock.sql` | แก้สรุปรายจ่าย void, การยกเลิกบิลภาษี และยอดบรรทัด XML |
+   | `0009_audit_invariants.sql` | session, RLS, payment, import และ audit fixes |
+   | `0010_pos_workflows.sql` | POS options, table/bill workflows, offline idempotency และ audit |
+   | `0011_crm_ops_features.sql` | CRM, coupon, privacy, morning reports และ identity |
 
    รายละเอียดว่าแต่ละไฟล์รวมจาก migration เดิมไฟล์ไหน และวิธีอัปเดต**ฐานข้อมูลที่เคยรันชุดเดิม 34 ไฟล์แล้ว** ดู [`database/migrations/README.md`](../database/migrations/README.md)
 
-3. ข้อมูลตัวอย่าง (ไม่บังคับ): `database/seed/seed.sql` (ร้าน เมนู โต๊ะ) → `database/seed/seed_demo.sql` (ออเดอร์ทดลองย้อนหลัง 6 สัปดาห์ ผู้ขาย วัตถุดิบ สูตร + สูตรย่อย) → `database/seed/seed_stock_demo.sql` (ไม่บังคับ: ใบรับ/ใบนับ/yield test ย้อนหลังให้หน้าสต็อกมีข้อมูล ลงบัญชีจริง) → `database/seed/seed_test_users.sql` (บัญชีทดสอบครบทุกบทบาท ล็อกอินได้ทันที รหัสผ่านดูที่ต้นไฟล์ · มีคำสั่งลบอยู่ท้ายไฟล์)
-4. สร้าง **เจ้าของร้านคนแรก** ด้วย SQL ที่คอมเมนต์ไว้ท้าย `seed.sql` (`app_create_user` + บทบาท `owner`) พนักงานคนต่อไปเจ้าของเพิ่มเองที่หน้า `/staff` (ระบบสร้างรหัสชั่วคราวให้ส่งต่อ พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก)
+3. ข้อมูลตัวอย่าง (ไม่บังคับ): `database/seed/seed.sql` (ร้าน เมนู โต๊ะ) → `database/seed/seed_demo.sql` (ออเดอร์ทดลองย้อนหลัง 6 สัปดาห์ ผู้ขาย วัตถุดิบ สูตร + สูตรย่อย) → `database/seed/seed_stock_demo.sql` (ไม่บังคับ: ใบรับ/ใบนับ/yield test ย้อนหลังให้หน้าสต็อกมีข้อมูล ลงบัญชีจริง) → `database/seed/seed_test_users.sql` (บัญชีทดสอบครบทุกบทบาท ล็อกอินได้ทันที รหัสผ่านดูที่ต้นไฟล์ / มีคำสั่งลบอยู่ท้ายไฟล์)
+4. สร้าง **เจ้าของร้านคนแรก** ด้วย SQL ที่คอมเมนต์ไว้ท้าย `seed.sql` (`app_create_user` + บทบาท `owner`) พนักงานคนต่อไปเจ้าของเพิ่มเองที่หน้า `/staff` (ระบบสร้างรหัสชั่วคราวให้ส่งต่อ หน้าเว็บบังคับพนักงานไปตั้งรหัสใหม่ตอนเข้าครั้งแรก (backend ยังไม่ได้บังคับ must_change_password ในทุก endpoint))
 5. **ไม่ใช้ Supabase Auth แล้ว:** ผู้ใช้อยู่ในตาราง `app_users` (รหัสผ่านเข้ารหัส bcrypt) backend ตรวจรหัสแล้วออก JWT เอง ไม่ต้องตั้งค่าเมนู Authentication
 6. ไปที่ **Project Settings → API** คัดลอก `Project URL`, `anon key`, `service_role key` และ **JWT secret** (หัวข้อ JWT Settings → Legacy JWT secret)
 
@@ -69,9 +77,9 @@ npm run dev                      # http://localhost:8787
 |--------|--------|----------|
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | `.dev.vars` หรือ `wrangler.toml` | เปิดเผยได้ |
 | `SUPABASE_SERVICE_ROLE_KEY` | `.dev.vars` / secret | ความลับ |
-| `SUPABASE_JWT_SECRET` | `.dev.vars` / secret | ความลับ · ใช้ลงนามโทเคนล็อกอิน (ไม่ตั้ง = ล็อกอินไม่ได้) |
+| `SUPABASE_JWT_SECRET` | `.dev.vars` / secret | ความลับ / ใช้ลงนามโทเคนล็อกอิน (ไม่ตั้ง = ล็อกอินไม่ได้) |
 | `SESSION_HOURS` | `.dev.vars` / `wrangler.toml` | อายุการล็อกอิน (ชั่วโมง) ค่าเริ่มต้น 12 |
-| `GEMINI_API_KEY` | `.dev.vars` / secret | ไม่ตั้ง = ปิดฟีเจอร์ AI ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) · แนะนำโปรยังใช้ได้ (คิดจากกติกา) |
+| `GEMINI_API_KEY` | `.dev.vars` / secret | ไม่ตั้ง = ปิดฟีเจอร์ AI ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) / แนะนำโปรยังใช้ได้ (คิดจากกติกา) |
 | `LINE_CHANNEL_ACCESS_TOKEN` | `.dev.vars` / secret | ไม่ตั้ง = ส่งรายงานเข้า LINE อัตโนมัติไม่ได้ (ยังกดแชร์เข้า LINE เองได้) |
 | `REPORT_HOUR` | `wrangler.toml` | ชั่วโมงที่ส่งรายงานรายวัน (เวลาร้าน) ค่าเริ่มต้น 22 |
 
@@ -89,38 +97,41 @@ LINE Notify ปิดบริการแล้วตั้งแต่ 31 ม�
 
 ```bash
 cd frontend
-cp .env.example .env
+cp .env.example .env.local
 npm run dev                      # http://localhost:5173
 ```
 
-| ตัวแปรใน `frontend/.env` | ใช้ทำอะไร |
+| ตัวแปรใน `frontend/.env.local` | ใช้ทำอะไร |
 |--------------------------|-----------|
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | เชื่อม Supabase (เปิดเผยได้ คุมสิทธิ์ด้วย RLS) |
-| `VITE_API_URL` | ที่อยู่ backend · ตอนพัฒนา `http://localhost:8787` · เว็บจริงแบบ Pages เว้นว่าง |
+| `VITE_API_URL` | ตอนพัฒนา `http://localhost:8787` (ไม่มี `/api` หรือ `/` ท้ายค่า) หรือเว้นว่างเพื่อใช้ Vite proxy; production โดเมนเดียวกันเว้นว่าง |
 
-**ทดลองใช้:** ล็อกอินที่ `/login` ด้วยบัญชีหน้าร้าน (`staff`) หรือเจ้าของ → `/pos` เลือกโต๊ะ เลือกเมนู กด **ส่งเข้าครัว** → เปิด `/kitchen` อีกเครื่อง/อีกแท็บด้วยบัญชีครัว จะเห็นออเดอร์ขึ้นทันที → เสิร์ฟแล้วรับชำระที่ `/counter` · หน้าอื่นตามบทบาท: `/accounting` · `/stock` · `/analytics` (+ AI) · `/menu` · `/promotions` · `/import` · `/staff`
+**ทดลองใช้:** ล็อกอินที่ `/login` ด้วยบัญชีหน้าร้าน (`staff`) หรือเจ้าของ → `/pos` เลือกโต๊ะ เลือกเมนู กด **ส่งเข้าครัว** → เปิด `/kitchen` ด้วยบัญชีครัวใน private window/อีก browser profile (แท็บปกติแชร์ session กัน; อีกเครื่องต้องตั้ง share/LAN URL) จะเห็นออเดอร์ขึ้นทันที → เสิร์ฟแล้วรับชำระที่ `/counter` / หน้าอื่นตามบทบาท: `/accounting` / `/stock` / `/menu` / `/promotions` / `/import` / `/staff`
 
 ### ลิงก์สาธารณะชั่วคราวจากเครื่องตัวเอง
 
 ```bash
 npm run share     # ที่รากโปรเจกต์
 ```
-เปิด backend + หน้าเว็บในเครื่อง แล้วสร้างลิงก์ `https://xxxx.trycloudflare.com` (พร้อม QR) ให้มือถือ/iPad/คนอื่นเปิดได้จากทุกที่ · ได้ลิงก์ใหม่ทุกครั้งที่รัน · Ctrl+C = ปิด ลิงก์ใช้ไม่ได้ทันที · ต้องมี `cloudflared` (`winget install Cloudflare.cloudflared`) · หาพอร์ตว่างเอง ไม่ชนกับ `npm run dev` ที่เปิดค้างไว้
+เปิด backend + หน้าเว็บในเครื่อง แล้วสร้างลิงก์ `https://xxxx.trycloudflare.com` (พร้อม QR) ให้มือถือ/iPad/คนอื่นเปิดได้จากทุกที่ / ได้ลิงก์ใหม่ทุกครั้งที่รัน / Ctrl+C = ปิด ลิงก์ใช้ไม่ได้ทันที / ต้องมี `cloudflared` (`winget install Cloudflare.cloudflared`) / หาพอร์ตว่างเอง ไม่ชนกับ `npm run dev` ที่เปิดค้างไว้
 
 ## 6. Deploy
 
 **แบบที่ใช้อยู่ (แนะนำ) Cloudflare Worker ตัวเดียว: หน้าเว็บ + API + Cron โดเมนเดียวกัน**
 
-เว็บจริง: https://foodflow.sittha9986.workers.dev · ตั้งค่าใน `wrangler.jsonc` ที่รากโปรเจกต์ (เสิร์ฟ `frontend/dist` และส่ง `/api/*` ให้ backend)
+ต้นฉบับอ้างถึงโดเมน `foodflow.sittha9986.workers.dev` แต่ยังไม่ได้ deploy fork นี้ / ตั้งค่าใน `wrangler.jsonc` ที่รากโปรเจกต์ (เสิร์ฟ `frontend/dist` และส่ง `/api/*` ให้ backend)
 
 ```bash
 npx --prefix backend wrangler login     # ครั้งแรกครั้งเดียว
-npm run deploy                          # build หน้าเว็บ แล้ว wrangler deploy (สั่งทุกครั้งที่แก้โค้ด)
+npm run build
+# Windows PowerShell:
+& .\backend\node_modules\.bin\wrangler.cmd deploy --config .\wrangler.jsonc
+# Unix ใช้ npm run deploy ได้
 # ความลับ (ตั้งครั้งเดียว): SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET
 #   และไม่บังคับ GEMINI_API_KEY, LINE_CHANNEL_ACCESS_TOKEN
-backend/node_modules/.bin/wrangler secret put GEMINI_API_KEY
+& .\backend\node_modules\.bin\wrangler.cmd secret put GEMINI_API_KEY --config .\wrangler.jsonc
 ```
-ตอน build ใช้ `frontend/.env.production` (`VITE_API_URL=` ว่าง = เรียก `/api` โดเมนเดียวกัน) ส่วน `VITE_SUPABASE_*` อ่านจาก `frontend/.env`
+ก่อน build production สร้าง `frontend/.env.production.local` โดยตั้ง `VITE_API_URL=` ว่าง และ Supabase ของปลายทาง อย่าฝังค่า localhost จาก `.env.local` ลง production bundle ไฟล์ production env ไม่ได้ถูกแจกมาพร้อม repository
 
 **แบบ A Cloudflare Pages: หน้าเว็บ + API โดเมนเดียวกัน** (ไม่มี Cron)
 
@@ -130,7 +141,7 @@ backend/node_modules/.bin/wrangler secret put GEMINI_API_KEY
 | Build command | `npm run build:pages` (ติดตั้งแพ็กเกจ backend ก่อน แล้ว build หน้าเว็บ) |
 | Build output | `dist` |
 
-ตั้งตัวแปรที่ Pages → Settings → Variables and Secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` และ secret `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY` · เว้น `VITE_API_URL` ว่าง · push ขึ้น `main` แล้วได้ทั้งเว็บและ `/api/*` (Swagger ที่ `/api/docs`)
+ตั้งตัวแปรที่ Pages → Settings → Variables and Secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` และ secret `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY` / เว้น `VITE_API_URL` ว่าง / push ขึ้น `main` แล้วได้ทั้งเว็บและ `/api/*` (Swagger ที่ `/api/docs`)
 
 **แบบ B Worker แยก:**
 ```bash
@@ -144,13 +155,13 @@ npm run deploy                                      # ต้องสั่ง�
 
 | อาการ | สาเหตุ | วิธีแก้ |
 |-------|--------|---------|
-| หน้าเว็บขึ้นว่ายังไม่ได้ตั้งค่า Supabase | ไม่มี `frontend/.env` หรือยังไม่ restart | สร้าง/แก้ `.env` แล้วรัน `npm run dev` ใหม่ |
-| `/import`, `/staff`, AI ขึ้น "เชื่อมต่อ backend ไม่ได้" | ยังไม่ได้รัน backend หรือ `VITE_API_URL` ผิด | ดูหัวข้อ 4–5 |
+| หน้าเว็บขึ้นว่ายังไม่ได้ตั้งค่า Supabase | ไม่มี `frontend/.env.local` หรือยังไม่ restart | สร้าง/แก้ `.env` แล้วรัน `npm run dev` ใหม่ |
+| `/import`, `/staff`, AI ขึ้น "เชื่อมต่อ backend ไม่ได้" | ยังไม่ได้รัน backend หรือ `VITE_API_URL` ผิด | ดูหัวข้อ 4-5 |
 | เรียก API แล้ว 404 บนเว็บจริง | ลืม deploy Worker (แบบ B) / Pages ไม่ได้ตั้ง Root directory = `frontend` | ดูหัวข้อ 6 |
 | Pages build ไม่ผ่าน: หา `hono` ไม่เจอ | Build command ไม่ใช่ `npm run build:pages` | แก้ Build command |
 | Swagger ขึ้นหน้าว่าง | เครือข่ายบล็อก `cdn.jsdelivr.net` | เปิดไฟล์ `docs/openapi.json` ใน [editor.swagger.io](https://editor.swagger.io) แทน |
 | AI ตอบ "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" | ไม่ได้ใส่ key | ใส่ใน `.dev.vars` / secret แล้วรันใหม่ |
-| หน้ารับออเดอร์ไม่มีเมนู/โต๊ะ หรือส่งเข้าครัวไม่ได้ | ยังไม่ได้รัน 0007 หรือบัญชีไม่ใช่ `owner`/`staff` | รัน migration ครบ ตรวจบทบาท |
+| หน้ารับออเดอร์ไม่มีเมนู/โต๊ะ หรือส่งเข้าครัวไม่ได้ | ยังไม่ได้รัน migration ครบ 0001-0011 หรือบัญชีไม่ใช่ `owner`/`staff` | ตรวจ migration ที่ apply จริงและบทบาท |
 | ส่งออเดอร์แล้วขึ้น "... หมดแล้ว" | เมนูถูกตั้งเป็นหมดระหว่างเลือก | เอาเมนูนั้นออกแล้วส่งใหม่ |
 | ออเดอร์ไม่ขึ้นหน้าจอครัว | ยังไม่เปิด Realtime ให้ `orders` | Supabase → Database → Replication |
 | `permission denied` / แก้ข้อมูลไม่ได้ | บทบาทไม่มีสิทธิ์ตามตารางใน README | ตรวจบทบาทใน `staff_members` |
@@ -165,12 +176,12 @@ npm run deploy                                      # ต้องสั่ง�
 | คำสั่ง | ทดสอบอะไร | ต้องมี |
 |--------|-----------|--------|
 | `npm test` | รันทั้ง 3 ชุดด้านล่าง | ทุกอย่างด้านล่าง |
-| `npm run test:e2e` | หน้าเว็บจริงกับ Supabase จริง (ดูหัวข้อด้านล่าง) | migration + บัญชีทดสอบ + Chromium ของ Playwright |
+| `npm run test:e2e` | browser mocks โดยค่าเริ่มต้น; remote E2E ต้อง opt-in | Chromium; remote ต้องมี staging + บัญชีทดสอบ |
 | `npm run test:frontend` | ฟังก์ชันจัดช่วงพีค/ออฟพีค คาดการณ์ ข้อความสรุป | Node 22.18+ |
 | `npm run test:backend` | ทุก endpoint (Supabase/Gemini จำลอง), ตัวอ่าน CSV, Swagger ตรงกับ route | `npm run install:all` |
-| `npm run test:database` | migration ทั้งหมด + สิทธิ์ทุกบทบาท + วิเคราะห์ + นำเข้า CSV + พนักงาน + บัญชีคู่ (`test_accounting.py`) + สต็อก ledger/ล็อต/AvT/ย้ายข้อมูลเดิม (`test_stock.py`) บน Postgres ชั่วคราว | `pip install pixeltable-pgserver "psycopg[binary]"` · บน Windows ตั้ง `PYTHONUTF8=1` |
+| `npm run test:database` | migration ทั้งหมด + สิทธิ์ทุกบทบาท + วิเคราะห์ + นำเข้า CSV + พนักงาน + บัญชีคู่ (`test_accounting.py`) + สต็อก ledger/ล็อต/AvT/ย้ายข้อมูลเดิม (`test_stock.py`) บน Postgres ชั่วคราว | `npm run setup:database` ใช้ dependency ที่ pin และเลือก `.venv` อัตโนมัติ |
 
-> ชุดทดสอบฐานข้อมูลจำลอง auth ของ Supabase ด้วย stub จึงไม่ใช่ Supabase จริง · การทดสอบหน้าเว็บจริง (E2E) ดูหัวข้อถัดไป
+> ชุดทดสอบฐานข้อมูลจำลอง auth ของ Supabase ด้วย stub จึงไม่ใช่ Supabase จริง / การทดสอบหน้าเว็บจริง (E2E) ดูหัวข้อถัดไป
 
 ### ทดสอบหน้าเว็บจริง (E2E ด้วย Playwright)
 
@@ -178,15 +189,36 @@ npm run deploy                                      # ต้องสั่ง�
 
 1. ในโปรเจกต์ Supabase ที่ใช้ทดสอบ: รัน migration ครบ + `seed.sql` + `seed_test_users.sql`
 2. ครั้งแรก: `cd frontend && npx playwright install chromium`
-3. รัน `npm run test:e2e` (ใช้ dev server ที่เปิดอยู่ที่พอร์ต 5173 หรือเปิดให้เอง) · ผลแบบละเอียด: `npx playwright show-report e2e-report`
+3. เปิด backend ด้วย `npm run dev:backend` ในอีก terminal ก่อน (Playwright เปิดเฉพาะ frontend) แล้วรัน `npm run test:e2e` (ใช้ dev server ที่เปิดอยู่ที่พอร์ต 5173 หรือเปิดให้เอง) / ผลแบบละเอียด: `npx playwright show-report e2e-report`
 
 | ไฟล์ | ทดสอบอะไร |
 |------|-----------|
 | `e2e/roles.spec.ts` | ทุกบทบาทเห็นเมนูตรงสิทธิ์, บัญชีไม่มีบทบาท, ครัวเข้าหน้าบัญชีไม่ได้, ผู้จัดการดูบัญชีอย่างเดียว, ร้านอื่นไม่เห็นเมนูร้านเรา (ไม่แก้ข้อมูล) |
 | `e2e/order-flow.spec.ts` | รับออเดอร์ → ครัว → เสิร์ฟ → รับชำระ → ใบเสร็จ → รายงานรายวัน (**สร้างออเดอร์จริง** ชื่อลูกค้า `E2E-...`) |
 
-- รหัสผ่านอ่านจาก `v_password` ใน `seed_test_users.sql` (หรือตั้ง `E2E_PASSWORD`) · ทดสอบเว็บที่อื่น: ตั้ง `E2E_BASE_URL`
-- ส่วนที่ต้องมี migration ใหม่ (ใบเสร็จ 0017, รายงาน 0018) ถ้ายังไม่รันจะข้าม/เตือน ไม่ล้ม
-- ลบออเดอร์ที่ E2E สร้าง: `delete from orders where customer_label like 'E2E-%';`
+- ต้องตั้ง `E2E_ALLOW_REMOTE=1`, `E2E_SUPABASE_URL` ตรงกับ Vite และ `E2E_PASSWORD` สำหรับบัญชี staging / ทดสอบเว็บที่อื่น: ตั้ง `E2E_BASE_URL`
+- ใบเสร็จ/รายงานเดิม 0017-0018 อยู่ในชุดรวม 0002 แล้ว เตรียมฐานทดสอบด้วย 0001-0011; ตรวจผล skip จากรายงานจริง ไม่ถือว่า skip เท่ากับผ่าน
+- E2E order-flow สร้างข้อมูลและรายการบัญชีจริง ใช้ฐานทดสอบแยก แล้วคืน snapshot/สร้างฐานทดสอบใหม่ตามขั้นตอนของทีม ห้ามใช้ DELETE ลัดกับบิลที่ลงบัญชีแล้ว
 
-**ลบข้อมูลทดลองก่อนใช้งานจริง:** `delete from orders where is_demo;`
+**ก่อนใช้งานจริง:** ใช้ฐาน production ที่ไม่เคย seed บัญชี/ออเดอร์ทดสอบ หรือวางแผนล้างข้อมูลโดยตรวจ foreign keys และ journal triggers ก่อน ไม่รันคำสั่งลบเหมารวม
+
+## 9. เครื่องที่เตรียมวันที่ 22 พฤศจิกายน 2026
+
+Repository อยู่ `D:/foodflow/app` บน branch `chore/project-readiness`; origin เป็น fork และ upstream เป็นต้นฉบับ เอกสารที่ผู้ใช้ให้แยกอยู่ `D:/foodflow/docs` ดู [บริบทเอกสารทั้งหมด](course-context.md) และ [ผลตรวจจริง](project-readiness.md)
+
+มี `backend/.dev.vars` และ `frontend/.env.local` ที่ Git ไม่ติดตามแล้ว อย่าคัดลอกไฟล์ตัวอย่างทับ ทั้งสองฝั่งต้องชี้ Supabase โปรเจกต์เดียวกัน ค่า service-role/JWT secret ใช้เฉพาะ backend ปิด/เปิด dev server ใหม่เมื่อแก้ env
+
+Windows: คำสั่ง `cp` ในตัวอย่างใช้ `Copy-Item` แทนได้; Python ใช้ `python` แทน `python3` ได้ เตรียมชุด DB test แยกจาก Python ของระบบ:
+
+```powershell
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r database/requirements-test.txt
+$env:PYTHONUTF8 = '1'
+.venv/Scripts/python.exe database/tests/test_rls.py
+.venv/Scripts/python.exe database/tests/test_accounting.py
+.venv/Scripts/python.exe database/tests/test_stock.py
+```
+
+ปิด dev server ก่อน `npm ci` บน Windows ไม่เช่นนั้น esbuild/lightningcss อาจถูกล็อก หากเครื่องมือ `npm run install:all` เพิ่ม dependency `foodflow: file:..` โดยไม่ตั้งใจ ให้ตรวจ diff และใช้ `npm ci` ในแต่ละ package ตาม lockfile แทน
+
+ระบบ auth นี้ยังใช้ legacy HS256 signing secret; อย่าเปลี่ยนเป็น asymmetric signing key โดยไม่ทำ migration ของ custom auth ก่อน ดู [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys) สำหรับความแตกต่างของ publishable/secret กับ legacy anon/service_role ค่าที่เคยใส่ในเอกสารต้อง rotate และตั้งค่าใหม่ทั้ง client/backend ไม่ถือว่าลบจากไฟล์แล้วปลอดภัยทันที

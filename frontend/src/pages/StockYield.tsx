@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useMemo, useState, type FormEvent } from 'react'
 import RequireRole from '../components/RequireRole'
 import { Empty, PageHead, StockNav } from '../components/stock/ui'
@@ -7,7 +8,7 @@ import { dateTime, errorText, stockApi, useLoad } from '../lib/stockApi'
 import { fmtNum, yieldAverage, yieldUnitCost, type YieldKind } from '../lib/stockMath'
 
 // Yield test (record_yield_test ใน 0029): ชั่งก่อน-หลัง 3 ครั้ง บันทึกค่าเฉลี่ย
-//   trim = หลังตัดแต่ง/แกะ/ล้าง · cook = หลังปรุงสุก (ข้าวหุงได้เกิน 100%)
+//   trim = หลังตัดแต่ง/แกะ/ล้าง / cook = หลังปรุงสุก (ข้าวหุงได้เกิน 100%)
 //   นำไปใช้ = ตั้งเป็น yield ของวัตถุดิบ -> ต้นทุนสูตรที่ใช้คำนวณใหม่ (ราคาซื้อ ÷ (trim x cook))
 
 const KIND: Record<YieldKind, { label: string; before: string; after: string }> = {
@@ -51,7 +52,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
         ingredient_id: ing.id, kind, apply, note,
         trials: trials.map((t) => ({ before: Number(t.before), after: Number(t.after) })),
       })
-      setMsg({ ok: true, text: `บันทึกแล้ว: ${ing.name} ${KIND[kind].label} เฉลี่ย ${fmtNum(r.avg_pct, 2)}%${r.applied ? ' · ตั้งเป็น yield ของวัตถุดิบและคำนวณต้นทุนสูตรใหม่แล้ว' : ''}` })
+      setMsg({ ok: true, text: `บันทึกแล้ว: ${ing.name} ${KIND[kind].label} เฉลี่ย ${fmtNum(r.avg_pct, 2)}%${r.applied ? ' / ตั้งเป็น yield ของวัตถุดิบและคำนวณต้นทุนสูตรใหม่แล้ว' : ''}` })
       setTrials(blank())
       setNote('')
       void tests.reload()
@@ -65,7 +66,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
 
   return (
     <div className="page">
-      <PageHead title="Yield test" subtitle="ชั่งก่อน-หลังตัดแต่ง (หรือก่อน-หลังปรุง) 3 ครั้ง ระบบบันทึกค่าเฉลี่ย" />
+      <PageHead title="Yield test" subtitle={translateUi("ชั่งก่อน-หลังตัดแต่ง (หรือก่อน-หลังปรุง) 3 ครั้ง ระบบบันทึกค่าเฉลี่ย")} />
       <StockNav roles={roles} />
       {msg && <p className={msg.ok ? 'alert-success' : 'alert-error'}>{msg.text}</p>}
       {(ings.error || tests.error) && <p className="alert-error">{ings.error ?? tests.error}</p>}
@@ -74,15 +75,15 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
         <form onSubmit={submit} className="card space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label>
-              <span className="label">วัตถุดิบ</span>
+              <span className="label">{translateUi("วัตถุดิบ")}</span>
               <select className="input w-full" value={ingredientId} onChange={(e) => setIngredientId(e.target.value)} required>
-                <option value="">เลือก...</option>
+                <option value="">{translateUi("เลือก...")}</option>
                 {(ings.data?.ingredients ?? []).map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </label>
             <div>
-              <span className="label">ทดสอบ</span>
-              <div className="flex gap-1.5" role="radiogroup" aria-label="ประเภท yield">
+              <span className="label">{translateUi("ทดสอบ")}</span>
+              <div className="flex gap-1.5" role="radiogroup" aria-label={translateUi("ประเภท yield")}>
                 {(Object.keys(KIND) as YieldKind[]).map((k) => (
                   <button key={k} type="button" role="radio" aria-checked={kind === k}
                     className={`rounded-xl border px-4 py-2 text-sm ${kind === k ? 'border-charcoal bg-charcoal text-white' : 'bg-white text-gray-600'}`}
@@ -99,7 +100,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               const one = Number(t.before) > 0 && Number(t.after) > 0 ? (Number(t.after) / Number(t.before)) * 100 : null
               return (
                 <fieldset key={i} className="rounded-xl border border-gray-200 p-3">
-                  <legend className="px-1 hint font-semibold">ครั้งที่ {i + 1}</legend>
+                  <legend className="px-1 hint font-semibold">{"" + translateUi("ครั้งที่") + " "}{i + 1}</legend>
                   {(['before', 'after'] as const).map((f) => (
                     <label key={f} className="mt-1 flex items-center gap-2 text-sm">
                       <span className="w-24 text-gray-600">{KIND[kind][f]}</span>
@@ -108,24 +109,22 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                       <span className="w-8 text-gray-500">{ing?.unit ?? 'g'}</span>
                     </label>
                   ))}
-                  <div className="mt-2 num text-sm text-gray-700">{one === null ? '–' : `${fmtNum(one, 2)}%`}</div>
+                  <div className="mt-2 num text-sm text-gray-700">{one === null ? '-' : `${fmtNum(one, 2)}%`}</div>
                 </fieldset>
               )
             })}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
-            <span>
-              ค่าเฉลี่ย{' '}
-              <strong className="text-lg tabular-nums">{calc && typeof calc === 'object' ? `${fmtNum(calc.avg, 2)}%` : '–'}</strong>
+            <span>{translateUi("ค่าเฉลี่ย")}{' '}
+              <strong className="text-lg tabular-nums">{calc && typeof calc === 'object' ? `${fmtNum(calc.avg, 2)}%` : '-'}</strong>
             </span>
-            {typeof calc === 'string' && <span className="text-red-700">น้ำหนักไม่ถูกต้อง (ตัดแต่งแล้วต้องไม่หนักขึ้น)</span>}
+            {typeof calc === 'string' && <span className="text-red-700">{translateUi("น้ำหนักไม่ถูกต้อง (ตัดแต่งแล้วต้องไม่หนักขึ้น)")}</span>}
             {ing && current !== null && (
-              <span className="text-gray-600">
-                ตอนนี้ตั้งไว้ {fmtNum(current, 2)}%
+              <span className="text-gray-600">{"" + translateUi("ตอนนี้ตั้งไว้") + " "}{fmtNum(current, 2)}%
                 {calc && typeof calc === 'object' && price > 0 && (
                   <>
-                    {' '}· ต้นทุนต่อ {ing.unit} ที่ใช้ได้{' '}
+                    {' '}{"" + translateUi("/ ต้นทุนต่อ") + " "}{ing.unit}{" " + translateUi("ที่ใช้ได้") + ""}{' '}
                     {baht(yieldUnitCost(price, Number(ing.trim_yield_pct), Number(ing.cook_yield_pct)))} →{' '}
                     <strong>
                       {baht(yieldUnitCost(price, kind === 'trim' ? calc.avg : Number(ing.trim_yield_pct), kind === 'cook' ? calc.avg : Number(ing.cook_yield_pct)))}
@@ -137,31 +136,29 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <input className="input min-w-48 flex-1" maxLength={200} placeholder="หมายเหตุ เช่น กุ้งไซซ์ 40 ตัว/kg" value={note} onChange={(e) => setNote(e.target.value)} />
+            <input className="input min-w-48 flex-1" maxLength={200} placeholder={translateUi("หมายเหตุ เช่น กุ้งไซซ์ 40 ตัว/kg")} value={note} onChange={(e) => setNote(e.target.value)} />
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={apply} onChange={(e) => setApply(e.target.checked)} />
-              ตั้งค่าเฉลี่ยเป็น yield ของวัตถุดิบ (ต้นทุนสูตรคำนวณใหม่)
-            </label>
+              <input type="checkbox" checked={apply} onChange={(e) => setApply(e.target.checked)} />{"" + translateUi("ตั้งค่าเฉลี่ยเป็น yield ของวัตถุดิบ (ต้นทุนสูตรคำนวณใหม่)") + " "}</label>
             <button className="btn btn-primary" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก yield test'}</button>
           </div>
         </form>
       )}
 
       <section className="mt-6">
-        <h2 className="section-title">ผลทดสอบย้อนหลัง</h2>
+        <h2 className="section-title">{translateUi("ผลทดสอบย้อนหลัง")}</h2>
         {tests.data && tests.data.tests.length === 0 ? (
-          <Empty>ยังไม่มี yield test</Empty>
+          <Empty>{translateUi("ยังไม่มี yield test")}</Empty>
         ) : (
           <div className="table-wrap">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="text-left">
-                  <th className="px-3 py-2">วันที่</th>
-                  <th className="px-3 py-2">วัตถุดิบ</th>
-                  <th className="px-3 py-2">ประเภท</th>
-                  <th className="px-3 py-2 text-right">3 ครั้ง</th>
-                  <th className="px-3 py-2 text-right">เฉลี่ย</th>
-                  <th className="px-3 py-2">ผู้ทดสอบ</th>
+                  <th className="px-3 py-2">{translateUi("วันที่")}</th>
+                  <th className="px-3 py-2">{translateUi("วัตถุดิบ")}</th>
+                  <th className="px-3 py-2">{translateUi("ประเภท")}</th>
+                  <th className="px-3 py-2 text-right">{translateUi("3 ครั้ง")}</th>
+                  <th className="px-3 py-2 text-right">{translateUi("เฉลี่ย")}</th>
+                  <th className="px-3 py-2">{translateUi("ผู้ทดสอบ")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -172,9 +169,9 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                       {t.ingredients?.name ?? '-'}
                       {t.note && <div className="hint">{t.note}</div>}
                     </td>
-                    <td className="px-3 py-2">{KIND[t.kind].label}{t.applied && <span className="badge badge-green ml-1.5">ใช้แล้ว</span>}</td>
+                    <td className="px-3 py-2">{KIND[t.kind].label}{t.applied && <span className="badge badge-green ml-1.5">{translateUi("ใช้แล้ว")}</span>}</td>
                     <td className="px-3 py-2 num text-xs text-gray-600">
-                      {t.trials.map((x) => `${fmtNum(Number(x.after))}/${fmtNum(Number(x.before))}`).join(' · ')}
+                      {t.trials.map((x) => `${fmtNum(Number(x.after))}/${fmtNum(Number(x.before))}`).join(' / ')}
                     </td>
                     <td className="px-3 py-2 num font-semibold">{fmtNum(Number(t.avg_pct), 2)}%</td>
                     <td className="px-3 py-2 text-gray-600">{t.tested_by_name ?? '-'}</td>

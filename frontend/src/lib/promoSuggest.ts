@@ -1,5 +1,5 @@
 // ไม่มี import เพื่อให้ทดสอบด้วย node ได้โดยตรง และให้ backend ใช้ร่วมกับ AI ได้
-// แนะนำโปรจากข้อมูลขาย (promo_insights ใน 0018) ด้วยกติกาที่อธิบายได้ · ไม่ลดจนต่ำกว่าต้นทุน
+// แนะนำโปรจากข้อมูลขาย (promo_insights ใน 0018) ด้วยกติกาที่อธิบายได้ / ไม่ลดจนต่ำกว่าต้นทุน
 
 export interface Insights {
   days: number
@@ -45,7 +45,7 @@ export function safePercent(price: number, cost: number, hasRecipe: boolean, cap
   return Math.max(0, Math.min(cap, pct))
 }
 
-// ช่วงเงียบ: 2–3 ชั่วโมงติดกันที่ออเดอร์ต่ำกว่าครึ่งของค่าเฉลี่ยชั่วโมงที่เปิดขาย
+// ช่วงเงียบ: 2-3 ชั่วโมงติดกันที่ออเดอร์ต่ำกว่าครึ่งของค่าเฉลี่ยชั่วโมงที่เปิดขาย
 export function quietWindow(hours: Insights['hours']): { start: number; end: number; ratio: number } | null {
   const open = hours.filter((h) => h.orders_per_day > 0)
   if (open.length < 4) return null
@@ -76,9 +76,9 @@ export function ruleSuggestions(ins: Insights): Suggestion[] {
     out.push({
       key: `quiet-${q.start}`,
       source: 'rule',
-      title: `ลด 10% ช่วง ${hh(q.start)}–${hh(q.end)}`,
+      title: `ลด 10% ช่วง ${hh(q.start)}-${hh(q.end)}`,
       reason: `ช่วงนี้ออเดอร์เฉลี่ยแค่ ${Math.round(q.ratio * 100)}% ของชั่วโมงปกติ ดึงลูกค้าเข้าร้านช่วงเงียบ`,
-      promo: { name: `ช่วงเงียบลด 10% (${hh(q.start)}–${hh(q.end)})`, discount_type: 'percent', value: 10, min_subtotal: 0, start_time: hh(q.start), end_time: hh(q.end), item_ids: [] },
+      promo: { name: `ช่วงเงียบลด 10% (${hh(q.start)}-${hh(q.end)})`, discount_type: 'percent', value: 10, min_subtotal: 0, start_time: hh(q.start), end_time: hh(q.end), item_ids: [] },
     })
   }
 

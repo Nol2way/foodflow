@@ -1,5 +1,6 @@
 // เรียก API สต็อกวัตถุดิบ (backend/src/stock.ts) + ชนิดข้อมูลที่หน้าเว็บใช้
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getToken } from './session'
 import { api, ApiError } from './api'
 import { fetchCached, has, peek, put } from './cache'
 import { stockError, type AbcClass, type CountType, type MovementType, type RecipeUnit, type VarianceColor } from './stockMath'
@@ -245,7 +246,7 @@ export const stockApi = {
 export const errorText = (e: unknown) =>
   e instanceof ApiError ? (e.data.message ? String(e.data.message) : stockError(e.code || e.message)) : String((e as Error)?.message ?? e)
 
-// โหลดข้อมูลแบบมีสถานะ (ใช้ซ้ำทุกหน้า) · reload() หลังบันทึก
+// โหลดข้อมูลแบบมีสถานะ (ใช้ซ้ำทุกหน้า) / reload() หลังบันทึก
 // ส่ง cacheKey = จำผลไว้ข้ามหน้า: กลับมาหน้าเดิมเห็นข้อมูลทันที แล้วโหลดใหม่เงียบ ๆ เบื้องหลัง
 // (cacheKey ต้องไม่ซ้ำกับคำขออื่น และ deps ทั้งหมดจะถูกต่อท้ายให้เอง)
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[], cacheKey?: string) {
@@ -253,6 +254,8 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], cacheKey?: s
   const [data, setDataRaw] = useState<T | null>(() => (key ? (peek<T>(key) ?? null) : null))
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(() => !(key && has(key)))
+  const sequence = useRef(0)
+  const [dataKey, setDataKey] = useState(key)
   const keyRef = useRef(key)
   keyRef.current = key
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,18 +263,22 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], cacheKey?: s
 
   const fetchNow = useCallback(
     async (force: boolean) => {
+      const seq = ++sequence.current
+      const token = getToken()
       const k = key
+      setDataKey(k)
+      setDataRaw(k ? peek<T>(k) ?? null : null)
       if (k && has(k)) setDataRaw(peek<T>(k) ?? null) // deps เปลี่ยนไปค่าที่เคยโหลด: แสดงทันที
       if (force || !(k && has(k))) setLoading(true)
       try {
         const next = k ? await fetchCached(k, run, 0, force) : await run()
-        if (keyRef.current !== k) return // ผู้ใช้เปลี่ยนตัวกรองไปแล้ว: ทิ้งผลเก่า
+        if (keyRef.current !== k || seq !== sequence.current || getToken() !== token) return // ผู้ใช้เปลี่ยนตัวกรองไปแล้ว: ทิ้งผลเก่า
         setDataRaw(next)
         setError(null)
       } catch (e) {
-        if (keyRef.current === k) setError(errorText(e))
+        if (keyRef.current === k && seq === sequence.current && getToken() === token) setError(errorText(e))
       } finally {
-        if (keyRef.current === k) setLoading(false)
+        if (keyRef.current === k && seq === sequence.current && getToken() === token) setLoading(false)
       }
     },
     [run, key],
@@ -279,6 +286,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], cacheKey?: s
   const reload = useCallback(() => fetchNow(true), [fetchNow])
   useEffect(() => {
     void fetchNow(false)
+    return () => { sequence.current++ }
   }, [fetchNow])
 
   // แก้ข้อมูลในหน้า (optimistic) ให้แคชตามด้วย
@@ -291,7 +299,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[], cacheKey?: s
       }),
     [],
   )
-  return { data, error, loading, reload, setData }
+  return { data: dataKey === key ? data : null, error, loading: loading || dataKey !== key, reload, setData }
 }
 
 export const todayIso = () => new Date().toLocaleDateString('sv-SE')

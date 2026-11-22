@@ -1,9 +1,10 @@
-// API โมดูลบัญชี (0026) · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS + has_role ตรวจซ้ำ)
+// API โมดูลบัญชี (0026) / ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS + has_role ตรวจซ้ำ)
 // สูตร Food/Prime Cost กำไร งบดุล และไฟล์ส่งออกใช้ร่วมกับหน้าเว็บ (frontend/src/lib/accounting.ts)
 import type { Context, Hono, MiddlewareHandler } from 'hono'
+import { InputError, money, validDate, optionalText } from './validation.ts'
 import type { AppEnv, Role } from './env.ts'
-import { asUser, type Db } from './supabase.ts'
-import { LineError, pushLine } from './reports.ts'
+import { asUser, asService, type Db } from './supabase.ts'
+import { pushLine } from './reports.ts'
 import {
   PURCHASE_TAX_HEADER,
   SALES_TAX_HEADER,
@@ -53,7 +54,6 @@ export interface Helpers {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DATE = /^\d{4}-\d{2}-\d{2}$/
 export const MAX_RANGE_DAYS = 3660
 
 // ใครทำอะไรได้ (ฐานข้อมูลบังคับซ้ำ)
@@ -62,7 +62,6 @@ export const WRITE: Role[] = ['owner', 'accountant'] // รายจ่าย �
 export const CLOSE: Role[] = ['owner', 'manager'] // นับเงินสด ปิดวัน
 export const OWNER: Role[] = ['owner'] // ยกเลิกบิล กลับรายการ ตั้งค่า ยอดยกมา
 
-const validDate = (s: unknown): s is string => typeof s === 'string' && DATE.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'))
 const days = (from: string, to: string) => (Date.parse(to) - Date.parse(from)) / 86_400_000
 
 function range(c: Ctx): { from: string; to: string } | null {
@@ -118,7 +117,7 @@ export async function exportTable(
   const args = { p_restaurant_id: rid, p_from: from, p_to: to }
   switch (report) {
     case 'journal': {
-      const rows = await db.rpc<JournalRow[]>('acct_journal_rows', { ...args, p_account_id: null, p_limit: 50000 })
+      const rows = await db.rpc<JournalRow[]>('acct_journal_export', args)
       return {
         title: 'สมุดรายวัน',
         header: ['วันที่', 'เลขที่', 'ประเภท', 'คำอธิบาย', 'รหัสบัญชี', 'ชื่อบัญชี', 'เดบิต', 'เครดิต', 'หมายเหตุบรรทัด', 'เหตุผล', 'ผู้บันทึก'],
@@ -129,7 +128,7 @@ export async function exportTable(
       }
     }
     case 'trial_balance': {
-      const rows = await db.rpc<TrialRow[]>('acct_trial_balance', args)
+      const rows = await db.rpc<TrialRow[]>('acct_trial_balance_export', args)
       return {
         title: 'งบทดลอง',
         header: ['รหัสบัญชี', 'ชื่อบัญชี', 'ประเภท', 'ยอดยกมา', 'เดบิต', 'เครดิต', 'ยอดคงเหลือ (เดบิต+)'],
@@ -164,7 +163,7 @@ export async function exportTable(
       }
     }
     case 'menu_profit': {
-      const rows = await db.rpc<Record<string, unknown>[]>('acct_menu_profit', args)
+      const rows = await db.rpc<Record<string, unknown>[]>('acct_menu_profit_export', args)
       return {
         title: 'กำไรต่อเมนู',
         header: ['เมนู', 'จำนวน', 'ยอดขาย', 'ต้นทุนตามสูตร', 'กำไรขั้นต้น'],
@@ -172,10 +171,7 @@ export async function exportTable(
       }
     }
     case 'expenses': {
-      const rows = await db.select<Record<string, unknown>>(
-        `expenses?select=spent_on,amount,vat_amount,payment_method,note,voided_at,void_reason,accounts(code,name)` +
-          `&restaurant_id=eq.${rid}&source=eq.manual&spent_on=gte.${from}&spent_on=lte.${to}&order=spent_on`,
-      )
+      const rows = (await db.rpc<Record<string, unknown>[]>('acct_expense_export', args)).filter(row => row.source === 'manual')
       return {
         title: 'รายจ่าย',
         header: ['วันที่', 'รหัสบัญชี', 'หมวด', 'จำนวนเงิน', 'ภาษีซื้อ', 'วิธีจ่าย', 'หมายเหตุ', 'ยกเลิกเมื่อ', 'เหตุผลยกเลิก'],
@@ -194,10 +190,12 @@ export async function exportTable(
 // PostgREST จำกัดแถวต่อครั้ง (Supabase ค่าเริ่มต้น 1,000) จึงอ่านทีละหน้าจนครบ
 export async function selectAll<T>(db: Db, path: string, page = 1000, max = 200_000): Promise<T[]> {
   const out: T[] = []
-  for (let offset = 0; offset < max; offset += page) {
+  for (let offset = 0; ; ) {
     const rows = await db.select<T>(`${path}&limit=${page}&offset=${offset}`)
+    if (!rows.length) break
+    if (out.length + rows.length > max) throw new InputError(413, 'export_too_large')
     out.push(...rows)
-    if (rows.length < page) break
+    offset += rows.length
   }
   return out
 }
@@ -222,15 +220,8 @@ const sellerMeta = (s: Seller | null, label: string): [string, Cell][] => [
   ['เดือนภาษี', label],
 ]
 
-const TAX_DOC_COLUMNS =
-  'id,doc_type,doc_number,issue_date,terminal_code,ref_document_id,buyer_name,buyer_tax_id,buyer_branch_code,' +
-  'taxable_amount,exempt_amount,vat_amount,total_amount,credit_note_reason'
-
 export async function salesTaxData(db: Db, rid: string, from: string, to: string) {
-  const docs = await selectAll<TaxDocRow>(
-    db,
-    `tax_documents?select=${TAX_DOC_COLUMNS}&restaurant_id=eq.${rid}&status=eq.confirmed&issue_date=gte.${from}&issue_date=lte.${to}&order=issue_date,doc_number`,
-  )
+  const docs = await db.rpc<TaxDocRow[]>('tax_document_export', { p_restaurant_id: rid, p_from: from, p_to: to })
   // เอกสารอ้างอิงที่อยู่นอกเดือน (CN / TAX ที่แปลงจาก ABB)
   const refs = new Map(docs.map((d) => [d.id, { doc_number: d.doc_number, doc_type: d.doc_type as string }]))
   const missing = [...new Set(docs.map((d) => d.ref_document_id).filter((x): x is string => !!x && !refs.has(x)))]
@@ -244,14 +235,10 @@ export async function salesTaxData(db: Db, rid: string, from: string, to: string
 }
 
 export async function purchaseTaxData(db: Db, rid: string, from: string, to: string) {
-  const base = `restaurant_id=eq.${rid}&voided_at=is.null&spent_on=gte.${from}&spent_on=lte.${to}`
-  const rows = await selectAll<PurchaseExpenseRow>(
-    db,
-    `expenses?select=tax_invoice_date,tax_invoice_no,supplier_name,supplier_tax_id,supplier_branch_code,amount,vat_amount,spent_on` +
-      `&${base}&tax_invoice_no=not.is.null&order=tax_invoice_date,id`,
-  )
+  const all = (await db.rpc<(PurchaseExpenseRow & { voided_at: string | null })[]>('acct_expense_export', { p_restaurant_id: rid, p_from: from, p_to: to })).filter(row => !row.voided_at)
+  const rows = all.filter(row => row.tax_invoice_no)
   // มีภาษีซื้อแต่ไม่มีใบกำกับ = นำมาหักไม่ได้ (แจ้งเตือน)
-  const noInvoice = await selectAll<{ vat_amount: number }>(db, `expenses?select=vat_amount&${base}&tax_invoice_no=is.null&vat_amount=gt.0&order=id`)
+  const noInvoice = all.filter(row => !row.tax_invoice_no && Number(row.vat_amount) > 0)
   return {
     ...purchaseTaxReport(rows),
     without_invoice: { count: noInvoice.length, vat: Math.round(noInvoice.reduce((s, r) => s + Number(r.vat_amount) * 100, 0)) / 100 },
@@ -288,7 +275,7 @@ export function zReport(r: ShiftReport, docs: ShiftTaxDoc[]) {
     const n = byType(t)
     return n.length ? { count: n.length, first: n[0], last: n[n.length - 1] } : { count: 0, first: null, last: null }
   }
-  // ใบเต็มรูปที่แปลงจาก ABB (มี ref) ไม่นับยอดซ้ำ · ใบลดหนี้ติดลบ
+  // ใบเต็มรูปที่แปลงจาก ABB (มี ref) ไม่นับยอดซ้ำ / ใบลดหนี้ติดลบ
   const sign = (d: ShiftTaxDoc) => (d.doc_type === 'CN' ? -1 : d.doc_type === 'TAX' && d.ref_document_id ? 0 : 1)
   const signed = (d: ShiftTaxDoc, k: 'vat_amount' | 'total_amount') => sign(d) * cents(d[k])
   return {
@@ -371,7 +358,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const r = range(c)
     if (!r) return fail(c, 400, 'invalid_range')
-    const items = await db(c).rpc('acct_menu_profit', { p_restaurant_id: rid, p_from: r.from, p_to: r.to })
+    const items = await db(c).rpc('acct_menu_profit_export', { p_restaurant_id: rid, p_from: r.from, p_to: r.to })
     return c.json({ items })
   })
 
@@ -380,7 +367,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const r = range(c)
     if (!r) return fail(c, 400, 'invalid_range')
-    const rows = (await db(c).rpc<TrialRow[]>('acct_trial_balance', { p_restaurant_id: rid, p_from: r.from, p_to: r.to })).map((x) => ({
+    const rows = (await db(c).rpc<TrialRow[]>('acct_trial_balance_export', { p_restaurant_id: rid, p_from: r.from, p_to: r.to })).map((x) => ({
       ...x, opening: num(x.opening), debit: num(x.debit), credit: num(x.credit), closing: num(x.closing),
     }))
     return c.json({ rows, balance_sheet: balanceSheet(rows) })
@@ -393,9 +380,10 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (!r) return fail(c, 400, 'invalid_range')
     const account = c.req.query('account_id')
     if (account !== undefined && !UUID.test(account)) return fail(c, 400, 'invalid_account_id')
-    const rows = await db(c).rpc('acct_journal_rows', {
-      p_restaurant_id: rid, p_from: r.from, p_to: r.to, p_account_id: account ?? null, p_limit: 5000,
+    const all = await db(c).rpc<(JournalRow & { account_id: string })[]>('acct_journal_export', {
+      p_restaurant_id: rid, p_from: r.from, p_to: r.to,
     })
+    const rows = account ? all.filter(row => row.account_id === account) : all
     return c.json({ rows })
   })
 
@@ -433,11 +421,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const r = range(c)
     if (!r) return fail(c, 400, 'invalid_range')
-    const expenses = await db(c).select(
-      `expenses?select=id,spent_on,amount,vat_amount,payment_method,note,receipt_url,source,voided_at,void_reason,created_at,account_id,` +
-        `supplier_name,supplier_tax_id,supplier_branch_code,tax_invoice_no,tax_invoice_date,wht_rate,wht_amount,wht_type` +
-        `&restaurant_id=eq.${rid}&spent_on=gte.${r.from}&spent_on=lte.${r.to}&order=spent_on.desc,created_at.desc&limit=1000`,
-    )
+    const expenses = await db(c).rpc('acct_expense_export', { p_restaurant_id: rid, p_from: r.from, p_to: r.to })
     return c.json({ expenses })
   })
 
@@ -445,16 +429,16 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     const b = await body(c)
     const rid = await requireRole(c, b.restaurant_id, WRITE)
     if (typeof rid !== 'string') return rid
-    const amount = Number(b.amount)
-    const vat = Number(b.vat_amount ?? 0)
+    const amount = money(b.amount)
+    const vat = money(b.vat_amount ?? 0)
     if (typeof b.account_id !== 'string' || !UUID.test(b.account_id)) {
       return fail(c, 400, 'category_required', { message: 'ต้องเลือกหมวดรายจ่าย' })
     }
     if (!(amount > 0) || amount > 100_000_000 || !(vat >= 0) || vat > amount) return fail(c, 400, 'invalid_amount', { message: 'จำนวนเงินไม่ถูกต้อง' })
     if (!['cash', 'bank', 'credit'].includes(String(b.payment_method ?? 'cash'))) return fail(c, 400, 'invalid_payment_method')
     if (b.spent_on !== undefined && !validDate(b.spent_on)) return fail(c, 400, 'invalid_date')
-    // ผู้ขาย / ใบกำกับภาษีซื้อ / หัก ณ ที่จ่าย (0031) · ฐานข้อมูลคิดยอดหัก ณ ที่จ่ายและแบบ ภ.ง.ด. เอง
-    const opt = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+    // ผู้ขาย / ใบกำกับภาษีซื้อ / หัก ณ ที่จ่าย (0031) / ฐานข้อมูลคิดยอดหัก ณ ที่จ่ายและแบบ ภ.ง.ด. เอง
+    const opt = optionalText
     const tax = {
       supplier_name: opt(b.supplier_name, 200),
       supplier_tax_id: opt(b.supplier_tax_id, 13),
@@ -472,16 +456,16 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if ((tax.tax_invoice_no === null) !== (tax.tax_invoice_date === null) || (tax.tax_invoice_no && (!tax.supplier_name || !tax.supplier_tax_id))) {
       return fail(c, 400, 'invalid_tax_invoice', { message: 'ใบกำกับภาษีซื้อต้องมีเลขที่ วันที่ ชื่อและเลขผู้เสียภาษีของผู้ขาย' })
     }
-    if (tax.wht_rate !== null && (!WHT_RATES.includes(Number(tax.wht_rate)) || !tax.supplier_name || !tax.supplier_tax_id)) {
+    if (tax.wht_rate !== null && (typeof tax.wht_rate !== 'number' || !WHT_RATES.includes(tax.wht_rate) || !tax.supplier_name || !tax.supplier_tax_id)) {
       return fail(c, 400, 'invalid_wht', { message: 'หัก ณ ที่จ่าย: อัตรา 1, 2, 3 หรือ 5% และต้องมีชื่อ/เลขผู้เสียภาษีของผู้ขาย' })
     }
-    // แบบ ภ.ง.ด. (ไม่ส่ง = ฐานข้อมูลเลือกจากเลขผู้เสียภาษี) · ต้องตรงกับประเภทผู้ขาย: ขึ้นต้น 0 = นิติบุคคล = ภ.ง.ด.53
+    // แบบ ภ.ง.ด. (ไม่ส่ง = ฐานข้อมูลเลือกจากเลขผู้เสียภาษี) / ต้องตรงกับประเภทผู้ขาย: ขึ้นต้น 0 = นิติบุคคล = ภ.ง.ด.53
     if (tax.wht_type !== null) {
       if (tax.wht_rate === null || !WHT_TYPES.includes(tax.wht_type as WhtType)) {
         return fail(c, 400, 'invalid_wht_type', { message: 'แบบหัก ณ ที่จ่ายต้องเป็น pnd3 หรือ pnd53 และต้องระบุอัตรา' })
       }
       if (tax.wht_type !== whtTypeFor(tax.supplier_tax_id ?? '')) {
-        return fail(c, 400, 'wht_type_mismatch', { message: 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) · ภ.ง.ด.3 ใช้กับบุคคลธรรมดา' })
+        return fail(c, 400, 'wht_type_mismatch', { message: 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) / ภ.ง.ด.3 ใช้กับบุคคลธรรมดา' })
       }
     }
     const taxFields = Object.fromEntries(
@@ -508,6 +492,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const id = c.req.param('id')
     if (!UUID.test(id)) return fail(c, 400, 'invalid_expense_id')
+    if (!(await db(c).select(`expenses?select=id&id=eq.${id}&restaurant_id=eq.${rid}`)).length) return fail(c, 404, 'not_found')
     if (typeof b.reason !== 'string' || !b.reason.trim()) return fail(c, 400, 'reason_required', { message: 'ต้องใส่เหตุผล' })
     const entry = await db(c).rpc<string>('acct_void_expense', { p_expense_id: id, p_reason: b.reason })
     return c.json({ voided: id, reversal_entry_id: entry })
@@ -519,7 +504,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     if (b.date !== undefined && !validDate(b.date)) return fail(c, 400, 'invalid_date')
     const entry = await db(c).rpc<string>('acct_pay_supplier', {
-      p_restaurant_id: rid, p_amount: Number(b.amount), p_payment_method: b.payment_method,
+      p_restaurant_id: rid, p_amount: money(b.amount), p_payment_method: b.payment_method,
       p_supplier: b.supplier ?? null, p_date: b.date ?? null, p_note: b.note ?? null,
     })
     return c.json({ entry_id: entry }, 201)
@@ -548,6 +533,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const id = c.req.param('id')
     if (!UUID.test(id)) return fail(c, 400, 'invalid_entry_id')
+    if (!(await db(c).select(`journal_entries?select=id&id=eq.${id}&restaurant_id=eq.${rid}`)).length) return fail(c, 404, 'not_found')
     if (typeof b.reason !== 'string' || !b.reason.trim()) return fail(c, 400, 'reason_required', { message: 'ต้องใส่เหตุผล' })
     const entry = await db(c).rpc<string>('acct_reverse_entry', { p_entry_id: id, p_reason: b.reason })
     return c.json({ reversal_entry_id: entry })
@@ -557,8 +543,9 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     const b = await body(c)
     const rid = await requireRole(c, b.restaurant_id, OWNER)
     if (typeof rid !== 'string') return rid
+    if (b.date !== undefined && !validDate(b.date)) return fail(c, 400, 'invalid_date')
     const entry = await db(c).rpc<string>('acct_set_opening', {
-      p_restaurant_id: rid, p_cash: Number(b.cash ?? 0), p_bank: Number(b.bank ?? 0), p_date: b.date ?? null,
+      p_restaurant_id: rid, p_cash: money(b.cash ?? 0), p_bank: money(b.bank ?? 0), p_date: b.date ?? null,
     })
     return c.json({ entry_id: entry }, 201)
   })
@@ -578,33 +565,39 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     const rid = await requireRole(c, b.restaurant_id, CLOSE)
     if (typeof rid !== 'string') return rid
     if (!validDate(b.date)) return fail(c, 400, 'invalid_date')
-    const counted = Number(b.counted_cash)
+    const counted = money(b.counted_cash)
     if (b.counted_cash === undefined || b.counted_cash === null || !(counted >= 0)) {
       return fail(c, 400, 'invalid_amount', { message: 'กรอกยอดเงินสดที่นับได้' })
     }
     const result = await db(c).rpc<DayClose>('acct_close_day', {
       p_restaurant_id: rid, p_date: b.date, p_counted_cash: counted, p_note: typeof b.note === 'string' ? b.note : null,
+      p_notify: b.notify !== false && Boolean(c.env.LINE_CHANNEL_ACCESS_TOKEN),
     })
     // ส่ง LINE เป็นงานเสริม: ส่งไม่ได้ก็ยังปิดวันสำเร็จ
-    let line: 'sent' | 'not_configured' | 'failed' = 'not_configured'
+    let line: 'sent' | 'not_configured' | 'failed' | 'queued_or_sent' = 'not_configured'
     if (b.notify !== false && c.env.LINE_CHANNEL_ACCESS_TOKEN) {
-      const settings = await db(c).select<{ line_to: string | null }>(`shop_settings?select=line_to&restaurant_id=eq.${rid}`)
-      const to = settings[0]?.line_to
-      if (to) {
-        try {
-          await pushLine(c.env.LINE_CHANNEL_ACCESS_TOKEN, to, dayCloseText(result))
-          line = 'sent'
-        } catch (e) {
-          if (!(e instanceof LineError)) throw e
-          console.error('day close line failed', e.message)
-          line = 'failed'
-        }
+      const svc = asService(c.env)
+      const args = { p_restaurant_id: rid, p_report_date: b.date }
+      try {
+        const key = await svc.rpc<string | null>('day_close_dispatch_claim', args)
+        if (key) {
+          const settings = await db(c).select<{ line_to: string | null }>(`shop_settings?select=line_to&restaurant_id=eq.${rid}`)
+          const to = settings[0]?.line_to
+          if (to) {
+            await pushLine(c.env.LINE_CHANNEL_ACCESS_TOKEN, to, dayCloseText(result), key)
+            await svc.rpc('day_close_dispatch_finish', { ...args, p_success: true })
+            line = 'sent'
+          } else await svc.rpc('day_close_dispatch_finish', { ...args, p_success: false })
+        } else line = 'queued_or_sent'
+      } catch {
+        line = 'failed'
+        try { await svc.rpc('day_close_dispatch_finish', { ...args, p_success: false }) } catch { /* persisted lease expires */ }
       }
     }
     return c.json({ close: result, line }, 201)
   })
 
-  // ----- ตั้งค่าบัญชี (เจ้าของ) · onboarding: ส่ง onboarded=true -----
+  // ----- ตั้งค่าบัญชี (เจ้าของ) / onboarding: ส่ง onboarded=true -----
   app.get('/accounting/settings', auth, async (c) => {
     const rid = await requireRole(c, c.req.query('restaurant_id'), READ)
     if (typeof rid !== 'string') return rid
@@ -645,7 +638,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     })
   })
 
-  // ----- รายงานภาษีตามแบบกรมสรรพากร (รายเดือน) · format=json (ค่าเริ่มต้น) | csv -----
+  // ----- รายงานภาษีตามแบบกรมสรรพากร (รายเดือน) / format=json (ค่าเริ่มต้น) | csv -----
   const csvFile = (name: string, content: string) =>
     new Response(content, {
       headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' },
@@ -716,7 +709,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     return csvFile(`pp30-${p.m.month}.csv`, reportCsv('สรุปภาษีมูลค่าเพิ่ม (ภ.พ.30)', sellerMeta(seller, p.m.label), ['ข้อ', 'รายการ', 'จำนวนเงิน (บาท)'], rows))
   })
 
-  // สรุปภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) · type=pnd3|pnd53 (ไม่ใส่ = ทั้งสองแบบ)
+  // สรุปภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) / type=pnd3|pnd53 (ไม่ใส่ = ทั้งสองแบบ)
   app.get('/accounting/reports/wht', auth, async (c) => {
     const p = await taxReportInput(c)
     if (p instanceof Response) return p
@@ -724,14 +717,9 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (type !== undefined && type !== 'pnd3' && type !== 'pnd53') return fail(c, 400, 'invalid_type', { message: 'type ต้องเป็น pnd3 หรือ pnd53' })
     const [seller, rows] = await Promise.all([
       sellerOf(db(c), p.rid),
-      selectAll<WhtExpenseRow>(
-        db(c),
-        `expenses?select=spent_on,supplier_name,supplier_tax_id,supplier_branch_code,amount,vat_amount,wht_rate,wht_amount,wht_type,note,accounts(name)` +
-          `&restaurant_id=eq.${p.rid}&voided_at=is.null&spent_on=gte.${p.m.from}&spent_on=lte.${p.m.to}` +
-          `&wht_type=${type ? `eq.${type}` : 'not.is.null'}&order=spent_on,id`,
-      ),
+      db(c).rpc<(WhtExpenseRow & { voided_at: string | null })[]>('acct_expense_export', { p_restaurant_id: p.rid, p_from: p.m.from, p_to: p.m.to }),
     ])
-    const rep = whtReport(rows)
+    const rep = whtReport(rows.filter(row => !row.voided_at && row.wht_type && (!type || row.wht_type === type)))
     if (p.format === 'json') return c.json({ month: p.m.month, period: { from: p.m.from, to: p.m.to }, type: type ?? 'all', seller, ...rep })
     const total = rep.rows.reduce((a, r) => ({ paid: a.paid + Math.round(r.paid_amount * 100), wht: a.wht + Math.round(r.wht * 100) }), { paid: 0, wht: 0 })
     const title = type === 'pnd3' ? 'ภ.ง.ด.3' : type === 'pnd53' ? 'ภ.ง.ด.53' : 'ภ.ง.ด.3 / ภ.ง.ด.53'
@@ -752,7 +740,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     const b = await body(c)
     const rid = await requireRole(c, b.restaurant_id, SHIFT)
     if (typeof rid !== 'string') return rid
-    const cash = Number(b.starting_cash)
+    const cash = money(b.starting_cash)
     if (b.starting_cash === undefined || b.starting_cash === null || !(cash >= 0) || cash > 10_000_000) {
       return fail(c, 400, 'invalid_amount', { message: 'กรอกเงินทอนตั้งต้น' })
     }
@@ -763,6 +751,25 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     return c.json({ shift }, 201)
   })
 
+  app.get('/shifts', auth, async (c) => {
+    const rid = await requireRole(c, c.req.query('restaurant_id'), SHIFT)
+    if (typeof rid !== 'string') return rid
+    const shifts = await selectAll(db(c), `cashier_shifts?select=*&restaurant_id=eq.${rid}&order=opened_at.desc,id`)
+    return c.json({ shifts })
+  })
+
+  app.get('/shifts/:id', auth, async (c) => {
+    const rid = await requireRole(c, c.req.query('restaurant_id'), SHIFT)
+    if (typeof rid !== 'string') return rid
+    const sid = await shiftOf(c, rid, c.req.param('id'))
+    if (typeof sid !== 'string') return sid
+    const report = await db(c).rpc<ShiftReport>('shift_report', { p_shift_id: sid })
+    const shift = report.shift
+    const who = shift.terminal_id ? `terminal_id=eq.${shift.terminal_id}` : `confirmed_by=eq.${shift.cashier_id}`
+    const docs = await selectAll<ShiftTaxDoc>(db(c), `tax_documents?select=doc_type,doc_number,ref_document_id,vat_amount,total_amount&restaurant_id=eq.${rid}&status=eq.confirmed&${who}&confirmed_at=gte.${encodeURIComponent(String(shift.opened_at))}` + (shift.closed_at ? `&confirmed_at=lte.${encodeURIComponent(String(shift.closed_at))}` : '') + '&order=doc_number,id')
+    return c.json({ shift, z_report: zReport(report, docs) })
+  })
+
   app.post('/shifts/cash-movement', auth, async (c) => {
     const b = await body(c)
     const rid = await requireRole(c, b.restaurant_id, SHIFT)
@@ -771,7 +778,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof sid !== 'string') return sid
     const type = String(b.type ?? '')
     if (type !== 'cash_in' && type !== 'cash_out') return fail(c, 400, 'invalid_log_type', { message: 'type ต้องเป็น cash_in หรือ cash_out' })
-    const amount = Number(b.amount)
+    const amount = money(b.amount)
     if (!(amount > 0) || amount > 10_000_000) return fail(c, 400, 'invalid_amount', { message: 'จำนวนเงินไม่ถูกต้อง' })
     const reason = typeof b.reason === 'string' ? b.reason.trim() : ''
     if (!reason || reason.length > 300) return fail(c, 400, 'reason_required', { message: 'ต้องใส่เหตุผล (ไม่เกิน 300 ตัวอักษร)' })
@@ -785,13 +792,14 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const sid = await shiftOf(c, rid, b.shift_id)
     if (typeof sid !== 'string') return sid
-    const actual = Number(b.actual_cash)
+    const actual = money(b.actual_cash)
     if (b.actual_cash === undefined || b.actual_cash === null || !(actual >= 0) || actual > 10_000_000) {
       return fail(c, 400, 'invalid_amount', { message: 'กรอกยอดเงินสดที่นับได้' })
     }
     const shift = await db(c).rpc<Record<string, unknown>>('shift_close', {
       p_shift_id: sid, p_actual_cash: actual, p_note: typeof b.note === 'string' ? b.note.slice(0, 300) : null,
     })
+    try {
     const report = await db(c).rpc<ShiftReport>('shift_report', { p_shift_id: sid })
     // เอกสารภาษีที่ยืนยันระหว่างกะ: เครื่องของกะ หรือ (ไม่ผูกเครื่อง) ผู้ยืนยันคือแคชเชียร์
     const who = shift.terminal_id ? `terminal_id=eq.${shift.terminal_id}` : `confirmed_by=eq.${shift.cashier_id}`
@@ -801,5 +809,6 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
         `&confirmed_at=gte.${encodeURIComponent(String(shift.opened_at))}&confirmed_at=lte.${encodeURIComponent(String(shift.closed_at))}&order=doc_number`,
     )
     return c.json({ shift, z_report: zReport(report, docs) })
+    } catch { return c.json({ shift, z_report: null, report_status: 'retry', report_url: `/api/shifts/${sid}?restaurant_id=${rid}` }) }
   })
 }

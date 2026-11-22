@@ -15,6 +15,7 @@ export interface DisplayMedia {
 }
 
 export interface DisplayItem {
+  sold_by_weight?: boolean
   id: string
   name: string
   price: number
@@ -59,7 +60,7 @@ export function promoHeadline(p: Pick<DisplayPromo, 'discount_type' | 'value'>):
 // เงื่อนไขสั้นๆ ใต้ตัวเลข
 export function promoTerms(p: DisplayPromo): string[] {
   const terms: string[] = []
-  terms.push(p.items.length > 0 ? `เฉพาะ ${p.items.map((i) => i.name).join(' · ')}` : 'ทั้งบิล')
+  terms.push(p.items.length > 0 ? `เฉพาะ ${p.items.map((i) => i.name).join(' / ')}` : 'ทั้งบิล')
   if (Number(p.min_subtotal) > 0) terms.push(`เมื่อสั่งครบ ${money(p.min_subtotal)}`)
   if (p.end_time) terms.push(`วันนี้ถึง ${p.end_time.slice(0, 5)} น.`)
   if (p.ends_on) terms.push(`ถึงวันที่ ${Number(p.ends_on.slice(8, 10))}/${Number(p.ends_on.slice(5, 7))}`)
@@ -168,7 +169,7 @@ export function buildSlides(c: DisplayContent, round = 0, showCover = true): Sli
 }
 
 // เวลาแสดงแต่ละสไลด์ (มิลลิวินาที)
-// ตั้งเวลาเองได้ต่อสื่อ · วิดีโอเล่นจนจบแต่ไม่ต่ำกว่า 8 และไม่เกิน 30 วินาที · YouTube รู้ความยาวไม่ได้ ใช้ 30 วินาที
+// ตั้งเวลาเองได้ต่อสื่อ / วิดีโอเล่นจนจบแต่ไม่ต่ำกว่า 8 และไม่เกิน 30 วินาที / YouTube รู้ความยาวไม่ได้ ใช้ 30 วินาที
 export function slideDuration(s: Slide, videoSeconds?: number, settings: DisplaySettings = DEFAULT_SETTINGS): number {
   if (s.kind === 'cover') return 6000
   if (s.kind === 'promo') return settings.promoSeconds * 1000

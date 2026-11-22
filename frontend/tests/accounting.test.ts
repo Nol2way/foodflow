@@ -155,7 +155,7 @@ t('งบดุล: สินทรัพย์ = หนี้สิน + ทุ
   assert.equal(b.totalLiabEquity, 17000)
   assert.ok(b.balanced)
 })
-t('เกณฑ์ VAT 1.8 ล้าน: เตือนที่ 80% อันตรายเมื่อเกิน · จดแล้วไม่เตือน', () => {
+t('เกณฑ์ VAT 1.8 ล้าน: เตือนที่ 80% อันตรายเมื่อเกิน / จดแล้วไม่เตือน', () => {
   assert.equal(vatThreshold(1_000_000, false).level, 'info')
   assert.equal(vatThreshold(1_440_000, false).level, 'warn')
   assert.equal(vatThreshold(1_800_000, false).level, 'danger')
@@ -172,7 +172,7 @@ t('เหมา 60% vs ตามจริง (ข้อมูลประกอ�
   assert.equal(c.lowerNet, 'actual')
   assert.equal(taxDeductionCompare(S({ labor: 0, opex: 0 })).lowerNet, 'flat')
 })
-t('onboarding: จดบริษัท/จด VAT -> มืออาชีพ · บุคคลธรรมดา -> มาตรฐาน (หรือง่าย)', () => {
+t('onboarding: จดบริษัท/จด VAT -> มืออาชีพ / บุคคลธรรมดา -> มาตรฐาน (หรือง่าย)', () => {
   assert.equal(suggestMode('company', false), 'pro')
   assert.equal(suggestMode('individual', true), 'pro')
   assert.equal(suggestMode('individual', false), 'standard')
@@ -211,7 +211,7 @@ t('แจ้งเตือน: รายรับปีใกล้ 1.8 ล้�
 t('ข้อความปิดวันส่ง LINE', () => {
   const txt = dayCloseText({ ...S({ sales: 5000, food_cost: 1500, labor: 0, opex: 500, bills: 20, cancelled_bills: 1, cash_in: 5000, cash_out: 500 }),
     restaurant: 'ร้านทดสอบ', date: '2026-10-26', system_cash: 4500, counted_cash: 4480, difference: -20 })
-  for (const part of ['ปิดวัน ร้านทดสอบ · 2026-10-26', '฿5,000 (20 บิล · ยกเลิก 1)', '(30%)', 'กำไรวันนี้ ฿3,000', 'เงินสดขาด ฿20'])
+  for (const part of ['ปิดวัน ร้านทดสอบ / 2026-10-26', '฿5,000 (20 บิล / ยกเลิก 1)', '(30%)', 'กำไรวันนี้ ฿3,000', 'เงินสดขาด ฿20'])
     assert.ok(txt.includes(part), part)
 })
 t('CSV: มี BOM ใส่เครื่องหมายคำพูดเมื่อจำเป็น และกันสูตร Excel', () => {
@@ -263,7 +263,7 @@ t('taxSettingsRow: trim และช่องว่างเป็น null', () 
   assert.deepEqual(row, { restaurant_id: 'rid', tax_id: COMPANY, company_name: 'ร้าน', branch_code: '00001', branch_name: null, registered_address: 'ที่อยู่', postcode: null })
 })
 
-t('validatePosRegNo: ว่างได้ · A-Z 0-9 / - ไม่เกิน 30', () => {
+t('validatePosRegNo: ว่างได้ / A-Z 0-9 / - ไม่เกิน 30', () => {
   assert.equal(validatePosRegNo(''), null)
   assert.equal(validatePosRegNo('E0123456789/01-A'), null)
   assert.ok(validatePosRegNo('มีภาษาไทย'))
@@ -272,13 +272,13 @@ t('validatePosRegNo: ว่างได้ · A-Z 0-9 / - ไม่เกิน 
   assert.ok(!TERMINAL_CODE_RE.test('pos-01'))
 })
 
-t('whtFormFor: เลขขึ้นต้น 0 = ภ.ง.ด.53 · อื่นๆ = ภ.ง.ด.3', () => {
+t('whtFormFor: เลขขึ้นต้น 0 = ภ.ง.ด.53 / อื่นๆ = ภ.ง.ด.3', () => {
   assert.equal(whtFormFor(COMPANY), 'pnd53')
   assert.equal(whtFormFor(PERSON), 'pnd3')
   assert.deepEqual(WHT_RATES, [1, 2, 3, 5])
 })
 
-t('expenseTax: VAT 7% แยกจากยอดรวม · หัก ณ ที่จ่ายจากฐานก่อน VAT · ปัดเป็นสตางค์', () => {
+t('expenseTax: VAT 7% แยกจากยอดรวม / หัก ณ ที่จ่ายจากฐานก่อน VAT / ปัดเป็นสตางค์', () => {
   assert.deepEqual(expenseTax(1070, true, null), { vat: 70, base: 1000, wht: 0, netPaid: 1070 })
   assert.deepEqual(expenseTax(1070, true, 3), { vat: 70, base: 1000, wht: 30, netPaid: 1040 })
   assert.deepEqual(expenseTax(5000, false, 5), { vat: 0, base: 5000, wht: 250, netPaid: 4750 })
@@ -288,7 +288,7 @@ t('expenseTax: VAT 7% แยกจากยอดรวม · หัก ณ ท�
   assert.equal(expenseTax(1100, true, null, 10).vat, 100)
 })
 
-t('validateExpenseTax: ไม่มีภาษี = ผ่าน · ใบกำกับต้องครบ · แบบ ภ.ง.ด. ต้องตรงผู้ขาย', () => {
+t('validateExpenseTax: ไม่มีภาษี = ผ่าน / ใบกำกับต้องครบ / แบบ ภ.ง.ด. ต้องตรงผู้ขาย', () => {
   assert.equal(validateExpenseTax(EMPTY_EXPENSE_TAX, 100), null)
   assert.equal(validateExpenseTax(taxForm({ inputTax: true }), 1070, '2026-11-09'), null)
   assert.match(validateExpenseTax(taxForm({ inputTax: true, supplierName: '' }), 1070)!, /ชื่อผู้ขาย/)
@@ -304,7 +304,7 @@ t('validateExpenseTax: ไม่มีภาษี = ผ่าน · ใบก�
   assert.match(validateExpenseTax(taxForm({ whtRate: 3, whtForm: 'pnd53' }), 0)!, /จำนวนเงิน/)
 })
 
-t('expenseTaxFields: ส่งเฉพาะช่องที่ใช้ · ไม่มีภาษี = null ทั้งหมด', () => {
+t('expenseTaxFields: ส่งเฉพาะช่องที่ใช้ / ไม่มีภาษี = null ทั้งหมด', () => {
   assert.deepEqual(expenseTaxFields(EMPTY_EXPENSE_TAX, 500), {
     vat_amount: 0, supplier_name: null, supplier_tax_id: null, supplier_branch_code: null,
     tax_invoice_no: null, tax_invoice_date: null, wht_rate: null, wht_type: null,
@@ -346,7 +346,7 @@ t('mergeTaxDocs: รวมร่างกับเอกสารตามช่
   assert.deepEqual(mergeTaxDocs([a, c], [b, b]).map((d) => d.id), ['b', 'c', 'a'])
 })
 
-t('taxDocActions: ร่างยืนยันได้ · ยืนยันแล้วพิมพ์ + XML · ยกเลิกทำอะไรไม่ได้', () => {
+t('taxDocActions: ร่างยืนยันได้ / ยืนยันแล้วพิมพ์ + XML / ยกเลิกทำอะไรไม่ได้', () => {
   assert.deepEqual(taxDocActions({ status: 'draft', doc_number: null }), { canConfirm: true, canPrint: true, canDownloadXml: false })
   assert.deepEqual(taxDocActions({ status: 'confirmed', doc_number: 'TAX-1' }), { canConfirm: false, canPrint: true, canDownloadXml: true })
   assert.deepEqual(taxDocActions({ status: 'voided', doc_number: null }), { canConfirm: false, canPrint: false, canDownloadXml: false })
@@ -354,7 +354,7 @@ t('taxDocActions: ร่างยืนยันได้ · ยืนยัน�
   assert.deepEqual(ETDA_TYPE_CODE, { TAX: 'T03', ABB: 'T05', CN: '81' })
 })
 
-t('taxDocTotals: นับตามสถานะ/ประเภท · เงินเฉพาะที่ยืนยัน · ใบลดหนี้ติดลบ', () => {
+t('taxDocTotals: นับตามสถานะ/ประเภท / เงินเฉพาะที่ยืนยัน / ใบลดหนี้ติดลบ', () => {
   const r = taxDocTotals([
     docRow({ id: '1', status: 'confirmed', doc_type: 'ABB' }),
     docRow({ id: '2', status: 'confirmed', doc_type: 'TAX', vat_amount: 70, total_amount: 1070 }),
@@ -390,7 +390,7 @@ t('pp30Lines: ข้อ 1-8 ตามแบบ ภ.พ.30', () => {
   assert.deepEqual(lines.map((l) => l.amount), [10000, 0, 10000, 700, 5000, 350, 350, 0])
 })
 
-t('filingDue: ภ.พ.30 วันที่ 15/23 · ภ.ง.ด.3/53 วันที่ 7/15 ของเดือนถัดไป · ข้ามปี', () => {
+t('filingDue: ภ.พ.30 วันที่ 15/23 / ภ.ง.ด.3/53 วันที่ 7/15 ของเดือนถัดไป / ข้ามปี', () => {
   assert.deepEqual(filingDue('2026-11'), { paper: '2026-12-15', online: '2026-12-23' })
   assert.deepEqual(filingDue('2026-12', 'pp30'), { paper: '2027-01-15', online: '2027-01-23' })
   assert.deepEqual(filingDue('2026-12', 'wht'), { paper: '2027-01-07', online: '2027-01-15' })

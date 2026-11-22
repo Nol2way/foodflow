@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-// รูป/วิดีโอเมนูเก็บใน Supabase Storage bucket 'menu-media' (อ่านได้สาธารณะ) · ดู 0013, 0014
+// รูป/วิดีโอเมนูเก็บใน Supabase Storage bucket 'menu-media' (อ่านได้สาธารณะ) / ดู 0013, 0014
 export const MEDIA_BUCKET = 'menu-media'
 export const MEDIA_MAX_MB = 50
 

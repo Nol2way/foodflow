@@ -1,6 +1,7 @@
+import { translateUi } from "../../lib/uiText"
 // แดชบอร์ดบัญชี 3 โหมด จากข้อมูลชุดเดียวกัน (acct_dashboard)
 //   ง่าย: เงินเข้า / เงินออก / คงเหลือ (มุมมองเงินสด ซื้อของ = รายจ่ายวันนั้น)
-//   มาตรฐาน: ยอดขาย - ต้นทุนอาหารที่ใช้จริง - ค่าใช้จ่าย = กำไร · Food/Prime Cost · ส่วนต่างสต็อก · ต้นทุนต่อจาน
+//   มาตรฐาน: ยอดขาย - ต้นทุนอาหารที่ใช้จริง - ค่าใช้จ่าย = กำไร / Food/Prime Cost / ส่วนต่างสต็อก / ต้นทุนต่อจาน
 //   มืออาชีพ: งบกำไรขาดทุนย่อ + ตรวจ perpetual + กระทบยอดสต็อก (สมุดรายวัน/งบเต็มอยู่ที่แท็บรายงาน)
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -35,7 +36,7 @@ interface MenuCost {
 
 function Change({ now, before, label }: { now: number; before: number; label: string }) {
   const c = changePct(now, before)
-  if (c === null) return <span className="text-gray-400">{label}: ยังไม่มีข้อมูลเทียบ</span>
+  if (c === null) return <span className="text-gray-400">{label}{translateUi(": ยังไม่มีข้อมูลเทียบ")}</span>
   return (
     <span className={c >= 0 ? 'text-emerald-700' : 'text-red-600'}>
       {c >= 0 ? '▲' : '▼'} {Math.abs(c).toFixed(1)}% {label}
@@ -69,7 +70,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="ช่วงเวลา">
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={translateUi("ช่วงเวลา")}>
         {PERIODS.map((p) => (
           <button
             key={p.key}
@@ -82,8 +83,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
           </button>
         ))}
         <span className="ml-auto self-center hint">
-          {s.from === s.to ? s.to : `${s.from} ถึง ${s.to}`} (เวลาร้าน)
-        </span>
+          {s.from === s.to ? s.to : `${s.from} ถึง ${s.to}`}{" " + translateUi("(เวลาร้าน)") + " "}</span>
       </div>
 
       {mode === 'simple' && <SimpleView s={s} />}
@@ -93,56 +93,56 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
           <div className="card">
             <div className="grid gap-3 text-center sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] sm:items-center">
               <div>
-                <div className="stat-label">ยอดขาย</div>
+                <div className="stat-label">{translateUi("ยอดขาย")}</div>
                 <div className="text-xl font-bold tabular-nums">{baht(m.netSales)}</div>
               </div>
               <span className="text-gray-400" aria-hidden>−</span>
               <div>
-                <div className="stat-label">ต้นทุนอาหารที่ใช้จริง</div>
+                <div className="stat-label">{translateUi("ต้นทุนอาหารที่ใช้จริง")}</div>
                 <div className="text-xl font-bold tabular-nums">{baht(m.foodCost)}</div>
               </div>
               <span className="text-gray-400" aria-hidden>−</span>
               <div>
-                <div className="stat-label">ค่าใช้จ่าย</div>
+                <div className="stat-label">{translateUi("ค่าใช้จ่าย")}</div>
                 <div className="text-xl font-bold tabular-nums">{baht(m.expenses)}</div>
               </div>
               <span className="text-gray-400" aria-hidden>=</span>
               <div>
-                <div className="stat-label">กำไร</div>
+                <div className="stat-label">{translateUi("กำไร")}</div>
                 <div className={`text-2xl font-bold tabular-nums ${m.netProfit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{baht(m.netProfit)}</div>
               </div>
             </div>
             <p className="mt-3 text-center hint">
-              {s.bills} บิล{s.cancelled_bills > 0 && ` · ยกเลิก ${s.cancelled_bills}`} · ส่วนลด {baht(s.discounts)} · เดือนนี้{' '}
-              <Change now={month.netProfit} before={prev.netProfit} label="กำไรเทียบเดือนก่อน" />
+              {s.bills}{" " + translateUi("บิล") + ""}{s.cancelled_bills > 0 && ` / ยกเลิก ${s.cancelled_bills}`}{" " + translateUi("/ ส่วนลด") + " "}{baht(s.discounts)}{" " + translateUi("/ เดือนนี้") + ""}{' '}
+              <Change now={month.netProfit} before={prev.netProfit} label={translateUi("กำไรเทียบเดือนก่อน")} />
             </p>
           </div>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <CostBar label="Food Cost %" value={m.foodCostPct} min={set.food_cost_target_min} max={set.food_cost_target_max} />
-            <CostBar label="Prime Cost % (อาหาร + ค่าแรง)" value={m.primeCostPct} min={set.prime_cost_target_min} max={set.prime_cost_target_max} />
+            <CostBar label={translateUi("Prime Cost % (อาหาร + ค่าแรง)")} value={m.primeCostPct} min={set.prime_cost_target_min} max={set.prime_cost_target_max} />
           </div>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Stat label="ต้นทุนตามสูตร" value={baht(s.cogs_recipe)} hint="ตัดสต็อกตามสูตรเมื่อครัวเริ่มทำ" />
+            <Stat label={translateUi("ต้นทุนตามสูตร")} value={baht(s.cogs_recipe)} hint={translateUi("ตัดสต็อกตามสูตรเมื่อครัวเริ่มทำ")} />
             <Stat
-              label="ส่วนต่างสต็อก"
+              label={translateUi("ส่วนต่างสต็อก")}
               value={baht(s.stock_variance)}
-              hint="นับขาด/เกิน ของเสีย ยกเลิกหลังทำ"
+              hint={translateUi("นับขาด/เกิน ของเสีย ยกเลิกหลังทำ")}
               tone={s.stock_variance > 0 ? 'bad' : undefined}
             />
-            <Stat label="ค่าแรง" value={baht(m.labor)} hint={`ค่าใช้จ่ายอื่น ${baht(m.opex)}`} />
+            <Stat label={translateUi("ค่าแรง")} value={baht(m.labor)} hint={`ค่าใช้จ่ายอื่น ${baht(m.opex)}`} />
           </div>
 
-          <Section title="ต้นทุนต่อจาน (ตามสูตรปัจจุบัน)">
+          <Section title={translateUi("ต้นทุนต่อจาน (ตามสูตรปัจจุบัน)")}>
             <div className="table-wrap">
               <table className="tbl text-left">
                 <thead>
                   <tr>
-                    <th>เมนู</th>
-                    <th className="text-right">ราคา</th>
-                    <th className="text-right">ต้นทุน</th>
-                    <th className="text-right">กำไร/จาน</th>
+                    <th>{translateUi("เมนู")}</th>
+                    <th className="text-right">{translateUi("ราคา")}</th>
+                    <th className="text-right">{translateUi("ต้นทุน")}</th>
+                    <th className="text-right">{translateUi("กำไร/จาน")}</th>
                     <th className="text-right">Food Cost</th>
                   </tr>
                 </thead>
@@ -164,9 +164,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
                     })}
                   {costs.every((c) => c.ingredient_count === 0) && (
                     <tr>
-                      <td colSpan={5} className="empty-cell">
-                        ยังไม่มีเมนูที่ใส่สูตร ใส่สูตรที่หน้าสต็อกเพื่อให้ระบบตัดต้นทุนอัตโนมัติ
-                      </td>
+                      <td colSpan={5} className="empty-cell">{"" + translateUi("ยังไม่มีเมนูที่ใส่สูตร ใส่สูตรที่หน้าสต็อกเพื่อให้ระบบตัดต้นทุนอัตโนมัติ") + " "}</td>
                     </tr>
                   )}
                 </tbody>
@@ -179,11 +177,11 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
       {mode === 'pro' && <ProView dash={dash} period={period} />}
 
       {!set.vat_registered && vat.level !== 'none' && (
-        <Section title="รายรับสะสมปีนี้ เทียบเกณฑ์จด VAT">
+        <Section title={translateUi("รายรับสะสมปีนี้ เทียบเกณฑ์จด VAT")}>
           <div className="card">
             <div className="flex justify-between text-sm">
               <span>{baht(ytdSales)}</span>
-              <span className="text-gray-500">เกณฑ์ ฿1,800,000</span>
+              <span className="text-gray-500">{translateUi("เกณฑ์ ฿1,800,000")}</span>
             </div>
             <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100">
               <div
@@ -192,22 +190,19 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
               />
             </div>
             <p className="mt-2 hint">
-              {vat.pct}% ของเกณฑ์ · รายรับเกิน 1.8 ล้านบาทต่อปีต้องจดทะเบียนภาษีมูลค่าเพิ่ม (ปรึกษานักบัญชี)
-            </p>
+              {vat.pct}{"" + translateUi("% ของเกณฑ์ / รายรับเกิน 1.8 ล้านบาทต่อปีต้องจดทะเบียนภาษีมูลค่าเพิ่ม (ปรึกษานักบัญชี)") + " "}</p>
           </div>
         </Section>
       )}
 
-      <p className="mt-4 hint">
-        สต็อก:{' '}
+      <p className="mt-4 hint">{translateUi("สต็อก:")}{' '}
         {dash.reconcile.ok ? (
-          <span className="text-emerald-700">มูลค่าในโมดูลสต็อก {baht(dash.reconcile.stock_value)} ตรงกับบัญชีสต็อก</span>
+          <span className="text-emerald-700">{"" + translateUi("มูลค่าในโมดูลสต็อก") + " "}{baht(dash.reconcile.stock_value)}{" " + translateUi("ตรงกับบัญชีสต็อก") + ""}</span>
         ) : (
-          <span className="font-semibold text-red-600">
-            มูลค่าในโมดูลสต็อก {baht(dash.reconcile.stock_value)} ≠ บัญชีสต็อก {baht(dash.reconcile.ledger_value)}
+          <span className="font-semibold text-red-600">{"" + translateUi("มูลค่าในโมดูลสต็อก") + " "}{baht(dash.reconcile.stock_value)}{" " + translateUi("≠ บัญชีสต็อก") + " "}{baht(dash.reconcile.ledger_value)}
           </span>
         )}
-        {dash.last_close && ` · ปิดวันล่าสุด ${dash.last_close}`}
+        {dash.last_close && ` / ปิดวันล่าสุด ${dash.last_close}`}
       </p>
     </div>
   )
@@ -218,11 +213,11 @@ function SimpleView({ s }: { s: Dashboard['periods'][PeriodKey] }) {
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="เงินเข้า" value={<span className="text-emerald-700">{baht(c.in)}</span>} hint={`${s.bills} บิล`} />
-        <Stat label="เงินออก" value={<span className="text-red-600">{baht(c.out)}</span>} hint="ซื้อของ = รายจ่ายวันนั้น" />
-        <Stat label="คงเหลือ (เงินสด + ธนาคาร)" value={baht(c.balance)} hint={`ในลิ้นชัก ${baht(s.cash_drawer)}`} />
+        <Stat label={translateUi("เงินเข้า")} value={<span className="text-emerald-700">{baht(c.in)}</span>} hint={`${s.bills} บิล`} />
+        <Stat label={translateUi("เงินออก")} value={<span className="text-red-600">{baht(c.out)}</span>} hint={translateUi("ซื้อของ = รายจ่ายวันนั้น")} />
+        <Stat label={translateUi("คงเหลือ (เงินสด + ธนาคาร)")} value={baht(c.balance)} hint={`ในลิ้นชัก ${baht(s.cash_drawer)}`} />
       </div>
-      <Section title="เงินเข้า-ออกมาจากอะไร">
+      <Section title={translateUi("เงินเข้า-ออกมาจากอะไร")}>
         <ul className="list-card">
           {s.cash_by_source.map((r) => (
             <li key={r.source_type} className="flex justify-between gap-3 px-3 py-2.5">
@@ -232,7 +227,7 @@ function SimpleView({ s }: { s: Dashboard['periods'][PeriodKey] }) {
               </span>
             </li>
           ))}
-          {s.cash_by_source.length === 0 && <li className="empty-cell">ยังไม่มีเงินเข้า-ออกในช่วงนี้</li>}
+          {s.cash_by_source.length === 0 && <li className="empty-cell">{translateUi("ยังไม่มีเงินเข้า-ออกในช่วงนี้")}</li>}
         </ul>
       </Section>
     </>
@@ -246,7 +241,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div>
-        <h2 className="section-title">งบกำไรขาดทุน (ย่อ)</h2>
+        <h2 className="section-title">{translateUi("งบกำไรขาดทุน (ย่อ)")}</h2>
         <AmountTable
           rows={[
             ...s.sales_by_account.map((r) => ({ label: r.name, amount: r.amount, indent: true })),
@@ -261,11 +256,11 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
           ]}
         />
         <p className="mt-2 hint">
-          Food Cost {m.foodCostPct ?? '–'}% · Prime Cost {m.primeCostPct ?? '–'}% · ภาษีขาย {baht(s.vat_output)} · ภาษีซื้อ {baht(s.vat_input)}
+          Food Cost {m.foodCostPct ?? '-'}% / Prime Cost {m.primeCostPct ?? '-'}{"" + translateUi("% / ภาษีขาย") + " "}{baht(s.vat_output)}{" " + translateUi("/ ภาษีซื้อ") + " "}{baht(s.vat_input)}
         </p>
       </div>
       <div>
-        <h2 className="section-title">ต้นทุนขาย (perpetual)</h2>
+        <h2 className="section-title">{translateUi("ต้นทุนขาย (perpetual)")}</h2>
         <AmountTable
           rows={[
             { label: 'สต็อกต้นงวด', amount: k.opening },
@@ -278,7 +273,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
         <p className={`mt-2 text-xs ${k.matches ? 'text-emerald-700' : 'font-semibold text-red-600'}`}>
           {k.matches ? 'ตรงกัน: ต้นทุนขายจริง = ต้นงวด + ซื้อ − ปลายงวด' : 'ไม่ตรงกัน ให้ตรวจรายการปรับสต็อก'}
         </p>
-        <h2 className="section-title mt-5">เงินสดและธนาคาร</h2>
+        <h2 className="section-title mt-5">{translateUi("เงินสดและธนาคาร")}</h2>
         <AmountTable
           rows={[
             { label: 'ยอดต้นงวด', amount: s.cash_open },
@@ -287,9 +282,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
             { label: 'ยอดปลายงวด', amount: s.cash_close, strong: true },
           ]}
         />
-        <p className="mt-2 hint">
-          สมุดรายวัน บัญชีแยกประเภท งบดุล และงบกระแสเงินสดฉบับเต็ม อยู่ที่แท็บ "รายงาน" · <Money value={dash.reconcile.ledger_value} className="font-medium" /> = ยอดบัญชีสต็อก
-        </p>
+        <p className="mt-2 hint">{"" + translateUi("สมุดรายวัน บัญชีแยกประเภท งบดุล และงบกระแสเงินสดฉบับเต็ม อยู่ที่แท็บ \"รายงาน\" /") + " "}<Money value={dash.reconcile.ledger_value} className="font-medium" />{" " + translateUi("= ยอดบัญชีสต็อก") + " "}</p>
       </div>
     </div>
   )

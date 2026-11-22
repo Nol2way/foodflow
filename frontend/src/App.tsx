@@ -1,12 +1,18 @@
+import { translateUi } from "./lib/uiText"
 import { lazy, Suspense } from 'react'
-import { Link, Route, Routes } from 'react-router-dom'
+import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
 import { FullPageMessage } from './components/RequireRole'
+import RouteRecovery from './components/RouteRecovery'
+import DatabaseReady from './components/DatabaseReady'
 import { pageLoaders } from './pages/loaders'
+import { usePreferences } from './lib/preferences'
 
 // โหลดโค้ดของแต่ละหน้าเมื่อเปิดหน้านั้น (iPad/มือถือไม่ต้องโหลดทั้งแอปตั้งแต่แรก)
 const Home = lazy(pageLoaders['/'])
 const Pos = lazy(pageLoaders['/pos'])
+const TableMap = lazy(pageLoaders['/tables'])
+const Bills = lazy(pageLoaders['/bills'])
 const Kitchen = lazy(pageLoaders['/kitchen'])
 const Counter = lazy(pageLoaders['/counter'])
 const Serve = lazy(pageLoaders['/serve'])
@@ -21,6 +27,8 @@ const PromotionsPage = lazy(pageLoaders['/promotions'])
 const Display = lazy(pageLoaders['/display'])
 const Settings = lazy(pageLoaders['/settings'])
 const Members = lazy(pageLoaders['/members'])
+const Privacy = lazy(pageLoaders['/privacy'])
+const Audit = lazy(pageLoaders['/audit'])
 const Report = lazy(pageLoaders['/report'])
 const StockHistory = lazy(pageLoaders['/stock-history'])
 const StockCount = lazy(pageLoaders['/stock-count'])
@@ -30,17 +38,19 @@ const StockYield = lazy(pageLoaders['/stock-yield'])
 const StockSetup = lazy(pageLoaders['/stock-setup'])
 
 export default function App() {
+  usePreferences()
+  const { pathname } = useLocation()
   return (
     <>
       {!isConfigured && !window.location.pathname.startsWith('/display/') && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">
-          ยังไม่ได้ตั้งค่า Supabase: สร้างไฟล์ <code>.env</code> จาก <code>.env.example</code> แล้วรัน <code>npm run dev</code> ใหม่
-        </div>
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">{"" + translateUi("ยังไม่ได้ตั้งค่า Supabase: สร้างไฟล์") + " "}<code>.env</code>{" " + translateUi("จาก") + " "}<code>.env.example</code>{" " + translateUi("แล้วรัน") + " "}<code>npm run dev</code>{" " + translateUi("ใหม่") + " "}</div>
       )}
-      <Suspense fallback={<FullPageMessage>กำลังโหลด...</FullPageMessage>}>
+      <RouteRecovery><DatabaseReady key={pathname}><Suspense fallback={<FullPageMessage>{translateUi("กำลังโหลด...")}</FullPageMessage>}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/pos" element={<Pos />} />
+          <Route path="/tables" element={<TableMap />} />
+          <Route path="/bills" element={<Bills />} />
           <Route path="/login" element={<Login />} />
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/kitchen" element={<Kitchen />} />
@@ -60,6 +70,8 @@ export default function App() {
           <Route path="/promotions" element={<PromotionsPage />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/members" element={<Members />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/audit" element={<Audit />} />
           <Route path="/report" element={<Report />} />
           {/* จอ iPad สาธารณะ: ไม่ต้องล็อกอิน ใช้ลิงก์ลับของร้าน */}
           <Route path="/display/:token" element={<Display />} />
@@ -68,16 +80,14 @@ export default function App() {
             element={
               <FullPageMessage>
                 <div>
-                  <p className="text-lg strong-text">ไม่พบหน้านี้</p>
-                  <Link className="link mt-2 inline-block" to="/">
-                    กลับหน้าแรก
-                  </Link>
+                  <p className="text-lg strong-text">{translateUi("ไม่พบหน้านี้")}</p>
+                  <Link className="link mt-2 inline-block" to="/">{"" + translateUi("กลับหน้าแรก") + " "}</Link>
                 </div>
               </FullPageMessage>
             }
           />
         </Routes>
-      </Suspense>
+      </Suspense></DatabaseReady></RouteRecovery>
     </>
   )
 }

@@ -1,5 +1,6 @@
+import { translateUi } from "../../lib/uiText"
 // แท็บภาษีในหน้ารายงานบัญชี
-//   TaxDocsView: เอกสารภาษีขาย ABB / TAX / CN · ยืนยันฉบับร่าง (ออกเลข + สร้าง XML ETDA ในฐานข้อมูล) · พิมพ์ · ดาวน์โหลด XML
+//   TaxDocsView: เอกสารภาษีขาย ABB / TAX / CN / ยืนยันฉบับร่าง (ออกเลข + สร้าง XML ETDA ในฐานข้อมูล) / พิมพ์ / ดาวน์โหลด XML
 //   RdTaxView:   รายงานภาษีขาย / ภาษีซื้อ / สรุป ภ.พ.30 / ภ.ง.ด.3-53 รายเดือน + ส่งออก CSV
 // ทำงานกับ backend ของร้านเท่านั้น ไม่ส่งข้อมูลไปกรมสรรพากรหรือระบบภายนอก (ยื่นแบบเองจากไฟล์ที่ส่งออก)
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -85,7 +86,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
     setBusyId(d.id)
     try {
       const doc = await confirmDocument(restaurantId, d.id, setup.terminal.terminal_code)
-      setMsg({ ok: true, text: `ยืนยัน${TAX_DOC_LABEL[d.doc_type]} เลขที่ ${doc.doc_number} แล้ว · สร้างไฟล์ XML (ETDA) เรียบร้อย` })
+      setMsg({ ok: true, text: `ยืนยัน${TAX_DOC_LABEL[d.doc_type]} เลขที่ ${doc.doc_number} แล้ว / สร้างไฟล์ XML (ETDA) เรียบร้อย` })
       await load()
     } catch (e) {
       setMsg({ ok: false, text: apiMessage(e) })
@@ -116,7 +117,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
 
       <div className="grid gap-3 lg:grid-cols-[1fr_20rem]">
         <div className="card">
-          <h3 className="font-semibold">ความพร้อมออกใบกำกับภาษี / e-Tax</h3>
+          <h3 className="font-semibold">{translateUi("ความพร้อมออกใบกำกับภาษี / e-Tax")}</h3>
           <ul className="mt-2 space-y-1 text-sm">
             {readiness.map((r) => (
               <li key={r.text} className="flex items-start gap-2">
@@ -126,51 +127,45 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
             ))}
           </ul>
           {setup.seller && (
-            <p className="mt-3 hint">
-              ผู้ขาย: {setup.seller.company_name} · {formatTaxId(setup.seller.tax_id)} · {branchLabel(setup.seller.branch_code)}
+            <p className="mt-3 hint">{"" + translateUi("ผู้ขาย:") + " "}{setup.seller.company_name} / {formatTaxId(setup.seller.tax_id)} / {branchLabel(setup.seller.branch_code)}
             </p>
           )}
-          <p className="mt-2 hint">
-            XML สร้างตามโครงสร้าง ETDA (ขมธอ.3-2560) ตอนยืนยัน: TypeCode ใบอย่างย่อ {ETDA_TYPE_CODE.ABB} · ใบเสร็จ/ใบกำกับภาษี {ETDA_TYPE_CODE.TAX} · ใบลดหนี้ {ETDA_TYPE_CODE.CN} ·
-            ระบบไม่ส่งไฟล์ให้กรมสรรพากรเอง ควรตรวจกับ XSD และลงลายมือชื่ออิเล็กทรอนิกส์ก่อนยื่นจริง
-          </p>
+          <p className="mt-2 hint">{"" + translateUi("XML สร้างตามโครงสร้าง ETDA (ขมธอ.3-2560) ตอนยืนยัน: TypeCode ใบอย่างย่อ") + " "}{ETDA_TYPE_CODE.ABB}{" " + translateUi("/ ใบเสร็จ/ใบกำกับภาษี") + " "}{ETDA_TYPE_CODE.TAX}{" " + translateUi("/ ใบลดหนี้") + " "}{ETDA_TYPE_CODE.CN}{" " + translateUi("/ ระบบไม่ส่งไฟล์ให้กรมสรรพากรเอง ควรตรวจกับ XSD และลงลายมือชื่ออิเล็กทรอนิกส์ก่อนยื่นจริง") + " "}</p>
         </div>
         <div className="card">
           <TerminalPicker setup={setup} />
-          <p className="mt-2 hint">เลขที่เอกสารออกตามเครื่องที่เลือกตอนกดยืนยัน</p>
+          <p className="mt-2 hint">{translateUi("เลขที่เอกสารออกตามเครื่องที่เลือกตอนกดยืนยัน")}</p>
         </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="ฉบับร่าง" value={totals.count.draft} tone={totals.count.draft > 0 ? 'bad' : undefined} hint="รอยืนยัน" />
-        <Stat label="ยืนยันแล้ว" value={totals.count.confirmed} hint={`ABB ${totals.byType.ABB} · TAX ${totals.byType.TAX} · CN ${totals.byType.CN}`} />
-        <Stat label="ยอดรวม (สุทธิใบลดหนี้)" value={<Money value={totals.total} />} />
-        <Stat label="ภาษีขาย (สุทธิ)" value={<Money value={totals.vat} />} />
+        <Stat label={translateUi("ฉบับร่าง")} value={totals.count.draft} tone={totals.count.draft > 0 ? 'bad' : undefined} hint={translateUi("รอยืนยัน")} />
+        <Stat label={translateUi("ยืนยันแล้ว")} value={totals.count.confirmed} hint={`ABB ${totals.byType.ABB} / TAX ${totals.byType.TAX} / CN ${totals.byType.CN}`} />
+        <Stat label={translateUi("ยอดรวม (สุทธิใบลดหนี้)")} value={<Money value={totals.total} />} />
+        <Stat label={translateUi("ภาษีขาย (สุทธิ)")} value={<Money value={totals.vat} />} />
       </div>
 
       <Section
-        title="รายการเอกสารภาษี"
+        title={translateUi("รายการเอกสารภาษี")}
         action={
           <div className="flex flex-wrap gap-2 text-sm">
-            <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TaxDocType | '')} aria-label="ประเภทเอกสาร">
-              <option value="">ทุกประเภท</option>
+            <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TaxDocType | '')} aria-label={translateUi("ประเภทเอกสาร")}>
+              <option value="">{translateUi("ทุกประเภท")}</option>
               {(Object.keys(TAX_DOC_LABEL) as TaxDocType[]).map((t) => (
                 <option key={t} value={t}>
-                  {t} · {TAX_DOC_LABEL[t]}
+                  {t} / {TAX_DOC_LABEL[t]}
                 </option>
               ))}
             </select>
-            <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TaxDocStatus | '')} aria-label="สถานะ">
-              <option value="">ทุกสถานะ</option>
+            <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TaxDocStatus | '')} aria-label={translateUi("สถานะ")}>
+              <option value="">{translateUi("ทุกสถานะ")}</option>
               {(Object.keys(TAX_DOC_STATUS_LABEL) as TaxDocStatus[]).map((s) => (
                 <option key={s} value={s}>
                   {TAX_DOC_STATUS_LABEL[s]}
                 </option>
               ))}
             </select>
-            <button className="btn btn-secondary btn-sm" onClick={() => void load()} disabled={loading}>
-              รีเฟรช
-            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => void load()} disabled={loading}>{"" + translateUi("รีเฟรช") + " "}</button>
           </div>
         }
       >
@@ -178,12 +173,12 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
           <table className="tbl">
             <thead>
               <tr>
-                <th className="text-left">ประเภท / เลขที่</th>
-                <th className="text-left">สถานะ</th>
-                <th className="text-left">ผู้ซื้อ</th>
+                <th className="text-left">{translateUi("ประเภท / เลขที่")}</th>
+                <th className="text-left">{translateUi("สถานะ")}</th>
+                <th className="text-left">{translateUi("ผู้ซื้อ")}</th>
                 <th className="text-right">VAT</th>
-                <th className="text-right">ยอดรวม</th>
-                <th className="text-right">การทำงาน</th>
+                <th className="text-right">{translateUi("ยอดรวม")}</th>
+                <th className="text-right">{translateUi("การทำงาน")}</th>
               </tr>
             </thead>
             <tbody>
@@ -196,11 +191,11 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
                       <span className={`badge ${TYPE_BADGE[d.doc_type]}`}>{d.doc_type}</span>{' '}
                       <span className="font-mono">{d.doc_number ?? '(ยังไม่มีเลขที่)'}</span>
                       <div className="hint">
-                        {TAX_DOC_LABEL[d.doc_type]} · {d.issue_date ?? `สร้าง ${thaiDateTime(d.created_at)}`}
-                        {d.terminal_code && ` · ${d.terminal_code}`}
+                        {TAX_DOC_LABEL[d.doc_type]} / {d.issue_date ?? `สร้าง ${thaiDateTime(d.created_at)}`}
+                        {d.terminal_code && ` / ${d.terminal_code}`}
                       </div>
-                      {d.ref_document_id && <div className="hint">อ้างอิง {numberOf.get(d.ref_document_id) ?? 'เอกสารนอกช่วงวันที่'}</div>}
-                      {d.credit_note_reason && <div className="hint">เหตุผล: {d.credit_note_reason}</div>}
+                      {d.ref_document_id && <div className="hint">{"" + translateUi("อ้างอิง") + " "}{numberOf.get(d.ref_document_id) ?? 'เอกสารนอกช่วงวันที่'}</div>}
+                      {d.credit_note_reason && <div className="hint">{"" + translateUi("เหตุผล:") + " "}{d.credit_note_reason}</div>}
                     </td>
                     <td>
                       <span className={`badge ${STATUS_BADGE[d.status]}`}>{TAX_DOC_STATUS_LABEL[d.status]}</span>
@@ -211,7 +206,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
                       {d.buyer_name ?? (d.doc_type === 'ABB' ? 'ขายปลีก' : '-')}
                       {d.buyer_tax_id && (
                         <div className="hint">
-                          {formatTaxId(d.buyer_tax_id)} · {branchLabel(d.buyer_branch_code)}
+                          {formatTaxId(d.buyer_tax_id)} / {branchLabel(d.buyer_branch_code)}
                         </div>
                       )}
                     </td>
@@ -241,24 +236,18 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
               })}
               {!loading && shown.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="empty-cell">
-                    ไม่มีเอกสารภาษีในช่วงนี้
-                  </td>
+                  <td colSpan={6} className="empty-cell">{"" + translateUi("ไม่มีเอกสารภาษีในช่วงนี้") + " "}</td>
                 </tr>
               )}
               {loading && (
                 <tr>
-                  <td colSpan={6} className="empty-cell">
-                    กำลังโหลด...
-                  </td>
+                  <td colSpan={6} className="empty-cell">{"" + translateUi("กำลังโหลด...") + " "}</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <p className="mt-2 hint">
-          ช่วงวันที่ {from} ถึง {to} (ตามวันที่ออกเอกสาร) · ฉบับร่างแสดงทั้งหมด · เอกสารที่ยืนยันแล้วแก้ไม่ได้ ให้ออกใบลดหนี้แทน
-        </p>
+        <p className="mt-2 hint">{"" + translateUi("ช่วงวันที่") + " "}{from}{" " + translateUi("ถึง") + " "}{to}{" " + translateUi("(ตามวันที่ออกเอกสาร) / ฉบับร่างแสดงทั้งหมด / เอกสารที่ยืนยันแล้วแก้ไม่ได้ ให้ออกใบลดหนี้แทน") + " "}</p>
       </Section>
 
       {printId && <Receipt documentId={printId} onClose={() => setPrintId(null)} />}
@@ -337,10 +326,10 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
       {error && <p className="alert-error">{error}</p>}
       <div className="mb-4 toolbar">
         <label className="flex items-center gap-2 text-sm">
-          <span>เดือนภาษี</span>
+          <span>{translateUi("เดือนภาษี")}</span>
           <input className="input" type="month" value={month} max={monthOf(today)} onChange={(e) => e.target.value && setMonth(e.target.value)} />
         </label>
-        <div className="flex flex-wrap gap-1" role="tablist" aria-label="รายงานภาษี">
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label={translateUi("รายงานภาษี")}>
           {RD_PARTS.map((p) => (
             <button
               key={p.key}
@@ -353,11 +342,11 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
             </button>
           ))}
         </div>
-        {loading && <span className="text-xs text-gray-400">กำลังโหลด...</span>}
+        {loading && <span className="text-xs text-gray-400">{translateUi("กำลังโหลด...")}</span>}
       </div>
 
       {!seller && !loading && !error && (
-        <p className="note mb-4">ยังไม่ได้กรอกข้อมูลผู้ประกอบการ หัวรายงานจะว่าง (ตั้งค่า → ข้อมูลผู้ประกอบการ)</p>
+        <p className="note mb-4">{translateUi("ยังไม่ได้กรอกข้อมูลผู้ประกอบการ หัวรายงานจะว่าง (ตั้งค่า → ข้อมูลผู้ประกอบการ)")}</p>
       )}
 
       {part === 'pp30' && data.pp30 && (
@@ -366,7 +355,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
 
       {part === 'sales' && data.sales && (
         <Section
-          title={`รายงานภาษีขาย · ${data.sales.rows.length} รายการ`}
+          title={`รายงานภาษีขาย / ${data.sales.rows.length} รายการ`}
           action={<CsvButton onClick={() => void csv('sales-tax')} />}
         >
           <div className="table-wrap">
@@ -374,13 +363,13 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               <thead>
                 <tr>
                   <th className="text-right">#</th>
-                  <th className="text-left">วันที่</th>
-                  <th className="text-left">เลขที่</th>
-                  <th className="text-left">ผู้ซื้อ</th>
-                  <th className="text-right">มูลค่า</th>
-                  <th className="text-right">ยกเว้น/0%</th>
+                  <th className="text-left">{translateUi("วันที่")}</th>
+                  <th className="text-left">{translateUi("เลขที่")}</th>
+                  <th className="text-left">{translateUi("ผู้ซื้อ")}</th>
+                  <th className="text-right">{translateUi("มูลค่า")}</th>
+                  <th className="text-right">{translateUi("ยกเว้น/0%")}</th>
                   <th className="text-right">VAT</th>
-                  <th className="text-right">รวม</th>
+                  <th className="text-right">{translateUi("รวม")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -393,7 +382,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
                       {r.buyer_name}
                       {r.buyer_tax_id && (
                         <div className="hint">
-                          {formatTaxId(r.buyer_tax_id)} · {r.branch}
+                          {formatTaxId(r.buyer_tax_id)} / {r.branch}
                         </div>
                       )}
                       {r.note && <div className="hint">{r.note}</div>}
@@ -408,7 +397,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tbody>
               <tfoot>
                 <tr className="border-t-2 bg-gray-50 font-semibold">
-                  <td colSpan={4}>รวม</td>
+                  <td colSpan={4}>{translateUi("รวม")}</td>
                   <td className="text-right"><Money value={data.sales.totals.taxable} /></td>
                   <td className="text-right"><Money value={data.sales.totals.exempt} /></td>
                   <td className="text-right"><Money value={data.sales.totals.vat} /></td>
@@ -417,31 +406,29 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tfoot>
             </table>
           </div>
-          <p className="mt-2 hint">ใบอย่างย่อรวม 1 บรรทัดต่อวันต่อเครื่อง · ใบลดหนี้ติดลบ · ใบเต็มรูปที่ออกแทนใบอย่างย่อไม่นับยอดซ้ำ</p>
+          <p className="mt-2 hint">{translateUi("ใบอย่างย่อรวม 1 บรรทัดต่อวันต่อเครื่อง / ใบลดหนี้ติดลบ / ใบเต็มรูปที่ออกแทนใบอย่างย่อไม่นับยอดซ้ำ")}</p>
         </Section>
       )}
 
       {part === 'purchase' && data.purchase && (
         <Section
-          title={`รายงานภาษีซื้อ · ${data.purchase.rows.length} ใบกำกับ`}
+          title={`รายงานภาษีซื้อ / ${data.purchase.rows.length} ใบกำกับ`}
           action={<CsvButton onClick={() => void csv('purchase-tax')} />}
         >
           {data.purchase.without_invoice.count > 0 && (
-            <p className="alert-error">
-              มีรายจ่าย {data.purchase.without_invoice.count} รายการที่ใส่ภาษีซื้อ {baht(data.purchase.without_invoice.vat)} แต่ไม่มีใบกำกับภาษี · นำมาหักใน ภ.พ.30 ไม่ได้
-            </p>
+            <p className="alert-error">{"" + translateUi("มีรายจ่าย") + " "}{data.purchase.without_invoice.count}{" " + translateUi("รายการที่ใส่ภาษีซื้อ") + " "}{baht(data.purchase.without_invoice.vat)}{" " + translateUi("แต่ไม่มีใบกำกับภาษี / นำมาหักใน ภ.พ.30 ไม่ได้") + " "}</p>
           )}
           <div className="table-wrap">
             <table className="tbl-tight">
               <thead>
                 <tr>
                   <th className="text-right">#</th>
-                  <th className="text-left">วันที่ใบกำกับ</th>
-                  <th className="text-left">เลขที่</th>
-                  <th className="text-left">ผู้ขาย</th>
-                  <th className="text-right">มูลค่า</th>
+                  <th className="text-left">{translateUi("วันที่ใบกำกับ")}</th>
+                  <th className="text-left">{translateUi("เลขที่")}</th>
+                  <th className="text-left">{translateUi("ผู้ขาย")}</th>
+                  <th className="text-right">{translateUi("มูลค่า")}</th>
                   <th className="text-right">VAT</th>
-                  <th className="text-right">รวม</th>
+                  <th className="text-right">{translateUi("รวม")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -453,7 +440,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
                     <td>
                       {r.supplier_name}
                       <div className="hint">
-                        {formatTaxId(r.supplier_tax_id)} · {r.branch} · ลงบัญชี {thDate(r.posted_on)}
+                        {formatTaxId(r.supplier_tax_id)} / {r.branch}{" " + translateUi("/ ลงบัญชี") + " "}{thDate(r.posted_on)}
                       </div>
                     </td>
                     <td className="text-right"><Money value={r.value} /></td>
@@ -465,7 +452,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tbody>
               <tfoot>
                 <tr className="border-t-2 bg-gray-50 font-semibold">
-                  <td colSpan={4}>รวม</td>
+                  <td colSpan={4}>{translateUi("รวม")}</td>
                   <td className="text-right"><Money value={data.purchase.totals.value} /></td>
                   <td className="text-right"><Money value={data.purchase.totals.vat} /></td>
                   <td className="text-right"><Money value={data.purchase.totals.total} /></td>
@@ -473,41 +460,41 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tfoot>
             </table>
           </div>
-          <p className="mt-2 hint">จากรายจ่ายที่ติ๊ก "มีใบกำกับภาษีเต็มรูป" และยังไม่ยกเลิก (ตามวันที่จ่ายในเดือนนี้)</p>
+          <p className="mt-2 hint">{translateUi("จากรายจ่ายที่ติ๊ก \"มีใบกำกับภาษีเต็มรูป\" และยังไม่ยกเลิก (ตามวันที่จ่ายในเดือนนี้)")}</p>
         </Section>
       )}
 
       {part === 'wht' && data.wht && (
         <Section
-          title="สรุปภาษีหัก ณ ที่จ่าย"
+          title={translateUi("สรุปภาษีหัก ณ ที่จ่าย")}
           action={
             <div className="toolbar">
-              <select className="input" value={whtType} onChange={(e) => setWhtType(e.target.value as WhtForm | '')} aria-label="แบบ">
-                <option value="">ทั้ง ภ.ง.ด.3 และ 53</option>
-                <option value="pnd3">ภ.ง.ด.3 (บุคคลธรรมดา)</option>
-                <option value="pnd53">ภ.ง.ด.53 (นิติบุคคล)</option>
+              <select className="input" value={whtType} onChange={(e) => setWhtType(e.target.value as WhtForm | '')} aria-label={translateUi("แบบ")}>
+                <option value="">{translateUi("ทั้ง ภ.ง.ด.3 และ 53")}</option>
+                <option value="pnd3">{translateUi("ภ.ง.ด.3 (บุคคลธรรมดา)")}</option>
+                <option value="pnd53">{translateUi("ภ.ง.ด.53 (นิติบุคคล)")}</option>
               </select>
               <CsvButton onClick={() => void csv('wht', whtType || undefined)} />
             </div>
           }
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label={`ภ.ง.ด.3 · ${data.wht.summary.pnd3.count} ราย`} value={<Money value={data.wht.summary.pnd3.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd3.paid_amount)}`} />
-            <Stat label={`ภ.ง.ด.53 · ${data.wht.summary.pnd53.count} ราย`} value={<Money value={data.wht.summary.pnd53.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd53.paid_amount)}`} />
-            <Stat label="ภาษีที่ต้องนำส่งรวม" value={<Money value={data.wht.summary.total_wht} />} hint={`ยื่นภายใน ${thDate(whtDue.paper)} (ออนไลน์ ${thDate(whtDue.online)})`} />
+            <Stat label={`ภ.ง.ด.3 / ${data.wht.summary.pnd3.count} ราย`} value={<Money value={data.wht.summary.pnd3.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd3.paid_amount)}`} />
+            <Stat label={`ภ.ง.ด.53 / ${data.wht.summary.pnd53.count} ราย`} value={<Money value={data.wht.summary.pnd53.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd53.paid_amount)}`} />
+            <Stat label={translateUi("ภาษีที่ต้องนำส่งรวม")} value={<Money value={data.wht.summary.total_wht} />} hint={`ยื่นภายใน ${thDate(whtDue.paper)} (ออนไลน์ ${thDate(whtDue.online)})`} />
           </div>
           <div className="table-wrap mt-3">
             <table className="tbl-tight">
               <thead>
                 <tr>
                   <th className="text-right">#</th>
-                  <th className="text-left">แบบ</th>
-                  <th className="text-left">ผู้มีเงินได้</th>
-                  <th className="text-left">วันที่จ่าย</th>
-                  <th className="text-left">ประเภทเงินได้</th>
-                  <th className="text-right">อัตรา</th>
-                  <th className="text-right">เงินได้</th>
-                  <th className="text-right">ภาษีที่หัก</th>
+                  <th className="text-left">{translateUi("แบบ")}</th>
+                  <th className="text-left">{translateUi("ผู้มีเงินได้")}</th>
+                  <th className="text-left">{translateUi("วันที่จ่าย")}</th>
+                  <th className="text-left">{translateUi("ประเภทเงินได้")}</th>
+                  <th className="text-right">{translateUi("อัตรา")}</th>
+                  <th className="text-right">{translateUi("เงินได้")}</th>
+                  <th className="text-right">{translateUi("ภาษีที่หัก")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -520,7 +507,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
                     <td>
                       {r.payee_name}
                       <div className="hint">
-                        {formatTaxId(r.payee_tax_id)} · {r.branch}
+                        {formatTaxId(r.payee_tax_id)} / {r.branch}
                       </div>
                     </td>
                     <td className="whitespace-nowrap">{thDate(r.paid_on)}</td>
@@ -534,13 +521,11 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tbody>
             </table>
           </div>
-          <p className="mt-2 hint">ฐานภาษี = ยอดก่อน VAT · ออกหนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) ให้ผู้รับเงินทุกครั้ง</p>
+          <p className="mt-2 hint">{translateUi("ฐานภาษี = ยอดก่อน VAT / ออกหนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) ให้ผู้รับเงินทุกครั้ง")}</p>
         </Section>
       )}
 
-      <p className="mt-6 text-xs text-gray-400">
-        รายงานสร้างจากข้อมูลในระบบเท่านั้น ไม่ได้ยื่นต่อกรมสรรพากรอัตโนมัติ · ไฟล์ CSV เป็น UTF-8 เปิดใน Excel ได้ · ควรให้นักบัญชีตรวจก่อนยื่นแบบ
-      </p>
+      <p className="mt-6 text-xs text-gray-400">{"" + translateUi("รายงานสร้างจากข้อมูลในระบบเท่านั้น ไม่ได้ยื่นต่อกรมสรรพากรอัตโนมัติ / ไฟล์ CSV เป็น UTF-8 เปิดใน Excel ได้ / ควรให้นักบัญชีตรวจก่อนยื่นแบบ") + " "}</p>
     </div>
   )
 }
@@ -549,7 +534,7 @@ function Pp30Card({ r, due, onCsv }: { r: Pp30Report; due: { paper: string; onli
   const s = r.summary
   const payable = s.vat_payable > 0
   return (
-    <Section title={`สรุปภาษีมูลค่าเพิ่ม (ภ.พ.30) · ${r.period.from} ถึง ${r.period.to}`} action={<CsvButton onClick={onCsv} />}>
+    <Section title={`สรุปภาษีมูลค่าเพิ่ม (ภ.พ.30) / ${r.period.from} ถึง ${r.period.to}`} action={<CsvButton onClick={onCsv} />}>
       <div className="grid gap-3 lg:grid-cols-[1fr_18rem]">
         <div className="card-flush">
           <table className="w-full text-sm">
@@ -571,26 +556,24 @@ function Pp30Card({ r, due, onCsv }: { r: Pp30Report; due: { paper: string; onli
           <div className={`stat-value ${payable ? 'text-red-600' : 'text-emerald-700'}`}>{baht(payable ? s.vat_payable : s.vat_credit)}</div>
           <dl className="mt-3 space-y-1 text-xs text-gray-600">
             <div className="flex justify-between">
-              <dt>รายการภาษีขาย</dt>
+              <dt>{translateUi("รายการภาษีขาย")}</dt>
               <dd>{r.counts.sales_lines}</dd>
             </div>
             <div className="flex justify-between">
-              <dt>ใบกำกับภาษีซื้อ</dt>
+              <dt>{translateUi("ใบกำกับภาษีซื้อ")}</dt>
               <dd>{r.counts.purchase_invoices}</dd>
             </div>
             <div className="flex justify-between">
-              <dt>ยื่นแบบกระดาษภายใน</dt>
+              <dt>{translateUi("ยื่นแบบกระดาษภายใน")}</dt>
               <dd>{thDate(due.paper)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt>ยื่นออนไลน์ภายใน</dt>
+              <dt>{translateUi("ยื่นออนไลน์ภายใน")}</dt>
               <dd>{thDate(due.online)}</dd>
             </div>
           </dl>
           {r.purchases_without_invoice.count > 0 && (
-            <p className="mt-3 text-xs text-amber-700">
-              ภาษีซื้อ {baht(r.purchases_without_invoice.vat)} จาก {r.purchases_without_invoice.count} รายจ่ายไม่มีใบกำกับภาษี จึงไม่นับในข้อ 6
-            </p>
+            <p className="mt-3 text-xs text-amber-700">{"" + translateUi("ภาษีซื้อ") + " "}{baht(r.purchases_without_invoice.vat)}{" " + translateUi("จาก") + " "}{r.purchases_without_invoice.count}{" " + translateUi("รายจ่ายไม่มีใบกำกับภาษี จึงไม่นับในข้อ 6") + " "}</p>
           )}
         </div>
       </div>
@@ -600,18 +583,14 @@ function Pp30Card({ r, due, onCsv }: { r: Pp30Report; due: { paper: string; onli
 
 function CsvButton({ onClick }: { onClick: () => void }) {
   return (
-    <button className="btn btn-secondary btn-sm" onClick={onClick}>
-      ส่งออก CSV
-    </button>
+    <button className="btn btn-secondary btn-sm" onClick={onClick}>{"" + translateUi("ส่งออก CSV") + " "}</button>
   )
 }
 
 function EmptyRow({ cols }: { cols: number }) {
   return (
     <tr>
-      <td colSpan={cols} className="empty-cell">
-        ไม่มีรายการในเดือนนี้
-      </td>
+      <td colSpan={cols} className="empty-cell">{"" + translateUi("ไม่มีรายการในเดือนนี้") + " "}</td>
     </tr>
   )
 }

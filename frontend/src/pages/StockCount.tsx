@@ -1,3 +1,5 @@
+import { translateUi } from "../lib/uiText"
+import { useLocalPagination } from '../components/Pagination'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RequireRole from '../components/RequireRole'
@@ -9,8 +11,8 @@ import { dateTime, errorText, stockApi, useLoad, type SheetItem } from '../lib/s
 import { COUNT_TYPES, fmtNum, round, type AbcClass, type CountType } from '../lib/stockMath'
 
 // นับสต็อกแบบ blind (submit_stock_count ใน 0029)
-//   ใบนับไม่แสดงยอดในระบบ/ยอดที่ควรเหลือ · เรียงตามตำแหน่งจัดเก็บ (เดินชั้นไหนนับชั้นนั้น) · กรองคลาส ABC
-//   กรอกเป็นหน่วยที่ครัวพูด (ถุง ฟอง) + เศษเป็นหน่วยฐาน · ช่องที่ไม่กรอก = ไม่ได้นับ (ไม่ปรับยอด)
+//   ใบนับไม่แสดงยอดในระบบ/ยอดที่ควรเหลือ / เรียงตามตำแหน่งจัดเก็บ (เดินชั้นไหนนับชั้นนั้น) / กรองคลาส ABC
+//   กรอกเป็นหน่วยที่ครัวพูด (ถุง ฟอง) + เศษเป็นหน่วยฐาน / ช่องที่ไม่กรอก = ไม่ได้นับ (ไม่ปรับยอด)
 //   บันทึกแล้วระบบปรับยอดเป็นยอดนับจริงทันที ผู้ตรวจ (เจ้าของ/ผู้จัดการ) รับรองภายหลัง
 
 interface Entry {
@@ -28,7 +30,7 @@ const toBaseQty = (i: SheetItem, e: Entry) =>
 const enteredText = (i: SheetItem, e: Entry) =>
   hasDisplay(i) ? [e.units && `${e.units} ${i.display_unit}`, e.loose && `${e.loose} ${i.unit}`].filter(Boolean).join(' + ') : ''
 
-// ร่างใบนับเก็บในเครื่อง (นับนานแล้วรีเฟรชไม่หาย) · ไม่มีที่เก็บก็ทำงานได้ปกติ
+// ร่างใบนับเก็บในเครื่อง (นับนานแล้วรีเฟรชไม่หาย) / ไม่มีที่เก็บก็ทำงานได้ปกติ
 const draftKey = (rid: string) => `plato.stockcount.${rid}`
 function loadDraft(rid: string): Record<string, Entry> {
   try {
@@ -96,14 +98,14 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
       {error && <p className="alert-error">{error}</p>}
       <div className="card mb-4 flex flex-wrap items-end gap-3">
         <label>
-          <span className="label">รอบการนับ</span>
+          <span className="label">{translateUi("รอบการนับ")}</span>
           <select className="input" value={kind} onChange={(e) => setKind(e.target.value as CountType)}>
             {(Object.keys(COUNT_TYPES) as CountType[]).map((k) => <option key={k} value={k}>{COUNT_TYPES[k]}</option>)}
           </select>
         </label>
         <div>
-          <span className="label">คลาส ABC (ไม่เลือก = ทั้งหมด)</span>
-          <div className="flex gap-1.5" role="group" aria-label="กรองคลาส ABC">
+          <span className="label">{translateUi("คลาส ABC (ไม่เลือก = ทั้งหมด)")}</span>
+          <div className="flex gap-1.5" role="group" aria-label={translateUi("กรองคลาส ABC")}>
             {ABC.map((c) => (
               <button key={c} type="button" aria-pressed={abc.includes(c)}
                 className={`h-10 w-10 rounded-xl border text-sm font-semibold ${abc.includes(c) ? 'border-charcoal bg-charcoal text-white' : 'bg-white text-gray-600'}`}
@@ -113,12 +115,12 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
             ))}
           </div>
         </div>
-        <p className="hint">A = มูลค่าสูง นับบ่อย (เช่น ทุกวัน) · C = นับรายเดือน</p>
-        <span className="ml-auto text-sm text-gray-600">นับแล้ว <strong>{done}</strong> / {items.length}</span>
+        <p className="hint">{translateUi("A = มูลค่าสูง นับบ่อย (เช่น ทุกวัน) / C = นับรายเดือน")}</p>
+        <span className="ml-auto text-sm text-gray-600">{"" + translateUi("นับแล้ว") + " "}<strong>{done}</strong> / {items.length}</span>
       </div>
 
       {sheet.error && <p className="alert-error">{sheet.error}</p>}
-      {!sheet.loading && items.length === 0 && <Empty>ไม่มีวัตถุดิบในคลาสที่เลือก</Empty>}
+      {!sheet.loading && items.length === 0 && <Empty>{translateUi("ไม่มีวัตถุดิบในคลาสที่เลือก")}</Empty>}
 
       <div className="space-y-5">
         {groups.map(([loc, list]) => (
@@ -141,9 +143,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
                     <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                       <Stepper label={i.name} unit={disp ? i.display_unit! : i.unit} step={1} value={e.units} onChange={(v) => set(i.ingredient_id, { units: v })} />
                       {disp && (
-                        <label className="flex items-center gap-1.5 text-sm text-gray-500">
-                          + เศษ
-                          <input className="input h-12 w-24 num" type="number" min="0" step="any" inputMode="decimal" placeholder="0"
+                        <label className="flex items-center gap-1.5 text-sm text-gray-500">{"" + translateUi("+ เศษ") + " "}<input className="input h-12 w-24 num" type="number" min="0" step="any" inputMode="decimal" placeholder="0"
                             value={e.loose} onChange={(ev) => set(i.ingredient_id, { loose: ev.target.value })} aria-label={`เศษ ${i.name} (${i.unit})`} />
                           {i.unit}
                         </label>
@@ -151,7 +151,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
                     </div>
                     {disp && <p className="mt-1 text-xs text-gray-400">1 {i.display_unit} = {fmtNum(Number(i.display_factor))} {i.unit}</p>}
                     {(openNote === i.ingredient_id || e.note) && (
-                      <input className="input mt-2 w-full" maxLength={200} placeholder="เหตุผล (ไม่บังคับ) เช่น ตกแตก หมดอายุทิ้ง"
+                      <input className="input mt-2 w-full" maxLength={200} placeholder={translateUi("เหตุผล (ไม่บังคับ) เช่น ตกแตก หมดอายุทิ้ง")}
                         value={e.note} onChange={(ev) => set(i.ingredient_id, { note: ev.target.value })} />
                     )}
                   </li>
@@ -164,8 +164,8 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
 
       {items.length > 0 && (
         <div className="sticky bottom-0 mt-4 -mx-4 toolbar border-t bg-surface/95 px-4 py-3 backdrop-blur">
-          <input className="input min-w-40 flex-1" maxLength={300} placeholder="หมายเหตุใบนับ" value={note} onChange={(e) => setNote(e.target.value)} />
-          {done > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('ล้างยอดที่กรอกทั้งหมด?') && setEntries({})}>ล้าง</button>}
+          <input className="input min-w-40 flex-1" maxLength={300} placeholder={translateUi("หมายเหตุใบนับ")} value={note} onChange={(e) => setNote(e.target.value)} />
+          {done > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('ล้างยอดที่กรอกทั้งหมด?') && setEntries({})}>{translateUi("ล้าง")}</button>}
           <button type="button" className="btn btn-primary" disabled={saving || done === 0} onClick={() => void submit()}>
             {saving ? 'กำลังบันทึก...' : `บันทึกใบนับ (${done})`}
           </button>
@@ -181,6 +181,7 @@ function CountList({ restaurantId, roles, justSaved }: { restaurantId: string; r
   const [error, setError] = useState<string | null>(null)
   const isOwner = roles.includes('owner')
   const canVerify = isOwner || roles.includes('manager')
+  const pagination = useLocalPagination(list.data?.counts ?? [], restaurantId + (justSaved ?? ''), translateUi('ใบนับย้อนหลัง'))
 
   async function verify(id: string) {
     try {
@@ -195,30 +196,30 @@ function CountList({ restaurantId, roles, justSaved }: { restaurantId: string; r
   return (
     <div>
       {justSaved && (
-        <p className="alert-success">
-          บันทึกใบนับแล้ว ยอดในระบบปรับเป็นยอดนับจริง · <Link className="link" to={`/stock-variance?count=${justSaved}`}>ดูรายงานส่วนต่าง</Link>
+        <p className="alert-success">{"" + translateUi("บันทึกใบนับแล้ว ยอดในระบบปรับเป็นยอดนับจริง /") + " "}<Link className="link" to={`/stock-variance?count=${justSaved}`}>{translateUi("ดูรายงานส่วนต่าง")}</Link>
         </p>
       )}
       {(error || list.error) && <p className="alert-error">{error ?? list.error}</p>}
-      {list.data && list.data.counts.length === 0 && <Empty>ยังไม่มีใบนับ</Empty>}
-      <ul className="list-card">
-        {(list.data?.counts ?? []).map((c) => {
+      {list.data && list.data.counts.length === 0 && <Empty>{translateUi("ยังไม่มีใบนับ")}</Empty>}
+      {pagination.controls}
+      <ul className="list-card history-scroll">
+        {pagination.items.map((c) => {
           const mine = c.counted_by === session?.user.id
           return (
             <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
               <span className="min-w-48 flex-1">
-                <span className="block font-medium text-gray-900">{dateTime(c.created_at)} · {COUNT_TYPES[c.count_type]}</span>
-                <span className="hint">ผู้นับ {c.counted_by_name ?? '-'} · {c.item_count} รายการ · ไม่ตรง {c.diff_count}</span>
+                <span className="block font-medium text-gray-900">{dateTime(c.created_at)} / {COUNT_TYPES[c.count_type]}</span>
+                <span className="hint">{"" + translateUi("ผู้นับ") + " "}{c.counted_by_name ?? '-'} / {c.item_count}{" " + translateUi("รายการ / ไม่ตรง") + " "}{c.diff_count}</span>
               </span>
               <span className={`tabular-nums ${Number(c.diff_value) < 0 ? 'text-red-700' : 'text-gray-700'}`}>{baht(Number(c.diff_value))}</span>
               {c.verified_at ? (
-                <span className="badge badge-green">รับรองแล้ว · {c.verified_by_name ?? '-'}</span>
+                <span className="badge badge-green">{"" + translateUi("รับรองแล้ว /") + " "}{c.verified_by_name ?? '-'}</span>
               ) : canVerify && (!mine || isOwner) ? (
-                <button className="btn btn-secondary btn-sm" onClick={() => void verify(c.id)}>รับรองใบนับ</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => void verify(c.id)}>{translateUi("รับรองใบนับ")}</button>
               ) : (
-                <span className="badge badge-gray">รอผู้ตรวจ</span>
+                <span className="badge badge-gray">{translateUi("รอผู้ตรวจ")}</span>
               )}
-              <Link className="link" to={`/stock-variance?count=${c.id}`}>ส่วนต่าง</Link>
+              <Link className="link" to={`/stock-variance?count=${c.id}`}>{translateUi("ส่วนต่าง")}</Link>
             </li>
           )
         })}
@@ -234,12 +235,12 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   return (
     <div className="page">
       <PageHead
-        title="นับสต็อก"
-        subtitle="นับแบบ blind: ไม่แสดงยอดในระบบ · เดินตามชั้นวาง · ช่องที่ไม่กรอก = ไม่ได้นับ"
+        title={translateUi("นับสต็อก")}
+        subtitle={translateUi("นับแบบ blind: ไม่แสดงยอดในระบบ / เดินตามชั้นวาง / ช่องที่ไม่กรอก = ไม่ได้นับ")}
         action={
           <>
-            <button className={chip(tab === 'count')} onClick={() => setTab('count')}>ใบนับ</button>
-            <button className={chip(tab === 'list')} onClick={() => setTab('list')}>ใบนับย้อนหลัง</button>
+            <button className={chip(tab === 'count')} onClick={() => setTab('count')}>{translateUi("ใบนับ")}</button>
+            <button className={chip(tab === 'list')} onClick={() => setTab('list')}>{translateUi("ใบนับย้อนหลัง")}</button>
           </>
         }
       />

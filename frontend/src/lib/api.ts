@@ -17,11 +17,11 @@ export class ApiError extends Error {
 
 export async function api<T = Record<string, unknown>>(
   path: string,
-  opts: { method?: string; body?: unknown; auth?: boolean } = {},
+  opts: { method?: string; body?: unknown; auth?: boolean; signal?: AbortSignal } = {},
 ): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = opts.auth !== false ? getToken() : null
   if (opts.auth !== false) {
-    const token = getToken()
     if (token) headers.Authorization = `Bearer ${token}`
   }
   let res: Response
@@ -29,6 +29,7 @@ export async function api<T = Record<string, unknown>>(
     res = await fetch(`${BASE}/api${path}`, {
       method: opts.method ?? (opts.body === undefined ? 'GET' : 'POST'),
       headers,
+      signal: opts.signal,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     })
   } catch {
@@ -36,7 +37,7 @@ export async function api<T = Record<string, unknown>>(
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
   // โทเคนหมดอายุหรือบัญชีถูกปิด: ออกจากระบบ หน้าเว็บจะพาไปหน้าล็อกอินเอง
-  if (res.status === 401 && opts.auth !== false) setSession(null)
+  if (res.status === 401 && token !== null && getToken() === token) setSession(null)
   if (!res.ok) throw new ApiError(res.status, data)
   return data as T
 }
@@ -51,7 +52,7 @@ export async function apiDownload(path: string, filename: string): Promise<void>
     throw new ApiError(0, { error: 'network', message: 'เชื่อมต่อ backend ไม่ได้' })
   }
   if (!res.ok) {
-    if (res.status === 401) setSession(null)
+    if (res.status === 401 && token !== null && getToken() === token) setSession(null)
     throw new ApiError(res.status, (await res.json().catch(() => ({}))) as Record<string, unknown>)
   }
   const url = URL.createObjectURL(await res.blob())

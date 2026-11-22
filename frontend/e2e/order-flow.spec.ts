@@ -6,7 +6,7 @@ import { USERS, login } from './helpers'
 test.describe.configure({ mode: 'serial' })
 
 const customer = `E2E-${Date.now().toString(36)}`
-const label = `กลับบ้าน · ${customer}`
+const label = `กลับบ้าน / ${customer}`
 const card = (page: Page) => page.locator('article').filter({ hasText: label })
 
 test('พนักงานหน้าร้าน: รับออเดอร์กลับบ้าน ส่งเข้าครัว', async ({ page }) => {

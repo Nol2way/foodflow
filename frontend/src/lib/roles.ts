@@ -34,12 +34,15 @@ export const PAGE_GROUPS: { id: PageGroup; title: string }[] = [
 ]
 
 export const STAFF_PAGES: StaffPage[] = [
+  { path: '/audit', group: 'admin', title: 'ประวัติการเปลี่ยนแปลง', label: 'ตรวจผู้ทำและรายการที่เปลี่ยน', icon: 'clock', roles: ['owner', 'manager'] },
+  { path: '/tables', group: 'front', title: 'ผังโต๊ะ', label: 'สถานะ ย้ายโต๊ะ รวมโต๊ะ และขอเช็คบิล', icon: 'table', roles: ['owner', 'staff', 'manager'] },
+  { path: '/bills', group: 'front', title: 'ประวัติบิล', label: 'ค้นหา แก้ แยกบิล และพิมพ์ซ้ำ', icon: 'counter', roles: ['owner', 'staff', 'manager'] },
   { path: '/pos', group: 'front', title: 'รับออเดอร์', label: 'เลือกโต๊ะ/กลับบ้าน แล้วส่งเข้าครัว', icon: 'pos', roles: ['owner', 'staff'] },
   { path: '/kitchen', group: 'front', title: 'หน้าจอครัว', label: 'ออเดอร์ใหม่ กำลังทำ พร้อมเสิร์ฟ', icon: 'kitchen', roles: ['owner', 'staff', 'kitchen'] },
   { path: '/serve', group: 'front', title: 'เสิร์ฟอาหาร', label: 'ส่งโต๊ะไหน เสิร์ฟอะไรแล้ว', icon: 'serve', roles: ['owner', 'staff'] },
   { path: '/counter', group: 'front', title: 'รับชำระเงิน', label: 'รวมบิลตามโต๊ะ รับชำระ', icon: 'counter', roles: ['owner', 'staff'] },
   { path: '/accounting', group: 'finance', title: 'บัญชี', label: 'กำไร รายจ่าย ปิดวัน งบการเงิน', icon: 'accounting', roles: ['owner', 'accountant', 'manager'] },
-  // สต็อกวัตถุดิบ (0027-0030): จัดการได้ owner / manager / stock · บัญชีอ่านอย่างเดียว
+  // สต็อกวัตถุดิบ (0027-0030): จัดการได้ owner / manager / stock / บัญชีอ่านอย่างเดียว
   { path: '/stock', group: 'stock', title: 'ภาพรวมสต็อก', label: 'ใกล้หมด หมด ใกล้หมดอายุ แนะนำสั่งวันนี้', icon: 'stock', roles: ['owner', 'manager', 'stock', 'accountant'] },
   { path: '/stock-receive', group: 'stock', title: 'รับเข้า', label: 'เลือกผู้ขาย จำนวน ราคา วันหมดอายุ', icon: 'import', roles: ['owner', 'manager', 'stock', 'accountant'] },
   { path: '/stock-count', group: 'stock', title: 'นับสต็อก', label: 'นับแบบ blind เรียงตามชั้นวาง', icon: 'check', roles: ['owner', 'manager', 'stock'] },
@@ -62,7 +65,7 @@ export const pagesFor = (mine: Role[]) => STAFF_PAGES.filter((p) => canAccess(mi
 // จัดหน้าเป็นหัวข้อตาม PAGE_GROUPS (ข้ามหัวข้อที่ไม่มีหน้าที่เข้าได้)
 export const groupPages = (pages: StaffPage[]) =>
   PAGE_GROUPS.map((g) => ({ ...g, pages: pages.filter((p) => p.group === g.id) })).filter((g) => g.pages.length > 0)
-export const roleLabels = (mine: Role[]) => mine.map((r) => ROLE_LABEL[r] ?? r).join(' · ')
+export const roleLabels = (mine: Role[]) => mine.map((r) => ROLE_LABEL[r] ?? r).join(' / ')
 
 export function rolesFor(path: string): Role[] {
   return STAFF_PAGES.find((p) => p.path === path)?.roles ?? []

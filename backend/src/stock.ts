@@ -1,4 +1,4 @@
-// API โมดูลสต็อกวัตถุดิบ (0027-0030) · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS + has_role ตรวจซ้ำ)
+// API โมดูลสต็อกวัตถุดิบ (0027-0030) / ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS + has_role ตรวจซ้ำ)
 // ยอดคงเหลือ/ต้นทุนมาจาก ledger + ล็อตในฐานข้อมูลเท่านั้น backend แค่ตรวจรูปแบบข้อมูลแล้วส่งต่อ
 // สูตรคำนวณใช้ร่วมกับหน้าเว็บ (frontend/src/lib/stockMath.ts)
 import type { Context, Hono } from 'hono'
@@ -48,7 +48,7 @@ const INGREDIENT: Record<string, Spec> = {
   count_weekly: { kind: 'bool' },
   is_active: { kind: 'bool' },
 }
-// สร้างใหม่เท่านั้น: หน่วยฐาน (เปลี่ยนไม่ได้หลังมีประวัติ) · ยอดยกมา + ราคาเริ่มต้นต่อหน่วยฐาน (กลายเป็นล็อตแรก)
+// สร้างใหม่เท่านั้น: หน่วยฐาน (เปลี่ยนไม่ได้หลังมีประวัติ) / ยอดยกมา + ราคาเริ่มต้นต่อหน่วยฐาน (กลายเป็นล็อตแรก)
 const INGREDIENT_CREATE: Record<string, Spec> = {
   recipe_unit: { kind: 'enum', values: ['g', 'ml', 'pcs'] },
   quantity_on_hand: { kind: 'num', min: 0, max: 100_000_000 },

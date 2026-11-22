@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import type { CSSProperties } from 'react'
@@ -23,7 +24,7 @@ import {
 } from '../lib/display'
 
 // จอแสดงผล iPad แบบแมกกาซีน: เปิดด้วยลิงก์ลับ /display/:token ไม่ต้องล็อกอิน
-// เนื้อหามาจาก display_content (0013–0015) และโหลดใหม่ทุกนาที (ราคา/เมนูหมด/โปรตามเวลา/การตั้งค่า)
+// เนื้อหามาจาก display_content (0013-0015) และโหลดใหม่ทุกนาที (ราคา/เมนูหมด/โปรตามเวลา/การตั้งค่า)
 // ?preview=1 = พรีวิวในหน้าจัดการเมนู: รับค่าตั้งค่าที่ยังไม่บันทึกผ่าน postMessage
 
 const REFRESH_MS = 60000
@@ -51,7 +52,7 @@ function useClock() {
   return now
 }
 
-// ไม่ให้ iPad ดับจอ (รองรับ iPadOS 16.4+) · ขอใหม่เมื่อกลับมาที่แท็บ
+// ไม่ให้ iPad ดับจอ (รองรับ iPadOS 16.4+) / ขอใหม่เมื่อกลับมาที่แท็บ
 function useWakeLock() {
   useEffect(() => {
     let lock: { release: () => Promise<void> } | null = null
@@ -141,7 +142,7 @@ function PromoSticker({ promo }: { promo: DisplayPromo }) {
       style={{ animationDelay: '900ms' }}
     >
       <div>
-        <div className="text-sm font-semibold tracking-wide md:text-base">ลด</div>
+        <div className="text-sm font-semibold tracking-wide md:text-base">{translateUi("ลด")}</div>
         <div className="text-3xl leading-none font-extrabold md:text-4xl">{promoHeadline(promo)}</div>
         <div className="mt-1 px-3 text-[11px] leading-tight opacity-90">{promo.name}</div>
       </div>
@@ -181,8 +182,8 @@ function ItemSlide({
       className="mag-rise mt-6 inline-flex items-baseline gap-2 rounded-2xl bg-white px-5 py-2 text-gray-900 shadow-xl"
       style={{ animationDelay: '650ms' }}
     >
-      <span className="text-sm font-medium text-gray-500">ราคา</span>
-      <span className="text-4xl font-extrabold tracking-tight tabular-nums md:text-5xl">{baht(item.price)}</span>
+      <span className="text-sm font-medium text-gray-500">{translateUi("ราคา")}</span>
+      <span className="text-4xl font-extrabold tracking-tight tabular-nums md:text-5xl">{baht(item.price)}{item.sold_by_weight ? ' /กก.' : ''}</span>
     </div>
   )
 
@@ -266,12 +267,8 @@ function PromoSlide({ promo }: { promo: DisplayPromo }) {
       )}
       <div className="mag-spin absolute -top-1/4 -right-1/4 h-[80vmax] w-[80vmax] rounded-full border-[3vmax] border-white/10" />
       <div className="relative flex h-full flex-col items-center justify-center p-8 text-center">
-        <div className="mag-rise rounded-full bg-white px-5 py-1.5 text-sm font-bold tracking-[0.25em] text-brand-700 uppercase md:text-base">
-          โปรโมชันวันนี้
-        </div>
-        <div className="mag-pop mt-6 text-2xl font-bold md:text-4xl" style={{ animationDelay: '200ms' }}>
-          ลด
-        </div>
+        <div className="mag-rise rounded-full bg-white px-5 py-1.5 text-sm font-bold tracking-[0.25em] text-brand-700 uppercase md:text-base">{"" + translateUi("โปรโมชันวันนี้") + " "}</div>
+        <div className="mag-pop mt-6 text-2xl font-bold md:text-4xl" style={{ animationDelay: '200ms' }}>{"" + translateUi("ลด") + " "}</div>
         <div
           className="mag-zoom text-[24vw] leading-[0.9] font-extrabold tracking-tighter tabular-nums drop-shadow-xl md:text-[18vw]"
           style={{ animationDelay: '300ms' }}
@@ -346,8 +343,7 @@ function CoverSlide({ content, now, tagline }: { content: DisplayContent; now: D
       </div>
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/80" />
       <div className="relative flex h-full flex-col justify-end p-8 pb-16 md:p-16 md:pb-24">
-        <div className="mag-rise text-sm font-semibold tracking-[0.35em] text-brand-300 uppercase md:text-lg">
-          ฉบับวันที่ {now.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+        <div className="mag-rise text-sm font-semibold tracking-[0.35em] text-brand-300 uppercase md:text-lg">{"" + translateUi("ฉบับวันที่") + " "}{now.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
         </div>
         <h1
           className="mag-rise mt-3 text-6xl leading-none font-extrabold tracking-tight md:text-8xl lg:text-9xl"
@@ -359,7 +355,7 @@ function CoverSlide({ content, now, tagline }: { content: DisplayContent; now: D
         <p className="mag-rise mt-6 text-xl text-white/85 md:text-3xl" style={{ animationDelay: '550ms' }}>
           {tagline ||
             (content.items.length > 0
-              ? `เมนูแนะนำ ${content.items.length} รายการ${content.promotions.length ? ` · โปรวันนี้ ${content.promotions.length} รายการ` : ''}`
+              ? `เมนูแนะนำ ${content.items.length} รายการ${content.promotions.length ? ` / โปรวันนี้ ${content.promotions.length} รายการ` : ''}`
               : content.promotions.length
                 ? `โปรวันนี้ ${content.promotions.length} รายการ`
                 : 'ยังไม่มีเมนูแนะนำ (ตั้งได้ที่หน้าจัดการเมนู)')}
@@ -382,7 +378,7 @@ export default function Display() {
   const [index, setIndex] = useState(0)
   const [round, setRound] = useState(0) // เล่นครบรอบแล้วเปลี่ยนสื่อของเมนูที่มีหลายชิ้น
   const [videoSeconds, setVideoSeconds] = useState<number | undefined>()
-  // หยุดแบบสตอรี่ IG: กดค้าง = หยุดจนกว่าจะปล่อย · ปุ่ม ❚❚ = หยุดค้างไว้จนกดเล่นต่อ
+  // หยุดแบบสตอรี่ IG: กดค้าง = หยุดจนกว่าจะปล่อย / ปุ่ม ❚❚ = หยุดค้างไว้จนกดเล่นต่อ
   const [holding, setHolding] = useState(false)
   const [stopped, setStopped] = useState(false)
   const paused = holding || stopped
@@ -390,21 +386,39 @@ export default function Display() {
   const rootRef = useRef<HTMLDivElement>(null)
   useWakeLock()
 
+  const request = useRef(0)
+  const lastValid = useRef(0)
+  const tokenRef = useRef(token)
+  tokenRef.current = token
+  const [contentToken, setContentToken] = useState(token)
   const load = useCallback(async () => {
+    const seq = ++request.current
     const { data, error } = await supabase.rpc('display_content', { p_token: token })
-    if (error) return setState((s) => (s === 'ok' ? s : 'error')) // เน็ตหลุด: แสดงของเดิมต่อ
+    if (seq !== request.current || tokenRef.current !== token) return
+    if (error) { setContent(null); return setState('error') } // เน็ตหลุด: แสดงของเดิมต่อ
     if (!data) {
       setContent(null)
       return setState('invalid')
     }
+    setContentToken(token)
+    lastValid.current = Date.now()
     setContent(data as DisplayContent)
     setState('ok')
   }, [token])
 
   useEffect(() => {
+    setContent(null)
+    setContentToken(token)
+    setState('loading')
     void load()
     const tick = setInterval(() => void load(), REFRESH_MS)
-    return () => clearInterval(tick)
+    const expiry = setInterval(() => {
+      if (lastValid.current && Date.now() - lastValid.current >= 60_000) {
+        setContent(null)
+        setState('error')
+      }
+    }, 1000)
+    return () => { request.current++; clearInterval(tick); clearInterval(expiry) }
   }, [load])
 
   // พรีวิว: รับค่าตั้งค่าจากหน้าจัดการ (ต้นทางเดียวกันเท่านั้น)
@@ -434,7 +448,7 @@ export default function Display() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, settings.showCover])
 
-  // เวลาที่เล่นไปแล้วของสไลด์นี้ (ไม่นับช่วงที่หยุด) · เปลี่ยนสไลด์ = เริ่มนับใหม่
+  // เวลาที่เล่นไปแล้วของสไลด์นี้ (ไม่นับช่วงที่หยุด) / เปลี่ยนสไลด์ = เริ่มนับใหม่
   const elapsedRef = useRef(0)
   useEffect(() => {
     keyRef.current = currentKey
@@ -471,7 +485,7 @@ export default function Display() {
     if (m?.kind === 'image') new Image().src = mediaSrc(m)
   }, [index, slides])
 
-  // คีย์บอร์ด: เว้นวรรค = หยุด/เล่น · ลูกศร = ก่อนหน้า/ถัดไป
+  // คีย์บอร์ด: เว้นวรรค = หยุด/เล่น / ลูกศร = ก่อนหน้า/ถัดไป
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === ' ') {
@@ -484,18 +498,20 @@ export default function Display() {
     return () => window.removeEventListener('keydown', onKey)
   }, [go])
 
-  // แตะแบบสตอรี่ IG: แตะซ้าย 1/3 = ย้อน · แตะขวา = ถัดไป · กดค้าง = หยุดจนปล่อย
-  const press = useRef<{ timer: number; held: boolean } | null>(null)
+  // แตะแบบสตอรี่ IG: แตะซ้าย 1/3 = ย้อน / แตะขวา = ถัดไป / กดค้าง = หยุดจนปล่อย
+  const press = useRef<{ timer: number; held: boolean; pointerId: number } | null>(null)
   function onPointerDown(e: ReactPointerEvent) {
-    if (e.button !== 0) return
+    if (e.button !== 0 || press.current) return
+    e.currentTarget.setPointerCapture(e.pointerId)
     const timer = window.setTimeout(() => {
       if (press.current) press.current.held = true
       setHolding(true)
     }, 220)
-    press.current = { timer, held: false }
+    press.current = { timer, held: false, pointerId: e.pointerId }
   }
   function onPointerUp(e: ReactPointerEvent) {
     const p = press.current
+    if (p?.pointerId !== e.pointerId) return
     press.current = null
     if (!p) return
     clearTimeout(p.timer)
@@ -509,6 +525,8 @@ export default function Display() {
     setHolding(false)
   }
 
+  useEffect(() => () => { if (press.current) clearTimeout(press.current.timer) }, [])
+
   function toggleFullscreen() {
     const el = rootRef.current as (HTMLDivElement & { webkitRequestFullscreen?: () => void }) | null
     const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void }
@@ -519,9 +537,9 @@ export default function Display() {
     else el?.webkitRequestFullscreen?.()
   }
 
-  if (state === 'loading') return <Screen text="กำลังโหลด..." />
-  if (state === 'invalid') return <Screen text="ลิงก์จอแสดงผลนี้ใช้ไม่ได้แล้ว ขอลิงก์ใหม่จากเจ้าของร้านหรือผู้จัดการ" />
-  if (state === 'error' || !content || !slide) return <Screen text="เชื่อมต่อไม่ได้ กำลังลองใหม่..." />
+  if (contentToken !== token || state === 'loading') return <Screen text={translateUi("กำลังโหลด...")} />
+  if (state === 'invalid') return <Screen text={translateUi("ลิงก์จอแสดงผลนี้ใช้ไม่ได้แล้ว ขอลิงก์ใหม่จากเจ้าของร้านหรือผู้จัดการ")} />
+  if (state === 'error' || !content || !slide) return <Screen text={translateUi("เชื่อมต่อไม่ได้ กำลังลองใหม่...")} />
 
   // ปุ่มบนแถบด้านบน: ไม่ให้การแตะปุ่มไปนับเป็นแตะเปลี่ยนสไลด์
   const stop = (e: ReactPointerEvent) => e.stopPropagation()
@@ -604,7 +622,7 @@ export default function Display() {
               )}
             </button>
             {!preview && (
-              <button type="button" className={iconBtn} onPointerDown={stop} onPointerUp={stop} onClick={toggleFullscreen} aria-label="เต็มจอ">
+              <button type="button" className={iconBtn} onPointerDown={stop} onPointerUp={stop} onClick={toggleFullscreen} aria-label={translateUi("เต็มจอ")}>
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                   <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
                 </svg>
@@ -617,9 +635,7 @@ export default function Display() {
       {/* หยุดค้างไว้: บอกให้รู้ว่ายังไม่เล่นต่อ */}
       {stopped && !holding && (
         <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
-          <span className="rounded-full bg-black/60 px-4 py-2 text-sm text-white backdrop-blur">
-            หยุดชั่วคราว · แตะ ▶ เพื่อเล่นต่อ · แตะซ้าย/ขวาเพื่อเลื่อน
-          </span>
+          <span className="rounded-full bg-black/60 px-4 py-2 text-sm text-white backdrop-blur">{"" + translateUi("หยุดชั่วคราว / แตะ ▶ เพื่อเล่นต่อ / แตะซ้าย/ขวาเพื่อเลื่อน") + " "}</span>
         </div>
       )}
     </div>

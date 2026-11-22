@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { has, peek, put } from './cache'
 import type { ShopSettings } from './types'
@@ -16,15 +16,21 @@ export const DEFAULT_SHOP = (restaurantId: string): ShopSettings => ({
   line_to: null,
 })
 
-// ตั้งค่าร้าน (0017) · ยังไม่ได้รัน migration = null (หน้ารับชำระทำงานแบบเดิม)
+// ตั้งค่าร้าน (0017) / ยังไม่ได้รัน migration = null (หน้ารับชำระทำงานแบบเดิม)
 // จำไว้ข้ามหน้า: หน้ารับชำระ/ตั้งค่า เปิดแล้วใช้ได้ทันที (โหลดใหม่เบื้องหลัง)
 export function useShopSettings(restaurantId: string) {
   const key = `shop:${restaurantId}`
+  const sequence = useRef(0)
+  const [error, setError] = useState<string | null>(null)
   const [settings, setSettings] = useState<ShopSettings | null>(() => peek<ShopSettings | null>(key) ?? null)
   const [loaded, setLoaded] = useState(() => has(key))
   const reload = useCallback(async () => {
+    const seq = ++sequence.current
     const { data, error } = await supabase.from('shop_settings').select('*').eq('restaurant_id', restaurantId).maybeSingle()
-    const next = error ? null : data ? { ...(data as ShopSettings), loyalty_point_value: Number(data.loyalty_point_value) } : DEFAULT_SHOP(restaurantId)
+    if (seq !== sequence.current) return
+    if (error) { setError(error.message); setLoaded(true); return }
+    setError(null)
+    const next = data ? { ...(data as ShopSettings), loyalty_point_value: Number(data.loyalty_point_value) } : DEFAULT_SHOP(restaurantId)
     const hadPrev = has(key)
     const prev = peek<ShopSettings | null>(key)
     put(key, next)
@@ -35,6 +41,7 @@ export function useShopSettings(restaurantId: string) {
   }, [restaurantId, key])
   useEffect(() => {
     void reload()
+    return () => { sequence.current++ }
   }, [reload])
-  return { settings, loaded, reload }
+  return { settings, loaded, reload, error }
 }

@@ -4,7 +4,7 @@
 
 interface Entry {
   data?: unknown
-  at: number // เวลาที่ได้ข้อมูลล่าสุด (ms) · 0 = ยังไม่มี
+  at: number // เวลาที่ได้ข้อมูลล่าสุด (ms) / 0 = ยังไม่มี
   inflight?: Promise<unknown>
 }
 
@@ -20,7 +20,7 @@ export function has(key: string): boolean {
 }
 
 export function put<T>(key: string, data: T) {
-  const e = store.get(key) ?? { at: 0 }
+  const e: Entry = { at: 0 }
   e.data = data
   e.at = Date.now()
   store.delete(key) // ย้ายไปท้าย (ใช้ล่าสุด)
@@ -28,7 +28,7 @@ export function put<T>(key: string, data: T) {
   if (store.size > MAX_ENTRIES) store.delete(store.keys().next().value as string)
 }
 
-// ดึงข้อมูลผ่านแคช · maxAge > 0 และข้อมูลยังใหม่ = ไม่ยิงคำขอ · มีคำขอค้างอยู่ = ใช้ตัวเดิม
+// ดึงข้อมูลผ่านแคช / maxAge > 0 และข้อมูลยังใหม่ = ไม่ยิงคำขอ / มีคำขอค้างอยู่ = ใช้ตัวเดิม
 // force = ยิงใหม่เสมอ (เช่น หลังบันทึก ต้องได้ข้อมูลล่าสุด ไม่ใช่คำขอที่ค้างจากก่อนบันทึก)
 export function fetchCached<T>(key: string, load: () => Promise<T>, maxAge = 0, force = false): Promise<T> {
   const e = store.get(key)
@@ -37,7 +37,7 @@ export function fetchCached<T>(key: string, load: () => Promise<T>, maxAge = 0, 
   const entry = e ?? { at: 0 }
   const p: Promise<T> = load().then(
     (data) => {
-      if (entry.inflight && entry.inflight !== p) return data // มีคำขอใหม่กว่าแทนแล้ว: ไม่เขียนทับด้วยผลเก่า
+      if (store.get(key) !== entry || entry.inflight !== p) return data // มีคำขอใหม่กว่าแทนแล้ว: ไม่เขียนทับด้วยผลเก่า
       entry.inflight = undefined
       put(key, data)
       return data
@@ -54,10 +54,9 @@ export function fetchCached<T>(key: string, load: () => Promise<T>, maxAge = 0, 
 
 // ลบแคชที่ขึ้นต้นด้วย prefix (ว่าง = ทั้งหมด) เช่น หลังบันทึกข้อมูล
 export function invalidate(prefix = '') {
-  for (const [k, e] of store) {
+  for (const [k] of store) {
     if (!k.startsWith(prefix)) continue
-    if (e.inflight) e.at = 0 // คำขอที่ค้างอยู่ยังเขียนผลได้ แต่ถือว่าเก่า
-    else store.delete(k)
+    store.delete(k)
   }
 }
 

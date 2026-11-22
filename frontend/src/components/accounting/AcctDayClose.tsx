@@ -1,3 +1,4 @@
+import { translateUi } from "../../lib/uiText"
 // ปิดวัน: ดูสรุปยอด -> นับเงินสดในลิ้นชัก -> ยืนยัน (เจ้าของ/ผู้จัดการ) -> ล็อกรายการของวัน + ส่งสรุปเข้า LINE
 // หลังปิดวัน แก้ได้เฉพาะกลับรายการ (เช่น เจ้าของยกเลิกบิลพร้อมเหตุผล)
 import { useCallback, useEffect, useState } from 'react'
@@ -101,7 +102,7 @@ export default function AcctDayClose({
       const r = await api<{ line: keyof typeof LINE_TEXT }>('/accounting/day-close', {
         body: { restaurant_id: restaurantId, date, counted_cash: Number(counted), note: note.trim() || null },
       })
-      setMsg({ ok: true, text: `ปิดวัน ${date} แล้ว · ${LINE_TEXT[r.line]}` })
+      setMsg({ ok: true, text: `ปิดวัน ${date} แล้ว / ${LINE_TEXT[r.line]}` })
       setCounted('')
       setNote('')
       void load()
@@ -135,74 +136,67 @@ export default function AcctDayClose({
     <div>
       {msg && <p className={msg.ok ? 'alert-success' : 'alert-error'}>{msg.text}</p>}
       <div className="mb-4 flex items-center gap-2">
-        <label className="label mb-0" htmlFor="dc-date">
-          วันที่
-        </label>
+        <label className="label mb-0" htmlFor="dc-date">{"" + translateUi("วันที่") + " "}</label>
         <input id="dc-date" className="input" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} />
-        {day?.closed && <span className="badge badge-green">ปิดวันแล้ว</span>}
+        {day?.closed && <span className="badge badge-green">{translateUi("ปิดวันแล้ว")}</span>}
       </div>
 
       {day && m && (
         <>
           <div className="grid gap-3 sm:grid-cols-4">
-            <Stat label="ยอดขายสุทธิ" value={baht(m.netSales)} hint={`${day.bills} บิล${day.cancelled_bills ? ` · ยกเลิก ${day.cancelled_bills}` : ''}`} />
-            <Stat label="ต้นทุนอาหาร" value={baht(m.foodCost)} hint={m.foodCostPct === null ? undefined : `${m.foodCostPct}% ของยอดขาย`} />
-            <Stat label="ค่าใช้จ่าย" value={baht(m.expenses)} />
-            <Stat label="กำไรวันนี้" value={baht(m.netProfit)} tone={m.netProfit < 0 ? 'bad' : 'good'} />
+            <Stat label={translateUi("ยอดขายสุทธิ")} value={baht(m.netSales)} hint={`${day.bills} บิล${day.cancelled_bills ? ` / ยกเลิก ${day.cancelled_bills}` : ''}`} />
+            <Stat label={translateUi("ต้นทุนอาหาร")} value={baht(m.foodCost)} hint={m.foodCostPct === null ? undefined : `${m.foodCostPct}% ของยอดขาย`} />
+            <Stat label={translateUi("ค่าใช้จ่าย")} value={baht(m.expenses)} />
+            <Stat label={translateUi("กำไรวันนี้")} value={baht(m.netProfit)} tone={m.netProfit < 0 ? 'bad' : 'good'} />
           </div>
 
           <div className="card mt-4">
-            <h2 className="section-title">นับเงินสดในลิ้นชัก</h2>
+            <h2 className="section-title">{translateUi("นับเงินสดในลิ้นชัก")}</h2>
             <div className="grid gap-3 sm:grid-cols-3">
               <div>
-                <div className="stat-label">เงินสดตามระบบ</div>
+                <div className="stat-label">{translateUi("เงินสดตามระบบ")}</div>
                 <div className="stat-value">{baht(day.system_cash)}</div>
-                <div className="hint">ยอดยกมา + ขายเงินสด − จ่ายเงินสด</div>
+                <div className="hint">{translateUi("ยอดยกมา + ขายเงินสด − จ่ายเงินสด")}</div>
               </div>
               {day.closed && day.close ? (
                 <>
                   <div>
-                    <div className="stat-label">นับได้จริง</div>
+                    <div className="stat-label">{translateUi("นับได้จริง")}</div>
                     <div className="stat-value">{baht(Number(day.close.counted_cash))}</div>
                   </div>
                   <div>
-                    <div className="stat-label">ส่วนต่าง</div>
+                    <div className="stat-label">{translateUi("ส่วนต่าง")}</div>
                     <div className={`stat-value ${Number(day.close.difference) < 0 ? 'text-red-600' : ''}`}>{baht(Number(day.close.difference))}</div>
-                    <div className="hint">
-                      ยืนยันโดย {day.close.confirmed_by_name ?? '-'} · {new Date(day.close.created_at).toLocaleString('th-TH')}
+                    <div className="hint">{"" + translateUi("ยืนยันโดย") + " "}{day.close.confirmed_by_name ?? '-'} / {new Date(day.close.created_at).toLocaleString('th-TH')}
                     </div>
                   </div>
                 </>
               ) : canClose ? (
                 <>
                   <div>
-                    <label className="label" htmlFor="dc-count">
-                      นับได้จริง (บาท)
-                    </label>
+                    <label className="label" htmlFor="dc-count">{"" + translateUi("นับได้จริง (บาท)") + " "}</label>
                     <input id="dc-count" className="input w-full text-lg" type="number" inputMode="decimal" min="0" step="0.01" value={counted} onChange={(e) => setCounted(e.target.value)} />
                   </div>
                   <div>
-                    <div className="stat-label">ส่วนต่าง</div>
+                    <div className="stat-label">{translateUi("ส่วนต่าง")}</div>
                     <div className={`stat-value ${diff !== null && diff < 0 ? 'text-red-600' : ''}`}>
-                      {diff === null ? '–' : diff === 0 ? 'ตรงยอด' : `${diff > 0 ? 'เกิน' : 'ขาด'} ${baht(Math.abs(diff))}`}
+                      {diff === null ? '-' : diff === 0 ? 'ตรงยอด' : `${diff > 0 ? 'เกิน' : 'ขาด'} ${baht(Math.abs(diff))}`}
                     </div>
                   </div>
                 </>
               ) : (
-                <p className="text-sm text-gray-500 sm:col-span-2">เจ้าของร้านหรือผู้จัดการเป็นผู้นับเงินและยืนยันปิดวัน</p>
+                <p className="text-sm text-gray-500 sm:col-span-2">{translateUi("เจ้าของร้านหรือผู้จัดการเป็นผู้นับเงินและยืนยันปิดวัน")}</p>
               )}
             </div>
             {!day.closed && canClose && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <input className="input min-w-0 flex-1" placeholder="หมายเหตุ (ไม่บังคับ)" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
+                <input className="input min-w-0 flex-1" placeholder={translateUi("หมายเหตุ (ไม่บังคับ)")} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
                 <button className="btn btn-primary" disabled={busy || counted === ''} onClick={() => void close()}>
                   {busy ? 'กำลังปิดวัน...' : 'ยืนยันและปิดวัน'}
                 </button>
               </div>
             )}
-            <p className="mt-2 hint">
-              ปิดวันแล้วจะล็อกรายการของวันนั้น บันทึกเพิ่มไม่ได้ (บิลที่จ่ายหลังปิดวันเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ · ส่วนต่างลงบัญชีเงินสดขาด/เกิน
-            </p>
+            <p className="mt-2 hint">{"" + translateUi("ปิดวันแล้วจะล็อกรายการของวันนั้น บันทึกเพิ่มไม่ได้ (บิลที่จ่ายหลังปิดวันเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ / ส่วนต่างลงบัญชีเงินสดขาด/เกิน") + " "}</p>
           </div>
         </>
       )}
@@ -213,15 +207,13 @@ export default function AcctDayClose({
             <li key={b.id} className={`p-3 ${b.reversed ? 'text-gray-400' : ''}`}>
               <div className="toolbar justify-between">
                 <span>
-                  #{b.entry_no} · {b.memo}
-                  {b.reversed && <span className="badge badge-red ml-2">ยกเลิกแล้ว</span>}
+                  #{b.entry_no} / {b.memo}
+                  {b.reversed && <span className="badge badge-red ml-2">{translateUi("ยกเลิกแล้ว")}</span>}
                 </span>
                 <span className="flex items-center gap-3">
                   <span className={`tabular-nums ${b.reversed ? 'line-through' : ''}`}>{baht(b.amount)}</span>
                   {isOwner && !b.reversed && (
-                    <button className="link-danger" onClick={() => setCancel({ orderId: b.source_id, reason: '' })}>
-                      ยกเลิกบิล
-                    </button>
+                    <button className="link-danger" onClick={() => setCancel({ orderId: b.source_id, reason: '' })}>{"" + translateUi("ยกเลิกบิล") + " "}</button>
                   )}
                 </span>
               </div>
@@ -229,38 +221,34 @@ export default function AcctDayClose({
                 <div className="mt-2 flex flex-wrap gap-2">
                   <input
                     className="input min-w-0 flex-1"
-                    placeholder="เหตุผลที่ยกเลิกบิล (บังคับ)"
+                    placeholder={translateUi("เหตุผลที่ยกเลิกบิล (บังคับ)")}
                     maxLength={200}
                     value={cancel.reason}
                     onChange={(e) => setCancel({ ...cancel, reason: e.target.value })}
                     autoFocus
                   />
-                  <button className="btn btn-danger btn-sm" onClick={() => void cancelBill()}>
-                    ยืนยันยกเลิกบิล
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setCancel(null)}>
-                    ไม่ยกเลิก
-                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => void cancelBill()}>{"" + translateUi("ยืนยันยกเลิกบิล") + " "}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setCancel(null)}>{"" + translateUi("ไม่ยกเลิก") + " "}</button>
                 </div>
               )}
             </li>
           ))}
-          {bills.length === 0 && <li className="empty-cell">ยังไม่มีบิลที่จ่ายแล้วในวันนี้</li>}
+          {bills.length === 0 && <li className="empty-cell">{translateUi("ยังไม่มีบิลที่จ่ายแล้วในวันนี้")}</li>}
         </ul>
-        {isOwner && <p className="mt-2 hint">ยกเลิกบิลหลังจ่ายได้เฉพาะเจ้าของร้าน ต้องใส่เหตุผล ระบบกลับรายการรายได้และย้ายต้นทุนเป็นส่วนต่างสต็อก</p>}
+        {isOwner && <p className="mt-2 hint">{translateUi("ยกเลิกบิลหลังจ่ายได้เฉพาะเจ้าของร้าน ต้องใส่เหตุผล ระบบกลับรายการรายได้และย้ายต้นทุนเป็นส่วนต่างสต็อก")}</p>}
       </Section>
 
       {history.length > 0 && (
-        <Section title="ประวัติปิดวัน">
+        <Section title={translateUi("ประวัติปิดวัน")}>
           <div className="table-wrap">
             <table className="tbl">
               <thead>
                 <tr>
-                  <th className="text-left">วันที่</th>
-                  <th className="text-right">ระบบ</th>
-                  <th className="text-right">นับจริง</th>
-                  <th className="text-right">ส่วนต่าง</th>
-                  <th className="text-left">ยืนยันโดย</th>
+                  <th className="text-left">{translateUi("วันที่")}</th>
+                  <th className="text-right">{translateUi("ระบบ")}</th>
+                  <th className="text-right">{translateUi("นับจริง")}</th>
+                  <th className="text-right">{translateUi("ส่วนต่าง")}</th>
+                  <th className="text-left">{translateUi("ยืนยันโดย")}</th>
                 </tr>
               </thead>
               <tbody>

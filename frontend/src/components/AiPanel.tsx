@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useState, type FormEvent } from 'react'
 import { api, apiMessage } from '../lib/api'
 
@@ -29,12 +30,12 @@ export default function AiPanel({ restaurantId, days }: { restaurantId: string; 
 
   return (
     <section className="card mt-6">
-      <h2 className="section-title">ผู้ช่วย AI</h2>
+      <h2 className="section-title">{translateUi("ผู้ช่วย AI")}</h2>
       <form onSubmit={ask} className="flex flex-col gap-2 sm:flex-row">
         <input
           className="input flex-1"
           maxLength={500}
-          placeholder="ถามเช่น ควรเพิ่มพนักงานช่วงไหน เมนูไหนควรขึ้นราคา (เว้นว่าง = สรุปภาพรวม)"
+          placeholder={translateUi("ถามเช่น ควรเพิ่มพนักงานช่วงไหน เมนูไหนควรขึ้นราคา (เว้นว่าง = สรุปภาพรวม)")}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
         />
@@ -46,11 +47,11 @@ export default function AiPanel({ restaurantId, days }: { restaurantId: string; 
       {answer && <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{answer}</div>}
       {facts !== null && (
         <details className="mt-3 hint">
-          <summary className="cursor-pointer">ดูตัวเลขที่ AI ใช้</summary>
+          <summary className="cursor-pointer">{translateUi("ดูตัวเลขที่ AI ใช้")}</summary>
           <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-gray-50 p-3">{JSON.stringify(facts, null, 2)}</pre>
         </details>
       )}
-      <p className="mt-2 text-xs text-gray-400">คำตอบจาก AI เป็นคำแนะนำประกอบการตัดสินใจ ตรวจกับตัวเลขด้านบนก่อนใช้</p>
+      <p className="mt-2 text-xs text-gray-400">{translateUi("คำตอบจาก AI เป็นคำแนะนำประกอบการตัดสินใจ ตรวจกับตัวเลขด้านบนก่อนใช้")}</p>
     </section>
   )
 }
