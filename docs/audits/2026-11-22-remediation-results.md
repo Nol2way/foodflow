@@ -16,7 +16,7 @@
 | FE-01–13 / async | request/session generations, cache invalidation, stale401, member/stock/report races, modal focus/Escape/scroll, QR error, route recovery, limits, display expiry/token/timer | `frontend/e2e/audit-regression.spec.ts`, `tests/cache.test.ts`, discount tests |
 | Validation/operations | strict JSON/PATCH/date/money, timeout/status/sanitized error, request ID, API/static headers, readiness, CI, pinned bootstrap/dependencies และ remote E2E opt-in | API regression, root tests, deploy dry-run, production PWA browser test |
 
-**SEC-02 ยังต้องทำบนบริการจริง:** ผู้ใช้อนุญาตใช้ project เดิมเป็น staging แล้ว แต่บัญชี CLI ปัจจุบันไม่มีสิทธิ์ project FoodFlow จึงยังไม่ได้หมุน Supabase service-role/JWT secret หรือแก้ remote schema การลบ secret จากไฟล์และตรวจ git ไม่ได้ revoke ค่าเดิม จึงยังเป็น release gate
+**SEC-02 ยังต้องทำบนบริการจริง:** อัปเกรด staging จริงแล้วตามรายงาน staging-upgrade แต่ยังไม่ได้หมุน Supabase service-role/JWT secret และประสาน consumers ทั้งหมด การลบ secret จากไฟล์และตรวจ git ไม่ได้ revoke ค่าเดิม จึงยังเป็น release gate
 
 ## งานตามใบงาน
 
@@ -38,9 +38,9 @@
 ## ผล verification
 
 - Frontend production build และ backend typecheck ผ่าน
-- Backend API/unit **141/141** ผ่าน; frontend unit **10 ไฟล์** ผ่าน
+- Backend API/unit **149/149** ผ่าน; frontend unit **10 ไฟล์** ผ่าน
 - PostgreSQL ชั่วคราวใช้ migration ล่าสุด: RLS **502**, accounting **125**, stock **131**, audit **32**, POS **31**, CRM **22**; POS บน PostgreSQL 17 ที่รองรับ XML ผ่าน **32/32** รวม XML ภาษีจริง
-- Browser regression แบบ mock ผ่าน **30/30** รวม CRM, การค้น/แบ่งหน้าบิล, พิกัดโต๊ะศูนย์, การแบ่งบิลโดยไม่หักโปรซ้ำ และการป้องกันกดซ้ำ
+- Browser regression แบบ mock ผ่าน **45/45** รวม CRM, การค้น/แบ่งหน้าบิล, พิกัดโต๊ะศูนย์, การแบ่งบิลโดยไม่หักโปรซ้ำ และการป้องกันกดซ้ำ
 - `npm audit` frontend/backend **0 vulnerabilities** ตามฐาน advisory ณ วันตรวจ
 - `npm run deploy -- --dry-run` ผ่านบน Windows; ไม่มีการ deploy จริง
 - production asset headers และ service worker ติดตั้ง/เปิดหน้า login ออฟไลน์ได้จริง ไม่ cache API data; มีเทสต์ใน `frontend/e2e-production/pwa.spec.ts`
@@ -51,7 +51,7 @@
 
 1. หมุนความลับเดิมและตรวจ token/key เก่าใช้งานไม่ได้ พร้อมอัปเดต consumers
 2. ตรวจข้อมูลเก่ายอดติดลบ: `select id,total from orders where total < 0;` reconcile บัญชี/ภาษี/แต้มก่อน validate constraint ห้ามแก้ประวัติด้วยการ clamp ยอดเป็นศูนย์
-3. Apply 0009–0011 ใน staging พร้อม API/UI และให้เข้าสู่ระบบใหม่; ยังไม่ได้เปลี่ยน Supabase จริง
+3. Staging เดิมอัปเกรด 0008–0011 แล้ว ผู้ใช้ต้องเข้าสู่ระบบใหม่ ดู [ผล staging/backup/UI](2026-11-22-staging-upgrade.md); production ปลายทางอื่นต้องตรวจและปล่อยอย่างประสานกัน
 4. ตรวจผล CI ของ PR และทำ smoke test บน staging จริง (XML local PostgreSQL 17 ผ่านแล้ว)
 5. Restore drill, printer, LINE/Realtime, production headers/monitoring และ UAT ตาม [operations](../operations.md)
 

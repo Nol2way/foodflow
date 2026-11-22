@@ -17,7 +17,7 @@ export class ApiError extends Error {
 
 export async function api<T = Record<string, unknown>>(
   path: string,
-  opts: { method?: string; body?: unknown; auth?: boolean } = {},
+  opts: { method?: string; body?: unknown; auth?: boolean; signal?: AbortSignal } = {},
 ): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   const token = opts.auth !== false ? getToken() : null
@@ -29,6 +29,7 @@ export async function api<T = Record<string, unknown>>(
     res = await fetch(`${BASE}/api${path}`, {
       method: opts.method ?? (opts.body === undefined ? 'GET' : 'POST'),
       headers,
+      signal: opts.signal,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     })
   } catch {

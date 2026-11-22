@@ -1,3 +1,4 @@
+import Modal from './Modal'
 import { translateUi } from "../lib/uiText"
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -159,11 +160,11 @@ export default function PosterEditor({
   )
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={translateUi("สร้างโปสเตอร์")}>
+    <Modal label={translateUi("สร้างโปสเตอร์")} onClose={onClose} busy={busy} className="max-w-5xl p-0">
       <div className="mx-auto max-w-6xl rounded-2xl bg-white p-4 shadow-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="title-lg">{target.media ? 'แก้โปสเตอร์' : 'สร้างโปสเตอร์จากเทมเพลต'}</h2>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>{"" + translateUi("ปิด") + " "}</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>{"" + translateUi("ปิด") + " "}</button>
         </div>
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
           <div>
@@ -268,14 +269,14 @@ export default function PosterEditor({
             </div>
             {error && <p className="alert-error">{error}</p>}
             <div className="flex gap-2 pt-1">
-              <button className="btn btn-primary flex-1" onClick={() => void save()} disabled={busy}>
+              <button type="button" className="btn btn-primary flex-1" onClick={() => void save()} disabled={busy}>
                 {busy ? 'กำลังบันทึก...' : target.media ? 'บันทึกการแก้ไข' : 'บันทึกขึ้นจอ'}
               </button>
-              <button className="btn btn-secondary" onClick={onClose} disabled={busy}>{"" + translateUi("ยกเลิก") + " "}</button>
+              <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>{"" + translateUi("ยกเลิก") + " "}</button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

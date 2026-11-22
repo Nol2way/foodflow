@@ -1,3 +1,4 @@
+import Modal from './Modal'
 import { translateUi } from "../lib/uiText"
 import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
@@ -175,14 +176,14 @@ export default function Receipt(props: ReceiptProps) {
   const label = view?.kind === 'z' ? 'พิมพ์รายงาน' : view && view.kind !== 'bill' ? 'พิมพ์ใบกำกับภาษี' : 'พิมพ์ใบเสร็จ'
 
   return (
-    <div className="no-print-backdrop fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4" role="dialog" aria-modal="true" aria-label={translateUi("ใบเสร็จ")}>
+    <Modal label={translateUi("ใบเสร็จ")} onClose={onClose} busy={false} className="no-print-backdrop max-w-sm p-4">
       <div className="mx-auto max-w-sm">
         <div className="no-print mb-3 flex gap-2">
-          <button className="btn btn-primary flex-1" onClick={() => window.print()} disabled={!view}>
+          <button type="button" className="btn btn-primary flex-1" onClick={() => window.print()} disabled={!view}>
             <Icon name="print" className="h-4 w-4" />
             {label}
           </button>
-          <button className="btn btn-secondary" onClick={onClose}>{"" + translateUi("ปิด") + " "}</button>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>{"" + translateUi("ปิด") + " "}</button>
         </div>
         {error && <p className="alert-error">{error}</p>}
         {!view && !error && <p className="rounded-xl bg-white p-6 text-center text-gray-500">{translateUi("กำลังโหลด...")}</p>}
@@ -202,7 +203,7 @@ export default function Receipt(props: ReceiptProps) {
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   )
 }
 

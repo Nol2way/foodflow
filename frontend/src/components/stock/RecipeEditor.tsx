@@ -1,7 +1,8 @@
+import Modal from '../Modal'
 import { translateUi } from "../../lib/uiText"
 // แก้สูตร (สูตรเมนู + สูตรย่อย/สูตรซ้อน) · บันทึกทั้งสูตรในธุรกรรมเดียว (stock_save_recipe ใน 0029)
 // ปริมาณในสูตร = สุทธิที่ใช้จริง · ระบบตัดดิบ = สุทธิ ÷ (trim x cook) · ต้นทุน = ราคาซื้อล่าสุด ÷ (trim x cook)
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { baht } from '../../lib/format'
 import { errorText, stockApi, type Recipe, type StockIngredient, type StockMenu } from '../../lib/stockApi'
 import { fmtNum, rawQty, yieldUnitCost } from '../../lib/stockMath'
@@ -42,6 +43,7 @@ export default function RecipeEditor({
   const [draft, setDraft] = useState<Draft | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const mutation = useRef(false)
   const ing = useMemo(() => new Map(ingredients.map((i) => [i.id, i])), [ingredients])
   const rec = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes])
   const subs = recipes.filter((r) => !r.menu_item_id)
@@ -64,10 +66,11 @@ export default function RecipeEditor({
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    if (!draft) return
+    if (!draft || mutation.current) return
     const lines = draft.lines.filter((l) => l.ref)
     if (lines.some((l) => !(Number(l.qty) > 0))) return setError('ปริมาณทุกบรรทัดต้องมากกว่า 0')
     if (new Set(lines.map((l) => l.ref)).size !== lines.length) return setError('มีวัตถุดิบ/สูตรย่อยซ้ำในสูตรเดียวกัน')
+    mutation.current = true
     setSaving(true)
     try {
       await stockApi.saveRecipe(restaurantId, draft.id, {
@@ -83,6 +86,7 @@ export default function RecipeEditor({
     } catch (err) {
       setError(errorText(err))
     } finally {
+      mutation.current = false
       setSaving(false)
     }
   }
@@ -145,9 +149,9 @@ export default function RecipeEditor({
       </div>
 
       {draft && (
-        <div className="overlay" onClick={() => setDraft(null)}>
+        <Modal label={translateUi("แก้สูตร")} onClose={() => setDraft(null)} busy={saving} className="max-w-2xl p-0">
           <form onSubmit={save} className="card max-h-[90vh] w-full max-w-2xl space-y-3 overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}
-            role="dialog" aria-modal="true" aria-label={translateUi("แก้สูตร")}>
+           >
             <h2 className="title-lg">{draft.id ? `แก้สูตร ${draft.name}` : draft.menu_item_id ? 'สูตรเมนู' : 'สูตรย่อยใหม่'}</h2>
             {error && <p className="alert-error">{error}</p>}
             <div className="grid gap-3 sm:grid-cols-4">
@@ -203,11 +207,11 @@ export default function RecipeEditor({
               </p>
             )}
             <div className="flex justify-end gap-2 pt-1">
-              <button type="button" className="btn btn-secondary" onClick={() => setDraft(null)}>{translateUi("ยกเลิก")}</button>
+              <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setDraft(null)}>{translateUi("ยกเลิก")}</button>
               <button className="btn btn-primary" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึกสูตร'}</button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   )

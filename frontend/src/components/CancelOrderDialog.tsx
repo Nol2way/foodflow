@@ -1,5 +1,6 @@
+import Modal from './Modal'
 import { translateUi } from "../lib/uiText"
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { baht, kg, orderLabel } from '../lib/format'
 import Icon from './Icon'
@@ -36,13 +37,10 @@ export default function CancelOrderDialog({
   const [pick, setPick] = useState<Record<string, number>>({})
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const mutation = useRef(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !saving && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, saving])
+
 
   const items = order.order_items
   const totalUnits = items.reduce((s, it) => s + it.quantity, 0)
@@ -57,23 +55,31 @@ export default function CancelOrderDialog({
   const toggleAll = () => setPick(all ? {} : Object.fromEntries(items.map((it) => [it.id, it.quantity])))
 
   async function submit() {
+    if (mutation.current) return
     const chosen = items.filter((it) => (pick[it.id] ?? 0) > 0).map((it) => ({ id: it.id, quantity: pick[it.id] }))
     if (chosen.length === 0) return
+    mutation.current = true
     setSaving(true)
     setError(null)
+    try {
     const { data, error: err } = await supabase.rpc('cancel_order_items', {
       p_order_id: order.id,
       p_items: chosen,
       p_reason: reason.trim() || null,
     })
-    setSaving(false)
     if (err) return setError(cancelError(err.message))
     onDone(data ? `ยกเลิกออเดอร์ ${orderLabel(order)} ทั้งใบแล้ว` : `ยกเลิก ${pickedUnits} รายการแล้ว · คืนยอด ${baht(refund)}`)
+    } catch (e) {
+      setError(cancelError(e instanceof Error ? e.message : translateUi('ทำรายการไม่สำเร็จ')))
+    } finally {
+      mutation.current = false
+      setSaving(false)
+    }
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="cancel-title" onClick={() => !saving && onClose()}>
-      <div className="modal max-w-lg" onClick={(e) => e.stopPropagation()}>
+    <Modal label={translateUi("เลือกรายการที่จะยกเลิก")} onClose={onClose} busy={saving} className="max-w-lg p-0">
+      <div className="w-full" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
             <h2 id="cancel-title" className="text-lg strong-text">{"" + translateUi("เลือกรายการที่จะยกเลิก") + " "}</h2>
@@ -82,7 +88,7 @@ export default function CancelOrderDialog({
               {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <button className="btn btn-ghost -mr-2 p-2" onClick={onClose} disabled={saving} aria-label={translateUi("ปิด")}>
+          <button type="button" className="btn btn-ghost -mr-2 p-2" onClick={onClose} disabled={saving} aria-label={translateUi("ปิด")}>
             <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
@@ -186,13 +192,13 @@ export default function CancelOrderDialog({
             )}
           </div>
           <div className="flex gap-2">
-            <button className="btn btn-secondary" onClick={onClose} disabled={saving}>{"" + translateUi("ไม่ยกเลิก") + " "}</button>
-            <button className="btn btn-danger" disabled={pickedUnits === 0 || saving} onClick={() => void submit()}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>{"" + translateUi("ไม่ยกเลิก") + " "}</button>
+            <button type="button" className="btn btn-danger" disabled={pickedUnits === 0 || saving} onClick={() => void submit()}>
               {saving ? 'กำลังยกเลิก...' : all ? 'ยกเลิกทั้งออเดอร์' : 'ยืนยันยกเลิก'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

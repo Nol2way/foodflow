@@ -1,5 +1,6 @@
+import Modal from '../components/Modal'
 import { translateUi } from "../lib/uiText"
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import RequireRole from '../components/RequireRole'
 import { Empty, PageHead, StockNav } from '../components/stock/ui'
 import { baht } from '../lib/format'
@@ -26,6 +27,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   const [reversing, setReversing] = useState<Movement | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const mutation = useRef(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
@@ -38,7 +40,9 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   }, [list.data])
 
   async function reverse() {
-    if (!reversing || !reason.trim() || busy || list.loading || list.error) return
+    if (!reversing || !reason.trim() || mutation.current || list.loading || list.error) return
+    mutation.current = true
+    setMsg(null)
     setBusy(true)
     try {
       await stockApi.reverse(restaurantId, reversing.id, reason.trim())
@@ -49,6 +53,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
     } catch (e) {
       setMsg({ ok: false, text: errorText(e) })
     } finally {
+      mutation.current = false
       setBusy(false)
     }
   }
@@ -148,9 +153,10 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
       {rows.length >= 500 && <p className="mt-2 hint">{translateUi("แสดง 500 รายการล่าสุด กรองให้แคบลงเพื่อดูเพิ่ม")}</p>}
 
       {reversing && (
-        <div className="overlay" onClick={() => setReversing(null)}>
-          <div className="card w-full max-w-sm space-y-3 p-5" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="rev-title">
+        <Modal label={translateUi("กลับรายการ")} onClose={() => setReversing(null)} busy={busy} className="max-w-sm p-0">
+          <div className="card w-full max-w-sm space-y-3 p-5" onClick={(e) => e.stopPropagation()}>
             <h2 id="rev-title" className="title-lg">{translateUi("กลับรายการ")}</h2>
+            {msg && !msg.ok && <p role="alert" className="alert-error">{msg.text}</p>}
             <p className="text-sm text-gray-600">
               {MOVEMENT_LABEL[reversing.type]} {reversing.ingredient_name} {Number(reversing.change) > 0 ? '+' : '−'}{fmtNum(Math.abs(Number(reversing.change)))} {reversing.unit}
               <br />{"" + translateUi("ระบบสร้างรายการตรงข้ามคู่กัน รายการเดิมยังอยู่ในประวัติ") + " "}</p>
@@ -163,7 +169,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               <button className="btn btn-danger" disabled={!reason.trim() || busy} onClick={() => void reverse()}>{busy ? 'กำลังบันทึก...' : 'กลับรายการ'}</button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

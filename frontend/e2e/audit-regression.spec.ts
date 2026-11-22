@@ -61,6 +61,7 @@ async function pageFor(browser, mock, role = 'owner') {
       return true;
     };
     if (request.method() === 'OPTIONS') return fulfill({});
+    if (path === '/api/readyz') return fulfill({ ok: true, schema_version: '0011' });
     if (path.endsWith('/staff_members')) return fulfill([{ restaurant_id: restaurant, role }]);
     if (path === '/rest/v1/menu_items') return fulfill([menu]);
     const result = await mock({ path, param, body, fulfill });

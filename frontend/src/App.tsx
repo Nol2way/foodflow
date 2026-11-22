@@ -1,9 +1,10 @@
 import { translateUi } from "./lib/uiText"
 import { lazy, Suspense } from 'react'
-import { Link, Route, Routes } from 'react-router-dom'
+import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { isConfigured } from './lib/supabase'
 import { FullPageMessage } from './components/RequireRole'
 import RouteRecovery from './components/RouteRecovery'
+import DatabaseReady from './components/DatabaseReady'
 import { pageLoaders } from './pages/loaders'
 import { usePreferences } from './lib/preferences'
 
@@ -38,12 +39,13 @@ const StockSetup = lazy(pageLoaders['/stock-setup'])
 
 export default function App() {
   usePreferences()
+  const { pathname } = useLocation()
   return (
     <>
       {!isConfigured && !window.location.pathname.startsWith('/display/') && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900">{"" + translateUi("ยังไม่ได้ตั้งค่า Supabase: สร้างไฟล์") + " "}<code>.env</code>{" " + translateUi("จาก") + " "}<code>.env.example</code>{" " + translateUi("แล้วรัน") + " "}<code>npm run dev</code>{" " + translateUi("ใหม่") + " "}</div>
       )}
-      <RouteRecovery><Suspense fallback={<FullPageMessage>{translateUi("กำลังโหลด...")}</FullPageMessage>}>
+      <RouteRecovery><DatabaseReady key={pathname}><Suspense fallback={<FullPageMessage>{translateUi("กำลังโหลด...")}</FullPageMessage>}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/pos" element={<Pos />} />
@@ -85,7 +87,7 @@ export default function App() {
             }
           />
         </Routes>
-      </Suspense></RouteRecovery>
+      </Suspense></DatabaseReady></RouteRecovery>
     </>
   )
 }

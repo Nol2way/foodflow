@@ -29,6 +29,7 @@ npm-debug.log*
 # Playwright (ทดสอบหน้าเว็บ)
 frontend/e2e-report/
 frontend/e2e-results/
+frontend/e2e-results-*/
 
 test-users.txt
 backups/

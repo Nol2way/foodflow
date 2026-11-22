@@ -69,7 +69,10 @@ export const openapi = {
   ],
   paths: {
     ...operationsPaths,
-    '/api/readyz': { get: { operationId: 'readiness', security: [], responses: { '200': { description: 'Database ready' }, '503': { description: 'Database unavailable' } } } },
+    '/api/readyz': { get: { operationId: 'readiness', security: [], description: 'Read-only PostgREST metadata check for the API-visible 0009–0011 contract; does not read business records or run migrations.', responses: {
+      '200': { description: 'Schema contract available', content: json({ type: 'object', required: ['ok', 'ready', 'schema_version'], properties: { ok: { const: true }, ready: { const: true }, schema_version: { const: '0011' } } }) },
+      '503': { description: 'Not ready; configuration, access, dependency and schema failures are distinct', content: json({ type: 'object', required: ['ok', 'ready', 'error'], properties: { ok: { const: false }, ready: { const: false }, error: { enum: ['database_not_configured', 'database_access_denied', 'database_unavailable', 'schema_metadata_unavailable', 'schema_not_ready'] }, required_schema: { const: '0011' } } }) },
+    } } },
     '/api/auth/logout': { post: { operationId: 'logout', security: [{ bearerAuth: [] }], responses: { '200': { description: 'All sessions revoked' }, ...authErrors } } },
     '/api/shifts': { get: { operationId: 'listShifts', security: [{ bearerAuth: [] }], parameters: [restaurantQuery], responses: { '200': { description: 'Shift history' }, ...authErrors } } },
     '/api/shifts/{id}': { get: { operationId: 'getShift', security: [{ bearerAuth: [] }], parameters: [restaurantQuery, { name: 'id', in: 'path', required: true, schema: uuid }], responses: { '200': { description: 'Shift and recoverable Z report' }, ...authErrors } } },

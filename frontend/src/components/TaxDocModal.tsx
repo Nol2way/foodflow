@@ -1,3 +1,4 @@
+import Modal from './Modal'
 import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -339,7 +340,8 @@ export default function TaxDocModal({
   }
 
   async function confirm() {
-    if (!draft || dirty || !checked || !setup.terminal) return
+    if (!draft || dirty || !checked || !setup.terminal || saving.current) return
+    saving.current = true
     setBusy('confirm')
     setError(null)
     try {
@@ -349,19 +351,28 @@ export default function TaxDocModal({
     } catch (e) {
       setError(apiMessage(e))
     } finally {
+      saving.current = false
       setBusy(null)
     }
   }
 
   async function discard() {
-    if (!draft) return
+    if (!draft || saving.current) return
+    saving.current = true
     setBusy('discard')
-    const { error: e } = await supabase.rpc('tax_doc_void_draft', { p_document_id: draft.id, p_reason: 'ยกเลิกฉบับร่างจากหน้ารับชำระ' })
-    setBusy(null)
-    if (e) return setError(dbMessage(e.message))
-    void loadDrafts()
-    reset(kind)
-    setNotice('ยกเลิกฉบับร่างแล้ว')
+    try {
+      const { error: e } = await supabase.rpc('tax_doc_void_draft', { p_document_id: draft.id, p_reason: 'ยกเลิกฉบับร่างจากหน้ารับชำระ' })
+      if (e) return setError(dbMessage(e.message))
+      void loadDrafts()
+      saving.current = false
+      reset(kind)
+      setNotice('ยกเลิกฉบับร่างแล้ว')
+    } catch (e) {
+      setError(apiMessage(e))
+    } finally {
+      saving.current = false
+      setBusy(null)
+    }
   }
 
   const q = query.trim().toLowerCase()
@@ -369,18 +380,18 @@ export default function TaxDocModal({
   const locked = draft !== null && kind === 'TAX' // ร่าง TAX ผูกบิลแล้ว เปลี่ยนบิลไม่ได้ (ยกเลิกร่างก่อน)
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-label={translateUi("ออกใบกำกับภาษี / ใบลดหนี้")}>
+    <Modal label={translateUi("ออกใบกำกับภาษี / ใบลดหนี้")} onClose={onClose} busy={busy !== null} className="max-w-3xl p-0">
       <div className="card mx-auto w-full max-w-2xl p-5">
         <div className="mb-4 row-between">
           <h2 className="title-lg">{translateUi("ออกใบกำกับภาษี / ใบลดหนี้")}</h2>
-          <button className="grid h-8 w-8 place-items-center rounded-full hover:bg-gray-100" onClick={onClose} aria-label={translateUi("ปิด")}>
+          <button type="button" className="grid h-8 w-8 place-items-center rounded-full hover:bg-gray-100" onClick={onClose} disabled={busy !== null} aria-label={translateUi("ปิด")}>
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
 
         <div className="mb-4 inline-flex rounded-xl border bg-white p-1" role="tablist">
           {(['TAX', 'CN'] as Kind[]).map((k) => (
-            <button
+            <button type="button"
               key={k}
               role="tab"
               aria-selected={kind === k}
@@ -398,7 +409,7 @@ export default function TaxDocModal({
             <ul className="space-y-1">
               {drafts.map((d) => (
                 <li key={d.id}>
-                  <button className="flex w-full justify-between gap-2 text-left text-amber-900 hover:underline" onClick={() => void openDraft(d)}>
+                  <button type="button" className="flex w-full justify-between gap-2 text-left text-amber-900 hover:underline" onClick={() => void openDraft(d)}>
                     <span>
                       {DOC_TITLE[d.doc_type]} · {d.buyer_name ?? 'ไม่ระบุผู้ซื้อ'}
                     </span>
@@ -428,7 +439,7 @@ export default function TaxDocModal({
               <ul className="max-h-52 divide-y overflow-y-auto rounded-xl border text-sm">
                 {visibleOrders.map((o) => (
                   <li key={o.id}>
-                    <button
+                    <button type="button"
                       disabled={o.hasTax}
                       onClick={() => {
                         setOrder(o)
@@ -464,7 +475,7 @@ export default function TaxDocModal({
             <ul className="max-h-52 divide-y overflow-y-auto rounded-xl border text-sm">
               {refs.map((d) => (
                 <li key={d.id}>
-                  <button onClick={() => void pickRef(d)} className="row-between w-full px-3 py-2 text-left hover:bg-gray-50">
+                  <button type="button" onClick={() => void pickRef(d)} className="row-between w-full px-3 py-2 text-left hover:bg-gray-50">
                     <span>
                       <span className="font-medium">{d.doc_number}</span>
                       <span className="block hint">
@@ -537,7 +548,7 @@ export default function TaxDocModal({
                   onChange={(e) => edit('tax_id', e.target.value.replace(/\D/g, '').slice(0, 13))}
                   aria-invalid={Boolean(taxIdError)}
                 />
-                <button className="btn btn-secondary" disabled={!taxIdOk || busy === 'lookup'} onClick={() => void lookup('tax')}>{"" + translateUi("ค้นหา") + " "}</button>
+                <button type="button" className="btn btn-secondary" disabled={!taxIdOk || busy === 'lookup'} onClick={() => void lookup('tax')}>{"" + translateUi("ค้นหา") + " "}</button>
               </div>
               {taxIdError && <p className="mt-1 field-error">{taxIdError}</p>}
               {taxIdOk && <p className="mt-1 text-xs text-emerald-600">{translateUi("✓ เลขถูกต้อง")}</p>}
@@ -552,7 +563,7 @@ export default function TaxDocModal({
                   value={buyer.phone}
                   onChange={(e) => setBuyer((b) => ({ ...b, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                 />
-                <button className="btn btn-secondary" disabled={!/^0\d{8,9}$/.test(buyer.phone) || busy === 'lookup'} onClick={() => void lookup('phone')}>{"" + translateUi("ค้นหา") + " "}</button>
+                <button type="button" className="btn btn-secondary" disabled={!/^0\d{8,9}$/.test(buyer.phone) || busy === 'lookup'} onClick={() => void lookup('phone')}>{"" + translateUi("ค้นหา") + " "}</button>
               </div>
             </div>
             <label className="block sm:col-span-2">
@@ -617,12 +628,12 @@ export default function TaxDocModal({
 
         <div className="flex flex-wrap justify-end gap-2">
           {draft && (
-            <button className="btn btn-secondary mr-auto text-red-600" disabled={busy !== null} onClick={() => void discard()}>{"" + translateUi("ยกเลิกร่าง") + " "}</button>
+            <button type="button" className="btn btn-secondary mr-auto text-red-600" disabled={busy !== null} onClick={() => void discard()}>{"" + translateUi("ยกเลิกร่าง") + " "}</button>
           )}
-          <button className="btn btn-secondary" disabled={problems.length > 0 || busy !== null || (draft !== null && !dirty)} onClick={() => void save()}>
+          <button type="button" className="btn btn-secondary" disabled={problems.length > 0 || busy !== null || (draft !== null && !dirty)} onClick={() => void save()}>
             {busy === 'save' ? 'กำลังบันทึก...' : draft ? 'บันทึกการแก้ไขร่าง' : 'บันทึกฉบับร่าง'}
           </button>
-          <button
+          <button type="button"
             className="btn btn-primary"
             disabled={!draft || dirty || !checked || !setup.terminal || busy !== null}
             title={!setup.terminal ? 'เลือกเครื่อง POS ก่อน' : dirty ? 'บันทึกร่างก่อนยืนยัน' : undefined}
@@ -633,7 +644,7 @@ export default function TaxDocModal({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -647,7 +658,7 @@ function SelectedBox({ title, subtitle, amount, onClear }: { title: string; subt
       <span className="flex items-center gap-2">
         <span className="tabular-nums">{money(amount)}</span>
         {onClear && (
-          <button className="link-muted text-xs" onClick={onClear}>{"" + translateUi("เปลี่ยน") + " "}</button>
+          <button type="button" className="link-muted text-xs" onClick={onClear}>{"" + translateUi("เปลี่ยน") + " "}</button>
         )}
       </span>
     </div>

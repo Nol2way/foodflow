@@ -1,5 +1,6 @@
+import Modal from '../components/Modal'
 import { translateUi } from "../lib/uiText"
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import RequireRole from '../components/RequireRole'
 import RecipeEditor from '../components/stock/RecipeEditor'
 import { PageHead, StockNav } from '../components/stock/ui'
@@ -63,6 +64,8 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
   const [editing, setEditing] = useState<StockIngredient | 'new' | null>(null)
   const [form, setForm] = useState<IngForm>(NEW_ING)
   const [saving, setSaving] = useState(false)
+  const mutation = useRef(false)
+  const [dialogError, setDialogError] = useState('')
   const supName = new Map(suppliers.map((s) => [s.id, s.name]))
   const visible = ingredients.filter((i) => {
     const q = search.trim().toLowerCase()
@@ -73,6 +76,9 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
 
   async function save(e: FormEvent) {
     e.preventDefault()
+    if (mutation.current) return
+    mutation.current = true
+    setDialogError('')
     const n = (v: string) => Number(v)
     const row: Record<string, unknown> = {
       name: form.name.trim(), purchase_unit: form.purchase_unit.trim() || base, conversion_factor: n(form.conversion_factor),
@@ -100,8 +106,10 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
       setEditing(null)
       reload()
     } catch (err) {
+      setDialogError(errorText(err))
       notify(false, errorText(err))
     } finally {
+      mutation.current = false
       setSaving(false)
     }
   }
@@ -152,10 +160,11 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
       </div>
 
       {editing && (
-        <div className="overlay" onClick={() => setEditing(null)}>
+        <Modal label={translateUi("วัตถุดิบ")} onClose={() => setEditing(null)} busy={saving} className="max-w-2xl p-0">
           <form onSubmit={save} className="card max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}
-            role="dialog" aria-modal="true" aria-label={translateUi("วัตถุดิบ")}>
+           >
             <h2 className="title-lg">{editing === 'new' ? 'เพิ่มวัตถุดิบ' : `แก้ไข ${editing.name}`}</h2>
+            {dialogError && <p role="alert" className="alert-error">{dialogError}</p>}
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="sm:col-span-2">
                 <span className="label">{translateUi("ชื่อ")}</span>
@@ -270,11 +279,11 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
                 <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />{"" + translateUi("ใช้งานอยู่ (ปิดแล้วไม่แสดงในใบนับ/รับเข้า · ประวัติยังอยู่)") + " "}</label>
             )}
             <div className="flex justify-end gap-2">
-              <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>{translateUi("ยกเลิก")}</button>
+              <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setEditing(null)}>{translateUi("ยกเลิก")}</button>
               <button className="btn btn-primary" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </section>
   )

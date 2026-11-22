@@ -35,6 +35,10 @@ npm audit --prefix backend
 
 ถ้า migration การเงินมีปัญหา ให้หยุดรับธุรกรรมใหม่และ forward-fix หรือกู้ทั้งชุดตาม restore plan อย่าย้อนเฉพาะตารางบัญชีแยกจาก orders/stock/tax เพราะจะทำให้ยอดไม่สอดคล้องกัน
 
+ตรวจ schema แบบ read-only ก่อนปล่อยด้วย `node scripts/schema-preflight.mjs --env-file backend/.dev.vars` สำหรับฐาน development/staging ที่ไฟล์นี้ชี้อยู่ ส่วน deploy จริงให้ส่ง `npm run deploy -- --schema-env-file <ไฟล์ลับของปลายทาง>` หรือ environment ของปลายทาง ห้ามใช้ค่าของ development มายืนยัน production คำสั่ง deploy จะหยุดก่อน build/publish หากตรวจ schema ไม่ผ่าน; `--dry-run` ตรวจเฉพาะการแพ็กไฟล์ ไม่มีผลยืนยันฐานข้อมูล
+
+หากเห็น `column order_items_1.options_snapshot does not exist` แปลว่า contract ของ `0010` ยังไม่พร้อม อย่าลบ field ออกจาก query เพื่อหลบ error เพราะใช้รักษาราคาตัวเลือก ณ เวลาสั่ง ให้ตรวจ migration ก่อนหน้าและอัปเดตฐานทั้งชุดตามลำดับ จากนั้น reload schema cache และให้ผู้ใช้ login ใหม่ หน้าจอใหม่มี readiness gate ป้องกันทำรายการกับ schema ที่ไม่เข้ากัน ดู [กติกา UI](ui-system.md)
+
 ## หมุนความลับ
 
 service-role และ JWT signing secret เคยปรากฏในเอกสารต้นทาง จึงต้องเปลี่ยนค่าเดิมก่อน production แม้ถูกลบจากคู่มือแล้ว:

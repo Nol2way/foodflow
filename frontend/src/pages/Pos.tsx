@@ -1,4 +1,5 @@
 import { translateUi } from "../lib/uiText"
+import Modal from '../components/Modal'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor } from '../lib/roles'
@@ -422,7 +423,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       </aside>
 
       {weighing && (
-        <div className="overlay" onClick={() => setWeighing(null)}>
+        <Modal label={weighing.name} onClose={() => setWeighing(null)} className="max-w-sm p-0">
           <form
             className="card w-full max-w-sm space-y-4 p-5"
             onClick={(e) => e.stopPropagation()}
@@ -461,7 +462,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
               <button className="btn btn-primary" disabled={!(Number(weightKg) > 0 && Number(weightKg) <= 100)}>{translateUi("เพิ่มรายการ")}</button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   )

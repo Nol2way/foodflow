@@ -6,6 +6,8 @@ import { canAccess, groupPages, pagesFor, roleLabels, type Role } from '../lib/r
 import Icon from './Icon'
 import { preloadPage, preloadPages } from '../pages/loaders'
 import OfflineOrders from './OfflineOrders'
+import Modal from './Modal'
+import { useText } from '../lib/preferences'
 
 export interface StaffContext {
   restaurantId: string
@@ -51,6 +53,7 @@ export default function RequireRole({
   const staff = useStaff(session?.user.id)
   const { pathname } = useLocation()
   const [drawer, setDrawer] = useState(false)
+  const t = useText()
 
   useEffect(() => setDrawer(false), [pathname])
 
@@ -80,10 +83,10 @@ export default function RequireRole({
   const current = pages.find((p) => p.path === pathname)
 
   const nav = (
-    <nav className="flex flex-col gap-5">
+    <nav aria-label={t('เมนูหลัก', 'Main navigation')} className="flex flex-col gap-5">
       {groupPages(pages).map((g) => (
         <div key={g.id} className="flex flex-col gap-1">
-          <div className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-white/35 uppercase">{translateUi(g.title)}</div>
+          <div className="px-3 pb-1 text-xs font-semibold text-white/75">{translateUi(g.title)}</div>
           {g.pages.map((p) => {
             const active = pathname === p.path
             return (
@@ -93,15 +96,15 @@ export default function RequireRole({
                 onPointerEnter={() => preloadPage(p.path)}
                 onFocus={() => preloadPage(p.path)}
                 aria-current={active ? 'page' : undefined}
-                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                className={`group relative flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                   active
-                    ? 'bg-gradient-to-r from-brand-500 to-brand-600 font-semibold text-white shadow-md shadow-black/20'
-                    : 'text-white/70 hover:bg-white/[.07] hover:text-white'
+                    ? 'bg-brand-600 font-semibold text-white'
+                    : 'text-white/85 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <Icon
                   name={p.icon}
-                  className={`h-5 w-5 transition ${active ? 'text-white' : 'text-white/45 group-hover:text-white/80'}`}
+                  className="h-5 w-5 shrink-0 text-white/85"
                 />
                 {translateUi(p.title)}
               </Link>
@@ -120,7 +123,7 @@ export default function RequireRole({
         </span>
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-white">{session.user.display_name ?? session.user.email}</div>
-          <div className="truncate text-xs text-white/50">{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}</div>
+          <div className="truncate text-xs text-white/75">{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}</div>
         </div>
       </div>
       <Link
@@ -138,18 +141,19 @@ export default function RequireRole({
 
   return (
     <div className="min-h-screen lg:pl-64">
+      <a href="#main-content" className="skip-link">{t('ข้ามไปเนื้อหา', 'Skip to content')}</a>
       {/* แถบด้านข้าง (จอใหญ่) */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 bg-gradient-to-b from-charcoal to-gray-950 p-4 lg:flex">
+      <aside className="app-sidebar fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 p-4 lg:flex">
         <Link to="/" className="px-2 pt-1">
           <Logo className="text-white" />
         </Link>
-        <div className="flex-1 overflow-y-auto">{nav}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
         {account}
       </aside>
 
       {/* แถบด้านบน (มือถือ/แท็บเล็ต) */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-2.5 shadow-xs backdrop-blur-md lg:hidden">
-        <button className="btn btn-ghost -ml-2 p-2" onClick={() => setDrawer(true)} aria-label={translateUi("เปิดเมนู")}>
+        <button className="btn btn-ghost -ml-2 p-2" onClick={() => setDrawer(true)} aria-expanded={drawer} aria-haspopup="dialog" aria-label={translateUi("เปิดเมนู")}>
           <Icon name="bars" />
         </button>
         <span className="strong-text">{translateUi(current?.title ?? 'Plato')}</span>
@@ -157,11 +161,9 @@ export default function RequireRole({
       </header>
 
       {drawer && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-gray-950/40 backdrop-blur-[2px]" style={{ animation: 'fade-in 160ms ease-out both' }} onClick={() => setDrawer(false)} />
+        <Modal label={t('เมนูหลัก', 'Main navigation')} onClose={() => setDrawer(false)} className="navigation-dialog max-w-sm p-0">
           <aside
-            className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col gap-6 bg-gradient-to-b from-charcoal to-gray-950 p-4 shadow-2xl"
-            style={{ animation: 'drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both' }}
+            className="app-sidebar flex max-h-[calc(100dvh-2rem)] flex-col gap-6 p-4"
           >
             <div className="flex items-center justify-between px-2 pt-1">
               <Link to="/">
@@ -171,13 +173,13 @@ export default function RequireRole({
                 <Icon name="close" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">{nav}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
             {account}
           </aside>
-        </div>
+        </Modal>
       )}
 
-      <main>
+      <main id="main-content" tabIndex={-1} className="min-w-0 outline-none">
         <OfflineOrders key={`${session.user.id}:${restaurantId}`} userId={session.user.id} restaurantId={restaurantId} />
         {canAccess(mine, roles) ? (
           children({ restaurantId, roles: mine })

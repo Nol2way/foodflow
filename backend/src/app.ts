@@ -19,6 +19,7 @@ import { ACCOUNTING_ERRORS, accountingErrorCode } from '../../frontend/src/lib/a
 import { registerAccounting } from './accounting.ts'
 import { registerStock } from './stock.ts'
 import { registerOperations } from './operations.ts'
+import { checkSchemaReadiness } from './readiness.ts'
 import { TAX_ERRORS, registerTax, taxErrorCode, taxErrorStatus } from './tax.ts'
 import { STOCK_CONFLICTS, stockError, stockErrorCode } from '../../frontend/src/lib/stockMath.ts'
 
@@ -116,6 +117,9 @@ export function createApp() {
   app.onError((err, c) => {
     if (err instanceof InputError) return c.json({ error: err.message }, err.status)
     if (err instanceof DbError) {
+      if (['42703', '42P01', '42883', 'PGRST200', 'PGRST202', 'PGRST204', 'PGRST205'].includes(err.code)) {
+        return c.json({ error: 'schema_not_ready', required_schema: '0011' }, 503)
+      }
       if (err.status >= 500) return c.json({ error: err.status === 504 ? 'upstream_timeout' : 'upstream_unavailable' }, err.status === 504 ? 504 : 502)
       const msg = err.message
       if (msg === 'stale_session') return fail(c, 401, 'unauthorized')
@@ -163,10 +167,8 @@ export function createApp() {
     }),
   )
   app.get('/readyz', async (c) => {
-    try {
-      await asService(c.env).select('restaurants?select=id&limit=1')
-      return c.json({ ready: true })
-    } catch { return c.json({ ready: false }, 503) }
+    const result = await checkSchemaReadiness(c.env)
+    return c.json(result, result.ok ? 200 : 503)
   })
 
   // ===== ต้องล็อกอิน =====
