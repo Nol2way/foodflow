@@ -1,6 +1,6 @@
 # วิเคราะห์และออกแบบ FoodFlow ตามโค้ดปัจจุบัน
 
-การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) · การปล่อยและทดสอบ: [operations](operations.md) · [ผล verification](audits/2026-11-22-remediation-results.md)
+การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) / การปล่อยและทดสอบ: [operations](operations.md) / [ผล verification](audits/2026-11-22-remediation-results.md)
 
 
 ## เป้าหมายและผู้ใช้
@@ -53,7 +53,7 @@ erDiagram
   journal_entries ||--|{ journal_lines : balances
 ```
 
-แผนภาพเป็นเฉพาะความสัมพันธ์หลัก ไม่ใช่ทุกตาราง รายละเอียดจริงใช้ [migrations 0001–0011](../database/migrations/README.md), [บัญชี](accounting.md), [สต็อก](stock.md) ไม่รัน archive ร่วมกับชุดรวม
+แผนภาพเป็นเฉพาะความสัมพันธ์หลัก ไม่ใช่ทุกตาราง รายละเอียดจริงใช้ [migrations 0001-0011](../database/migrations/README.md), [บัญชี](accounting.md), [สต็อก](stock.md) ไม่รัน archive ร่วมกับชุดรวม
 
 ## เส้นทางออเดอร์
 

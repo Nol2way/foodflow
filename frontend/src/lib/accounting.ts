@@ -1,6 +1,6 @@
 // โมดูลบัญชี (0026): สูตรคำนวณ ข้อความแจ้งเตือน และไฟล์ส่งออก
 // ฐานข้อมูลส่งยอดดิบ (acct_summary_data / acct_dashboard / acct_trial_balance) สูตรทั้งหมดอยู่ที่นี่
-// ใช้ร่วมกันทั้งหน้าเว็บและ backend (ส่งออก CSV/Excel, ข้อความปิดวันทาง LINE) · ทดสอบใน tests/accounting.test.ts
+// ใช้ร่วมกันทั้งหน้าเว็บและ backend (ส่งออก CSV/Excel, ข้อความปิดวันทาง LINE) / ทดสอบใน tests/accounting.test.ts
 // หมายเหตุ: ระบบนี้ไม่ใช่เครื่องมือยื่นภาษีอย่างเป็นทางการ ตัวเลขด้านภาษีเป็นข้อมูลประกอบ ควรให้นักบัญชีตรวจ
 
 export type AccountingMode = 'simple' | 'standard' | 'pro'
@@ -18,7 +18,7 @@ export interface AmountRow {
   grp?: AccountGroup
 }
 
-// ยอดดิบของช่วงวันที่ (acct_summary_data) · ตัวเลขจาก Postgres numeric มาเป็น string ได้ ใช้ normalizeSummary ก่อน
+// ยอดดิบของช่วงวันที่ (acct_summary_data) / ตัวเลขจาก Postgres numeric มาเป็น string ได้ ใช้ normalizeSummary ก่อน
 export interface Summary {
   from: string
   to: string
@@ -176,7 +176,7 @@ export function stockCheck(s: Summary) {
   return { opening: s.stock_open, purchases: s.stock_in, closing: s.stock_close, usage, cogsActual, matches: Math.abs(usage - cogsActual) < 0.005 }
 }
 
-// เทียบกับเป้า (Food Cost 28–35% · Prime Cost 60–65%) สำหรับแถบสี
+// เทียบกับเป้า (Food Cost 28-35% / Prime Cost 60-65%) สำหรับแถบสี
 export type Band = 'none' | 'low' | 'ok' | 'high'
 export function band(value: number | null, min: number, max: number): Band {
   if (value === null) return 'none'
@@ -320,13 +320,13 @@ export function dayCloseText(d: DayClose): string {
   const m = metrics(s)
   const diff = n(d.difference)
   const lines = [
-    `ปิดวัน ${d.restaurant} · ${d.date}`,
-    `ยอดขายสุทธิ ${fmt(m.netSales)} (${s.bills} บิล${s.cancelled_bills ? ` · ยกเลิก ${s.cancelled_bills}` : ''})`,
+    `ปิดวัน ${d.restaurant} / ${d.date}`,
+    `ยอดขายสุทธิ ${fmt(m.netSales)} (${s.bills} บิล${s.cancelled_bills ? ` / ยกเลิก ${s.cancelled_bills}` : ''})`,
     `ต้นทุนอาหาร ${fmt(m.foodCost)}${m.foodCostPct === null ? '' : ` (${m.foodCostPct}%)`}`,
     `ค่าใช้จ่าย ${fmt(m.expenses)}`,
     `กำไรวันนี้ ${fmt(m.netProfit)}`,
-    `เงินเข้า ${fmt(s.cash_in)} · เงินออก ${fmt(s.cash_out)}`,
-    `เงินสดตามระบบ ${fmt(n(d.system_cash))} · นับจริง ${fmt(n(d.counted_cash))}`,
+    `เงินเข้า ${fmt(s.cash_in)} / เงินออก ${fmt(s.cash_out)}`,
+    `เงินสดตามระบบ ${fmt(n(d.system_cash))} / นับจริง ${fmt(n(d.counted_cash))}`,
     diff === 0 ? 'เงินสดตรงยอด' : diff > 0 ? `เงินสดเกิน ${fmt(diff)}` : `เงินสดขาด ${fmt(-diff)}`,
   ]
   return lines.join('\n')
@@ -398,10 +398,10 @@ export function toExcelXml(sheet: string, header: string[], rows: Cell[][]): str
   ].join('\n')
 }
 
-// ===== ภาษีตามกรมสรรพากร (0031/0032): ข้อมูลผู้ประกอบการ · ภาษีซื้อ · หัก ณ ที่จ่าย · เอกสารภาษี · รายงาน =====
+// ===== ภาษีตามกรมสรรพากร (0031/0032): ข้อมูลผู้ประกอบการ / ภาษีซื้อ / หัก ณ ที่จ่าย / เอกสารภาษี / รายงาน =====
 // ทำงานในเครื่องทั้งหมด (สร้าง/ส่งออกไฟล์เอง) ไม่ส่งข้อมูลไปกรมสรรพากรหรือ API ภายนอก
 
-// เลขประจำตัวผู้เสียภาษี 13 หลัก · checksum mod 11 (ตรงกับ th_tax_id_valid ในฐานข้อมูล)
+// เลขประจำตัวผู้เสียภาษี 13 หลัก / checksum mod 11 (ตรงกับ th_tax_id_valid ในฐานข้อมูล)
 export function thaiTaxIdValid(id: string): boolean {
   if (!/^\d{13}$/.test(id)) return false
   let sum = 0
@@ -415,7 +415,7 @@ export const POS_REG_NO_RE = /^[A-Za-z0-9/-]{1,30}$/
 export const TERMINAL_CODE_RE = /^[A-Z0-9]{1,10}$/
 export const HEAD_OFFICE = '00000'
 
-// ข้อมูลผู้ประกอบการ (ตาราง tax_settings) · พิมพ์บนใบกำกับภาษีและหัวรายงาน
+// ข้อมูลผู้ประกอบการ (ตาราง tax_settings) / พิมพ์บนใบกำกับภาษีและหัวรายงาน
 export interface TaxSettingsForm {
   tax_id: string
   company_name: string
@@ -472,7 +472,7 @@ export type WhtForm = 'pnd3' | 'pnd53'
 export const WHT_FORM_LABEL: Record<WhtForm, string> = { pnd3: 'ภ.ง.ด.3 (บุคคลธรรมดา)', pnd53: 'ภ.ง.ด.53 (นิติบุคคล)' }
 export const WHT_FORM_SHORT: Record<WhtForm, string> = { pnd3: 'ภ.ง.ด.3', pnd53: 'ภ.ง.ด.53' }
 
-// นิติบุคคลเลขผู้เสียภาษีขึ้นต้นด้วย 0 → ภ.ง.ด.53 · อื่นๆ → ภ.ง.ด.3 (ฐานข้อมูลบังคับให้ตรงกัน)
+// นิติบุคคลเลขผู้เสียภาษีขึ้นต้นด้วย 0 → ภ.ง.ด.53 / อื่นๆ → ภ.ง.ด.3 (ฐานข้อมูลบังคับให้ตรงกัน)
 export const whtFormFor = (taxId: string): WhtForm => (taxId.trim().startsWith('0') ? 'pnd53' : 'pnd3')
 
 export interface ExpenseTaxCalc {
@@ -482,7 +482,7 @@ export interface ExpenseTaxCalc {
   netPaid: number // เงินที่จ่ายจริงให้ผู้ขาย
 }
 
-// ใช้สตางค์ทั้งหมดเพื่อไม่ให้ปัดเศษเพี้ยน · VAT = ROUND(gross * rate / (100 + rate)) เหมือน tax_doc_split
+// ใช้สตางค์ทั้งหมดเพื่อไม่ให้ปัดเศษเพี้ยน / VAT = ROUND(gross * rate / (100 + rate)) เหมือน tax_doc_split
 export function expenseTax(amount: number, inputTax: boolean, whtRate: WhtRate | null, vatRate = 7): ExpenseTaxCalc {
   const gross = Math.round((Number.isFinite(amount) && amount > 0 ? amount : 0) * 100)
   const vat = inputTax ? Math.round((gross * vatRate) / (100 + vatRate)) : 0
@@ -531,8 +531,8 @@ export function validateExpenseTax(f: ExpenseTaxForm, amount: number, today?: st
     if (!WHT_RATES.includes(f.whtRate)) return 'อัตราหัก ณ ที่จ่ายต้องเป็น 1, 2, 3 หรือ 5%'
     if (f.whtForm !== whtFormFor(f.supplierTaxId)) {
       return f.whtForm === 'pnd53'
-        ? 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) · ผู้ขายรายนี้ต้องใช้ ภ.ง.ด.3'
-        : 'ภ.ง.ด.3 ใช้กับบุคคลธรรมดา · ผู้ขายรายนี้เป็นนิติบุคคล ต้องใช้ ภ.ง.ด.53'
+        ? 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) / ผู้ขายรายนี้ต้องใช้ ภ.ง.ด.3'
+        : 'ภ.ง.ด.3 ใช้กับบุคคลธรรมดา / ผู้ขายรายนี้เป็นนิติบุคคล ต้องใช้ ภ.ง.ด.53'
     }
     if (!(amount > 0)) return 'กรอกจำนวนเงินก่อนคำนวณหัก ณ ที่จ่าย'
   }
@@ -617,7 +617,7 @@ export function normalizeTaxDoc(raw: Record<string, unknown>): TaxDocRow {
   }
 }
 
-// รวมร่าง (ยังไม่มีวันที่ออก) กับเอกสารในช่วงวันที่ ไม่ซ้ำ · ร่างขึ้นก่อน แล้วเรียงตามเวลาสร้างล่าสุด
+// รวมร่าง (ยังไม่มีวันที่ออก) กับเอกสารในช่วงวันที่ ไม่ซ้ำ / ร่างขึ้นก่อน แล้วเรียงตามเวลาสร้างล่าสุด
 export function mergeTaxDocs(...lists: TaxDocRow[][]): TaxDocRow[] {
   const map = new Map<string, TaxDocRow>()
   for (const list of lists) for (const d of list) map.set(d.id, d)
@@ -636,7 +636,7 @@ export function taxDocActions(d: Pick<TaxDocRow, 'status' | 'doc_number'>) {
 
 export const xmlFileName = (docNumber: string) => `${docNumber.replace(/[^A-Za-z0-9_-]/g, '_')}.xml`
 
-// ยอดสรุปของรายการเอกสาร (เงินนับเฉพาะที่ยืนยันแล้ว · ใบลดหนี้ติดลบ)
+// ยอดสรุปของรายการเอกสาร (เงินนับเฉพาะที่ยืนยันแล้ว / ใบลดหนี้ติดลบ)
 export function taxDocTotals(docs: Pick<TaxDocRow, 'doc_type' | 'status' | 'vat_amount' | 'total_amount'>[]) {
   const count: Record<TaxDocStatus, number> = { draft: 0, confirmed: 0, voided: 0 }
   const byType: Record<TaxDocType, number> = { ABB: 0, TAX: 0, CN: 0 }
@@ -776,7 +776,7 @@ export function pp30Lines(s: Pp30Summary): { no: string; label: string; amount: 
   ]
 }
 
-// กำหนดยื่นแบบของเดือนภาษี (วันในเดือนถัดไป): ภ.พ.30 กระดาษ 15 / ออนไลน์ 23 · ภ.ง.ด.3/53 กระดาษ 7 / ออนไลน์ 15
+// กำหนดยื่นแบบของเดือนภาษี (วันในเดือนถัดไป): ภ.พ.30 กระดาษ 15 / ออนไลน์ 23 / ภ.ง.ด.3/53 กระดาษ 7 / ออนไลน์ 15
 export function filingDue(month: string, form: 'pp30' | 'wht' = 'pp30'): { paper: string; online: string } {
   const [y, m] = month.split('-').map(Number)
   const ny = m === 12 ? y + 1 : y

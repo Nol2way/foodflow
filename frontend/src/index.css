@@ -22,6 +22,16 @@
 .skip-link { position: fixed; left: 1rem; top: 1rem; z-index: 100; transform: translateY(-200%); padding: .75rem 1rem; background: white; color: #252738; border: 2px solid #ad4532; border-radius: .5rem; }
 .skip-link:focus { transform: none; }
 .input[aria-invalid="true"] { border-color: var(--color-red-700); outline-color: var(--color-red-700); }
+.skeleton-block { border-radius: var(--radius-xl); background: var(--color-gray-200); animation: skeleton-pulse 1.6s ease-in-out infinite; }
+.history-scroll { max-height: min(65dvh, 44rem); overflow: auto; overscroll-behavior: contain; }
+.history-scroll thead { position: sticky; top: 0; z-index: 1; background: var(--color-gray-50); }
+.history-scroll :is(td, th) { padding: .5rem .75rem; vertical-align: top; }
+.bill-details > summary::marker { content: ''; }
+.bill-details[open] > summary { background: var(--color-brand-50); }
+@media print { .history-scroll { max-height: none; overflow: visible; } .pagination-bar { display: none; } }
+.app-sidebar .skeleton-block { background: rgb(255 255 255 / .16); }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-block { animation: none; } }
 dialog.app-dialog { color: var(--color-gray-800); overscroll-behavior: contain; }
 dialog.app-dialog::backdrop { background: rgb(15 23 42 / .55); }
 @media screen {

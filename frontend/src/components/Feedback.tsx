@@ -23,7 +23,7 @@ export default function Feedback({ restaurantId }: { restaurantId: string }) {
   }
   return <section className="card my-3" aria-label={text('ความพึงพอใจ', 'Feedback')}>
     {done ? <p role="status">{text('ขอบคุณสำหรับความคิดเห็น', 'Thank you for your feedback')}</p> : <>
-      <p>{text('ให้คะแนนบริการ 1–5 ดาว (ไม่เก็บชื่อหรือเบอร์โทร)', 'Rate your visit from 1 to 5 stars (no name or phone collected)')}</p>
+      <p>{text('ให้คะแนนบริการ 1-5 ดาว (ไม่เก็บชื่อหรือเบอร์โทร)', 'Rate your visit from 1 to 5 stars (no name or phone collected)')}</p>
       <div className="mt-2 flex gap-2">{[1, 2, 3, 4, 5].map(rating => <button key={rating} type="button" disabled={busy || (chosen !== null && chosen !== rating)} className="btn btn-secondary" aria-label={text(`${rating} ดาว`, `${rating} stars`)} onClick={() => void submit(rating)}>{rating} ★</button>)}</div>
       {error && <p role="alert">{error}</p>}
     </>}

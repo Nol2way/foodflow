@@ -39,7 +39,7 @@ export function Stat({ label, value, hint, tone }: { label: string; value: React
 const BAND_COLOR: Record<Band, string> = { ok: 'bg-emerald-500', high: 'bg-red-500', low: 'bg-amber-500', none: 'bg-gray-300' }
 const BAND_TEXT: Record<Band, string> = { ok: 'อยู่ในเป้า', high: 'สูงกว่าเป้า', low: 'ต่ำกว่าเป้า', none: 'ยังไม่มียอดขาย' }
 
-// แถบสีเทียบเป้า (เช่น Food Cost 28–35%): แถบเทา = ช่วงเป้า · แท่งสี = ค่าจริง
+// แถบสีเทียบเป้า (เช่น Food Cost 28-35%): แถบเทา = ช่วงเป้า / แท่งสี = ค่าจริง
 export function CostBar({ label, value, min, max }: { label: string; value: number | null; min: number; max: number }) {
   const b = band(value, min, max)
   const scale = Math.max(100, value ?? 0)
@@ -48,10 +48,10 @@ export function CostBar({ label, value, min, max }: { label: string; value: numb
     <div className="card">
       <div className="flex items-baseline justify-between gap-2">
         <span className="stat-label">{label}</span>
-        <span className="hint">{"" + translateUi("เป้า") + " "}{min}–{max}%</span>
+        <span className="hint">{"" + translateUi("เป้า") + " "}{min}-{max}%</span>
       </div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="stat-value">{value === null ? '–' : `${value.toFixed(1)}%`}</span>
+        <span className="stat-value">{value === null ? '-' : `${value.toFixed(1)}%`}</span>
         <span className={`badge ${b === 'ok' ? 'badge-green' : b === 'high' ? 'badge-red' : b === 'low' ? 'badge-amber' : 'badge-gray'}`}>{BAND_TEXT[b]}</span>
       </div>
       <div className="relative mt-3 h-3 overflow-hidden rounded-full bg-gray-100" role="img" aria-label={`${label} ${value ?? '-'}% เป้า ${min}-${max}%`}>

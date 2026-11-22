@@ -28,7 +28,7 @@ const NEXT: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>>
 const COOK_STEPS: OrderStatus[] = ['received', 'preparing']
 const canCook = (roles: Role[]) => roles.includes('owner') || roles.includes('kitchen')
 
-// คอลัมน์ที่ติ๊กรายเมนูได้: กำลังทำ = เสร็จแล้ว · พร้อมเสิร์ฟ = เสิร์ฟแล้ว
+// คอลัมน์ที่ติ๊กรายเมนูได้: กำลังทำ = เสร็จแล้ว / พร้อมเสิร์ฟ = เสิร์ฟแล้ว
 const ITEM_CHECK: Partial<Record<OrderStatus, { field: 'done_at' | 'served_at'; label: string }>> = {
   preparing: { field: 'done_at', label: 'เสร็จ' },
   ready: { field: 'served_at', label: 'เสิร์ฟแล้ว' },
@@ -84,7 +84,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
     else void reload()
   }
 
-  // กำลังทำ: ครัวติ๊กเสร็จรายเมนู · พร้อมเสิร์ฟ: พนักงานติ๊กเสิร์ฟรายเมนู
+  // กำลังทำ: ครัวติ๊กเสร็จรายเมนู / พร้อมเสิร์ฟ: พนักงานติ๊กเสิร์ฟรายเมนู
   async function toggleItem(order: KitchenOrder, itemId: string, on: boolean) {
     if (!allowed(order.status)) return
     const { error: err } =

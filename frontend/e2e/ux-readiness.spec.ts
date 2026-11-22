@@ -1,5 +1,29 @@
 import { test, expect } from '@playwright/test'
 
+test('readiness uses a responsive skeleton until the schema check finishes', async ({ page }) => {
+  let release!: () => void
+  const pending = new Promise<void>(resolve => { release = resolve })
+  let dataReads = 0
+  await page.route('**/api/readyz', async route => { await pending; await route.fulfill({ status: 503, json: { error: 'schema_not_ready' } }) })
+  await page.route('**/rest/v1/**', route => { dataReads++; return route.fulfill({ json: [] }) })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/pos')
+  const skeleton = page.getByRole('main', { name: 'กำลังโหลดระบบ' })
+  await expect(skeleton).toHaveAttribute('aria-busy', 'true')
+  await expect(page.getByRole('status')).toHaveText('กำลังตรวจความพร้อมและโหลดหน้าจอ')
+  for (const width of [375, 1440]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: `e2e-results/skeleton-${width}.png`, fullPage: true })
+  }
+  expect(await page.locator('.skeleton-block').first().evaluate(el => getComputedStyle(el).animationName)).toBe('none')
+  expect(dataReads).toBe(0)
+  release()
+  await expect(skeleton).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'ระบบกำลังรออัปเดตฐานข้อมูล' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'ตรวจอีกครั้ง' })).toBeEnabled()
+})
+
 test('password change validates inline and replaces the revoked session token', async ({ page }) => {
   const user = { id: '00000000-0000-4000-8000-000000000002', email: 'mock@example.test', must_change_password: true }
   await page.addInitScript(user => localStorage.setItem('plato.session', JSON.stringify({ access_token: 'old-synthetic', expires_at: Date.now() + 600000, user })), user)

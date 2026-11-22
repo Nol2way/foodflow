@@ -302,7 +302,7 @@ test('ai: ส่งเฉพาะตัวเลขที่คำนวณแ�
   assert.equal(b.answer, 'สรุป: ช่วงพีค 12:00')
   assert.equal(b.facts.orders, 30)
   assert.equal(b.facts.avg_bill_baht, 103.33)
-  assert.deepEqual(b.facts.peak_hours, ['12:00–13:00'])
+  assert.deepEqual(b.facts.peak_hours, ['12:00-13:00'])
   assert.equal(b.facts.menu_food_cost[0].food_cost_percent, 51.3)
   assert.deepEqual(b.facts.menus_without_recipe, ['น้ำเปล่า'])
 
@@ -636,7 +636,7 @@ test('รายงาน: ส่งเข้า LINE ด้วย token ขอ�
   assert.equal(callsTo('/rpc/daily_report')[0].headers.authorization, bearer('tok-manager'))
 })
 
-test('รายงาน: ยังไม่ตั้ง token -> 503 · ยังไม่ตั้งผู้รับ -> 400 · LINE ปฏิเสธ -> 502', async () => {
+test('รายงาน: ยังไม่ตั้ง token -> 503 / ยังไม่ตั้งผู้รับ -> 400 / LINE ปฏิเสธ -> 502', async () => {
   assert.equal((await req('/api/reports/daily/send', { token: 'tok-owner', body: { restaurant_id: RID } })).status, 503)
   handlers.push((c) => (c.url.includes('/rest/v1/shop_settings') ? json([{ line_to: null }]) : undefined))
   assert.equal((await req('/api/reports/daily/send', { token: 'tok-owner', body: { restaurant_id: RID } }, lineEnv)).status, 400)

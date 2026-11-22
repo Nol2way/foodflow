@@ -149,7 +149,7 @@ test('expenses: ต้องเลือกหมวด และจำนวน
   assert.equal(callsTo('/rest/v1/expenses').length, 0)
 })
 
-test('expenses: พนักงานบัญชีบันทึกด้วย JWT ตัวเอง · ผู้จัดการ 403', async () => {
+test('expenses: พนักงานบัญชีบันทึกด้วย JWT ตัวเอง / ผู้จัดการ 403', async () => {
   on('/rest/v1/expenses', () => json([{ id: 'e1' }], 201), 'POST')
   const r = await req('/api/accounting/expenses', {
     as: 'accountant',
@@ -194,7 +194,7 @@ test('ยกเลิกบิล: ไม่พบบิลที่จ่าย
 
 const CLOSED = { ...SUM, restaurant: 'ร้านทดสอบ', date: '2026-10-26', system_cash: 600, counted_cash: 580, difference: -20, closed: true }
 
-test('ปิดวัน: ผู้จัดการปิดได้ พนักงานบัญชี 403 · ต้องกรอกยอดนับ', async () => {
+test('ปิดวัน: ผู้จัดการปิดได้ พนักงานบัญชี 403 / ต้องกรอกยอดนับ', async () => {
   on('/rpc/acct_close_day', () => json(CLOSED))
   assert.equal((await req('/api/accounting/day-close', { as: 'accountant', body: { restaurant_id: RID, date: '2026-10-26', counted_cash: 1 } })).status, 403)
   assert.equal((await req('/api/accounting/day-close', { as: 'manager', body: { restaurant_id: RID, date: '2026-10-26' } })).status, 400)
@@ -204,7 +204,7 @@ test('ปิดวัน: ผู้จัดการปิดได้ พน�
   assert.deepEqual(callsTo('/rpc/acct_close_day')[0].body, { p_restaurant_id: RID, p_date: '2026-10-26', p_counted_cash: 580, p_note: null, p_notify: false })
 })
 
-test('ปิดวัน: ส่งสรุปเข้า LINE ของร้าน · LINE ล่มก็ยังปิดวันสำเร็จ', async () => {
+test('ปิดวัน: ส่งสรุปเข้า LINE ของร้าน / LINE ล่มก็ยังปิดวันสำเร็จ', async () => {
   on('/rpc/acct_close_day', () => json(CLOSED))
   on('/rest/v1/shop_settings', () => json([{ line_to: 'U' + 'a'.repeat(32) }]))
   let lineOk = true
@@ -241,7 +241,7 @@ test('ส่งออก CSV: UTF-8 BOM หัวตารางไทย เป
   assert.ok(text.includes('2026-10-26,1,ขาย,ขาย โต๊ะ 1,1010,เงินสด,150,0'))
 })
 
-test('ส่งออก Excel: งบทดลองเป็น XML Spreadsheet · รายงาน/รูปแบบผิด 400', async () => {
+test('ส่งออก Excel: งบทดลองเป็น XML Spreadsheet / รายงาน/รูปแบบผิด 400', async () => {
   on('/rpc/acct_trial_balance', () => json([{ account_id: 'a', code: '1010', name: 'เงินสด', type: 'asset', grp: 'cash', opening: 0, debit: 150, credit: 0, closing: 150 }]))
   const r = await req(`/api/accounting/export?restaurant_id=${RID}&from=2026-10-01&to=2026-10-26&report=trial_balance&format=xls`, { as: 'manager' })
   assert.match(r.headers.get('content-type') ?? '', /vnd\.ms-excel/)
@@ -275,7 +275,7 @@ const COMPANY_TAX_ID = '0105551234567' // นิติบุคคล → ภ.�
 const PERSON_TAX_ID = '1101700203450' // บุคคลธรรมดา → ภ.ง.ด.3
 const EXPENSE = { restaurant_id: RID, account_id: ORDER, amount: 1070, vat_amount: 70, payment_method: 'bank', spent_on: '2026-11-05' }
 
-test('whtTypeFor / WHT_TYPES: ขึ้นต้น 0 = ภ.ง.ด.53 · อื่นๆ = ภ.ง.ด.3', () => {
+test('whtTypeFor / WHT_TYPES: ขึ้นต้น 0 = ภ.ง.ด.53 / อื่นๆ = ภ.ง.ด.3', () => {
   assert.equal(whtTypeFor(COMPANY_TAX_ID), 'pnd53')
   assert.equal(whtTypeFor(PERSON_TAX_ID), 'pnd3')
   assert.deepEqual([...WHT_TYPES], ['pnd3', 'pnd53'])
@@ -306,7 +306,7 @@ test('POST /accounting/expenses: ใบกำกับภาษีซื้อ +
   assert.equal('wht_amount' in sent, false)
 })
 
-test('POST /accounting/expenses: ภ.ง.ด.3 กับบุคคลธรรมดา · ไม่ส่งแบบ = ให้ฐานข้อมูลเลือก', async () => {
+test('POST /accounting/expenses: ภ.ง.ด.3 กับบุคคลธรรมดา / ไม่ส่งแบบ = ให้ฐานข้อมูลเลือก', async () => {
   on('/rest/v1/expenses', () => json([{ id: 'e2' }], 201), 'POST')
   const person = { ...EXPENSE, vat_amount: 0, amount: 5000, supplier_name: 'นายช่าง', supplier_tax_id: PERSON_TAX_ID, wht_rate: 3 }
   assert.equal((await req('/api/accounting/expenses', { as: 'accountant', body: { ...person, wht_type: 'pnd3' } })).status, 201)
@@ -345,7 +345,7 @@ test('POST /accounting/expenses: ใบกำกับภาษีซื้อ�
   assert.ok(r.status >= 400)
 })
 
-test('GET /accounting/expenses: อ่านช่องผู้ขาย ใบกำกับ และหัก ณ ที่จ่าย · ครัว 403', async () => {
+test('GET /accounting/expenses: อ่านช่องผู้ขาย ใบกำกับ และหัก ณ ที่จ่าย / ครัว 403', async () => {
   on('/rpc/acct_expense_export', () => json([{ id: 'e1', wht_type: 'pnd53', wht_amount: '30.00' }]))
   const r = await req(`/api/accounting/expenses?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'manager' })
   assert.equal(r.status, 200)
@@ -354,7 +354,7 @@ test('GET /accounting/expenses: อ่านช่องผู้ขาย ใ�
   assert.equal((await req(`/api/accounting/expenses?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'kitchen' })).status, 403)
 })
 
-test('GET /tax/documents: แท็บเอกสารภาษีดึงร่างทั้งหมด + เอกสารตามวันที่ออก · สถานะผิด 400', async () => {
+test('GET /tax/documents: แท็บเอกสารภาษีดึงร่างทั้งหมด + เอกสารตามวันที่ออก / สถานะผิด 400', async () => {
   on('/rpc/tax_documents_list', () => json([{ id: 'd1', doc_type: 'TAX', status: 'draft', total_amount: '1070.00' }]))
   const drafts = await req(`/api/tax/documents?restaurant_id=${RID}&status=draft`, { as: 'accountant' })
   assert.equal(drafts.status, 200)

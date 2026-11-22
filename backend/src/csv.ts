@@ -168,7 +168,7 @@ export function parseSales(text: string): { rows: SaleRow[]; errors: RowError[] 
 }
 
 // ===== รายงานภาษีตามแบบกรมสรรพากร (ภาษีขาย / ภาษีซื้อ / ภ.พ.30 / ภ.ง.ด.3, 53) =====
-// ฟังก์ชันล้วน (ไม่เรียกฐานข้อมูล) · route อยู่ที่ accounting.ts · รวมยอดเป็นสตางค์กันทศนิยมเพี้ยน
+// ฟังก์ชันล้วน (ไม่เรียกฐานข้อมูล) / route อยู่ที่ accounting.ts / รวมยอดเป็นสตางค์กันทศนิยมเพี้ยน
 // หมายเหตุ: ข้อมูลประกอบการยื่น ไม่ใช่การยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจ
 
 const satang = (v: unknown) => Math.round(Number(v ?? 0) * 100)
@@ -332,7 +332,7 @@ export function purchaseTaxReport(expenses: PurchaseExpenseRow[]) {
   return { rows, totals: { value: baht(tot.v), vat: baht(tot.t), total: baht(tot.g) } }
 }
 
-// ภ.พ.30: ภาษีขาย - ภาษีซื้อ (บวก = ต้องชำระ · ลบ = ชำระเกิน ยกไปเดือนถัดไป/ขอคืน)
+// ภ.พ.30: ภาษีขาย - ภาษีซื้อ (บวก = ต้องชำระ / ลบ = ชำระเกิน ยกไปเดือนถัดไป/ขอคืน)
 export function pp30Summary(sales: TaxTotals, purchases: { value: number; vat: number }) {
   const net = satang(sales.vat) - satang(purchases.vat)
   return {
@@ -395,7 +395,7 @@ export function whtReport(expenses: WhtExpenseRow[]) {
   return { rows, summary: { pnd3: fmt(sum.pnd3), pnd53: fmt(sum.pnd53), total_wht: baht(sum.pnd3.w + sum.pnd53.w) } }
 }
 
-// CSV รายงาน: หัวรายงาน (ผู้ประกอบการ / เดือนภาษี) + บรรทัดว่าง + ตาราง + แถวรวม · UTF-8 BOM เปิดใน Excel ได้
+// CSV รายงาน: หัวรายงาน (ผู้ประกอบการ / เดือนภาษี) + บรรทัดว่าง + ตาราง + แถวรวม / UTF-8 BOM เปิดใน Excel ได้
 export function reportCsv(title: string, meta: [string, Cell][], header: string[], rows: Cell[][], total?: Cell[]): string {
   return toCsv([title], [...meta.map(([k, v]) => [k, v]), [], header, ...rows, ...(total ? [total] : [])])
 }

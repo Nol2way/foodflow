@@ -1,6 +1,6 @@
 import { translateUi } from "../../lib/uiText"
 // แท็บภาษีในหน้ารายงานบัญชี
-//   TaxDocsView: เอกสารภาษีขาย ABB / TAX / CN · ยืนยันฉบับร่าง (ออกเลข + สร้าง XML ETDA ในฐานข้อมูล) · พิมพ์ · ดาวน์โหลด XML
+//   TaxDocsView: เอกสารภาษีขาย ABB / TAX / CN / ยืนยันฉบับร่าง (ออกเลข + สร้าง XML ETDA ในฐานข้อมูล) / พิมพ์ / ดาวน์โหลด XML
 //   RdTaxView:   รายงานภาษีขาย / ภาษีซื้อ / สรุป ภ.พ.30 / ภ.ง.ด.3-53 รายเดือน + ส่งออก CSV
 // ทำงานกับ backend ของร้านเท่านั้น ไม่ส่งข้อมูลไปกรมสรรพากรหรือระบบภายนอก (ยื่นแบบเองจากไฟล์ที่ส่งออก)
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -86,7 +86,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
     setBusyId(d.id)
     try {
       const doc = await confirmDocument(restaurantId, d.id, setup.terminal.terminal_code)
-      setMsg({ ok: true, text: `ยืนยัน${TAX_DOC_LABEL[d.doc_type]} เลขที่ ${doc.doc_number} แล้ว · สร้างไฟล์ XML (ETDA) เรียบร้อย` })
+      setMsg({ ok: true, text: `ยืนยัน${TAX_DOC_LABEL[d.doc_type]} เลขที่ ${doc.doc_number} แล้ว / สร้างไฟล์ XML (ETDA) เรียบร้อย` })
       await load()
     } catch (e) {
       setMsg({ ok: false, text: apiMessage(e) })
@@ -127,10 +127,10 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
             ))}
           </ul>
           {setup.seller && (
-            <p className="mt-3 hint">{"" + translateUi("ผู้ขาย:") + " "}{setup.seller.company_name} · {formatTaxId(setup.seller.tax_id)} · {branchLabel(setup.seller.branch_code)}
+            <p className="mt-3 hint">{"" + translateUi("ผู้ขาย:") + " "}{setup.seller.company_name} / {formatTaxId(setup.seller.tax_id)} / {branchLabel(setup.seller.branch_code)}
             </p>
           )}
-          <p className="mt-2 hint">{"" + translateUi("XML สร้างตามโครงสร้าง ETDA (ขมธอ.3-2560) ตอนยืนยัน: TypeCode ใบอย่างย่อ") + " "}{ETDA_TYPE_CODE.ABB}{" " + translateUi("· ใบเสร็จ/ใบกำกับภาษี") + " "}{ETDA_TYPE_CODE.TAX}{" " + translateUi("· ใบลดหนี้") + " "}{ETDA_TYPE_CODE.CN}{" " + translateUi("· ระบบไม่ส่งไฟล์ให้กรมสรรพากรเอง ควรตรวจกับ XSD และลงลายมือชื่ออิเล็กทรอนิกส์ก่อนยื่นจริง") + " "}</p>
+          <p className="mt-2 hint">{"" + translateUi("XML สร้างตามโครงสร้าง ETDA (ขมธอ.3-2560) ตอนยืนยัน: TypeCode ใบอย่างย่อ") + " "}{ETDA_TYPE_CODE.ABB}{" " + translateUi("/ ใบเสร็จ/ใบกำกับภาษี") + " "}{ETDA_TYPE_CODE.TAX}{" " + translateUi("/ ใบลดหนี้") + " "}{ETDA_TYPE_CODE.CN}{" " + translateUi("/ ระบบไม่ส่งไฟล์ให้กรมสรรพากรเอง ควรตรวจกับ XSD และลงลายมือชื่ออิเล็กทรอนิกส์ก่อนยื่นจริง") + " "}</p>
         </div>
         <div className="card">
           <TerminalPicker setup={setup} />
@@ -140,7 +140,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label={translateUi("ฉบับร่าง")} value={totals.count.draft} tone={totals.count.draft > 0 ? 'bad' : undefined} hint={translateUi("รอยืนยัน")} />
-        <Stat label={translateUi("ยืนยันแล้ว")} value={totals.count.confirmed} hint={`ABB ${totals.byType.ABB} · TAX ${totals.byType.TAX} · CN ${totals.byType.CN}`} />
+        <Stat label={translateUi("ยืนยันแล้ว")} value={totals.count.confirmed} hint={`ABB ${totals.byType.ABB} / TAX ${totals.byType.TAX} / CN ${totals.byType.CN}`} />
         <Stat label={translateUi("ยอดรวม (สุทธิใบลดหนี้)")} value={<Money value={totals.total} />} />
         <Stat label={translateUi("ภาษีขาย (สุทธิ)")} value={<Money value={totals.vat} />} />
       </div>
@@ -153,7 +153,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
               <option value="">{translateUi("ทุกประเภท")}</option>
               {(Object.keys(TAX_DOC_LABEL) as TaxDocType[]).map((t) => (
                 <option key={t} value={t}>
-                  {t} · {TAX_DOC_LABEL[t]}
+                  {t} / {TAX_DOC_LABEL[t]}
                 </option>
               ))}
             </select>
@@ -191,8 +191,8 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
                       <span className={`badge ${TYPE_BADGE[d.doc_type]}`}>{d.doc_type}</span>{' '}
                       <span className="font-mono">{d.doc_number ?? '(ยังไม่มีเลขที่)'}</span>
                       <div className="hint">
-                        {TAX_DOC_LABEL[d.doc_type]} · {d.issue_date ?? `สร้าง ${thaiDateTime(d.created_at)}`}
-                        {d.terminal_code && ` · ${d.terminal_code}`}
+                        {TAX_DOC_LABEL[d.doc_type]} / {d.issue_date ?? `สร้าง ${thaiDateTime(d.created_at)}`}
+                        {d.terminal_code && ` / ${d.terminal_code}`}
                       </div>
                       {d.ref_document_id && <div className="hint">{"" + translateUi("อ้างอิง") + " "}{numberOf.get(d.ref_document_id) ?? 'เอกสารนอกช่วงวันที่'}</div>}
                       {d.credit_note_reason && <div className="hint">{"" + translateUi("เหตุผล:") + " "}{d.credit_note_reason}</div>}
@@ -206,7 +206,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
                       {d.buyer_name ?? (d.doc_type === 'ABB' ? 'ขายปลีก' : '-')}
                       {d.buyer_tax_id && (
                         <div className="hint">
-                          {formatTaxId(d.buyer_tax_id)} · {branchLabel(d.buyer_branch_code)}
+                          {formatTaxId(d.buyer_tax_id)} / {branchLabel(d.buyer_branch_code)}
                         </div>
                       )}
                     </td>
@@ -247,7 +247,7 @@ export function TaxDocsView({ restaurantId, from, to }: { restaurantId: string; 
             </tbody>
           </table>
         </div>
-        <p className="mt-2 hint">{"" + translateUi("ช่วงวันที่") + " "}{from}{" " + translateUi("ถึง") + " "}{to}{" " + translateUi("(ตามวันที่ออกเอกสาร) · ฉบับร่างแสดงทั้งหมด · เอกสารที่ยืนยันแล้วแก้ไม่ได้ ให้ออกใบลดหนี้แทน") + " "}</p>
+        <p className="mt-2 hint">{"" + translateUi("ช่วงวันที่") + " "}{from}{" " + translateUi("ถึง") + " "}{to}{" " + translateUi("(ตามวันที่ออกเอกสาร) / ฉบับร่างแสดงทั้งหมด / เอกสารที่ยืนยันแล้วแก้ไม่ได้ ให้ออกใบลดหนี้แทน") + " "}</p>
       </Section>
 
       {printId && <Receipt documentId={printId} onClose={() => setPrintId(null)} />}
@@ -355,7 +355,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
 
       {part === 'sales' && data.sales && (
         <Section
-          title={`รายงานภาษีขาย · ${data.sales.rows.length} รายการ`}
+          title={`รายงานภาษีขาย / ${data.sales.rows.length} รายการ`}
           action={<CsvButton onClick={() => void csv('sales-tax')} />}
         >
           <div className="table-wrap">
@@ -382,7 +382,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
                       {r.buyer_name}
                       {r.buyer_tax_id && (
                         <div className="hint">
-                          {formatTaxId(r.buyer_tax_id)} · {r.branch}
+                          {formatTaxId(r.buyer_tax_id)} / {r.branch}
                         </div>
                       )}
                       {r.note && <div className="hint">{r.note}</div>}
@@ -406,17 +406,17 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tfoot>
             </table>
           </div>
-          <p className="mt-2 hint">{translateUi("ใบอย่างย่อรวม 1 บรรทัดต่อวันต่อเครื่อง · ใบลดหนี้ติดลบ · ใบเต็มรูปที่ออกแทนใบอย่างย่อไม่นับยอดซ้ำ")}</p>
+          <p className="mt-2 hint">{translateUi("ใบอย่างย่อรวม 1 บรรทัดต่อวันต่อเครื่อง / ใบลดหนี้ติดลบ / ใบเต็มรูปที่ออกแทนใบอย่างย่อไม่นับยอดซ้ำ")}</p>
         </Section>
       )}
 
       {part === 'purchase' && data.purchase && (
         <Section
-          title={`รายงานภาษีซื้อ · ${data.purchase.rows.length} ใบกำกับ`}
+          title={`รายงานภาษีซื้อ / ${data.purchase.rows.length} ใบกำกับ`}
           action={<CsvButton onClick={() => void csv('purchase-tax')} />}
         >
           {data.purchase.without_invoice.count > 0 && (
-            <p className="alert-error">{"" + translateUi("มีรายจ่าย") + " "}{data.purchase.without_invoice.count}{" " + translateUi("รายการที่ใส่ภาษีซื้อ") + " "}{baht(data.purchase.without_invoice.vat)}{" " + translateUi("แต่ไม่มีใบกำกับภาษี · นำมาหักใน ภ.พ.30 ไม่ได้") + " "}</p>
+            <p className="alert-error">{"" + translateUi("มีรายจ่าย") + " "}{data.purchase.without_invoice.count}{" " + translateUi("รายการที่ใส่ภาษีซื้อ") + " "}{baht(data.purchase.without_invoice.vat)}{" " + translateUi("แต่ไม่มีใบกำกับภาษี / นำมาหักใน ภ.พ.30 ไม่ได้") + " "}</p>
           )}
           <div className="table-wrap">
             <table className="tbl-tight">
@@ -440,7 +440,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
                     <td>
                       {r.supplier_name}
                       <div className="hint">
-                        {formatTaxId(r.supplier_tax_id)} · {r.branch}{" " + translateUi("· ลงบัญชี") + " "}{thDate(r.posted_on)}
+                        {formatTaxId(r.supplier_tax_id)} / {r.branch}{" " + translateUi("/ ลงบัญชี") + " "}{thDate(r.posted_on)}
                       </div>
                     </td>
                     <td className="text-right"><Money value={r.value} /></td>
@@ -479,8 +479,8 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
           }
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label={`ภ.ง.ด.3 · ${data.wht.summary.pnd3.count} ราย`} value={<Money value={data.wht.summary.pnd3.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd3.paid_amount)}`} />
-            <Stat label={`ภ.ง.ด.53 · ${data.wht.summary.pnd53.count} ราย`} value={<Money value={data.wht.summary.pnd53.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd53.paid_amount)}`} />
+            <Stat label={`ภ.ง.ด.3 / ${data.wht.summary.pnd3.count} ราย`} value={<Money value={data.wht.summary.pnd3.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd3.paid_amount)}`} />
+            <Stat label={`ภ.ง.ด.53 / ${data.wht.summary.pnd53.count} ราย`} value={<Money value={data.wht.summary.pnd53.wht} />} hint={`เงินได้ ${baht(data.wht.summary.pnd53.paid_amount)}`} />
             <Stat label={translateUi("ภาษีที่ต้องนำส่งรวม")} value={<Money value={data.wht.summary.total_wht} />} hint={`ยื่นภายใน ${thDate(whtDue.paper)} (ออนไลน์ ${thDate(whtDue.online)})`} />
           </div>
           <div className="table-wrap mt-3">
@@ -507,7 +507,7 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
                     <td>
                       {r.payee_name}
                       <div className="hint">
-                        {formatTaxId(r.payee_tax_id)} · {r.branch}
+                        {formatTaxId(r.payee_tax_id)} / {r.branch}
                       </div>
                     </td>
                     <td className="whitespace-nowrap">{thDate(r.paid_on)}</td>
@@ -521,11 +521,11 @@ export function RdTaxView({ restaurantId, today }: { restaurantId: string; today
               </tbody>
             </table>
           </div>
-          <p className="mt-2 hint">{translateUi("ฐานภาษี = ยอดก่อน VAT · ออกหนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) ให้ผู้รับเงินทุกครั้ง")}</p>
+          <p className="mt-2 hint">{translateUi("ฐานภาษี = ยอดก่อน VAT / ออกหนังสือรับรองการหักภาษี ณ ที่จ่าย (50 ทวิ) ให้ผู้รับเงินทุกครั้ง")}</p>
         </Section>
       )}
 
-      <p className="mt-6 text-xs text-gray-400">{"" + translateUi("รายงานสร้างจากข้อมูลในระบบเท่านั้น ไม่ได้ยื่นต่อกรมสรรพากรอัตโนมัติ · ไฟล์ CSV เป็น UTF-8 เปิดใน Excel ได้ · ควรให้นักบัญชีตรวจก่อนยื่นแบบ") + " "}</p>
+      <p className="mt-6 text-xs text-gray-400">{"" + translateUi("รายงานสร้างจากข้อมูลในระบบเท่านั้น ไม่ได้ยื่นต่อกรมสรรพากรอัตโนมัติ / ไฟล์ CSV เป็น UTF-8 เปิดใน Excel ได้ / ควรให้นักบัญชีตรวจก่อนยื่นแบบ") + " "}</p>
     </div>
   )
 }
@@ -534,7 +534,7 @@ function Pp30Card({ r, due, onCsv }: { r: Pp30Report; due: { paper: string; onli
   const s = r.summary
   const payable = s.vat_payable > 0
   return (
-    <Section title={`สรุปภาษีมูลค่าเพิ่ม (ภ.พ.30) · ${r.period.from} ถึง ${r.period.to}`} action={<CsvButton onClick={onCsv} />}>
+    <Section title={`สรุปภาษีมูลค่าเพิ่ม (ภ.พ.30) / ${r.period.from} ถึง ${r.period.to}`} action={<CsvButton onClick={onCsv} />}>
       <div className="grid gap-3 lg:grid-cols-[1fr_18rem]">
         <div className="card-flush">
           <table className="w-full text-sm">

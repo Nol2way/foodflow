@@ -39,7 +39,7 @@ export function PageHead({ title, subtitle, action }: { title: string; subtitle?
   )
 }
 
-// สีสถานะส่วนต่าง: เขียว < 2% · เหลือง 2-5% · แดง > 5% (สีแดง/เหลืองใช้บอกสถานะเท่านั้น)
+// สีสถานะส่วนต่าง: เขียว < 2% / เหลือง 2-5% / แดง > 5% (สีแดง/เหลืองใช้บอกสถานะเท่านั้น)
 const COLOR: Record<VarianceColor, { badge: string; label: string }> = {
   green: { badge: 'badge-green', label: 'ปกติ' },
   yellow: { badge: 'badge-amber', label: 'เฝ้าดู' },
@@ -50,7 +50,7 @@ export function VarianceBadge({ color }: { color: VarianceColor }) {
 }
 export const varianceText: Record<VarianceColor, string> = { green: 'text-emerald-700', yellow: 'text-amber-800', red: 'text-red-700' }
 
-// ปุ่ม +/- ใหญ่ (นับด้วยนิ้วบนแท็บเล็ต) · ช่องกลางพิมพ์ได้
+// ปุ่ม +/- ใหญ่ (นับด้วยนิ้วบนแท็บเล็ต) / ช่องกลางพิมพ์ได้
 export function Stepper({
   value,
   onChange,

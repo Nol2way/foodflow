@@ -1,17 +1,19 @@
 import { translateUi } from "../lib/uiText"
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor, type Role } from '../lib/roles'
 import { baht } from '../lib/format'
 import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
+import Pagination, { useLocalPagination } from '../components/Pagination'
+import { useText } from '../lib/preferences'
 import { PageHead, StockNav } from '../components/stock/ui'
 import { errorText, stockApi, todayIso, useLoad, type LastPurchase, type ReceiveWarning } from '../lib/stockApi'
 import { fmtNum, round } from '../lib/stockMath'
 
 // รับเข้า (stock_receive / submit_stock_receipt ใน 0029)
 //   เลือกผู้ขาย -> กรอกจำนวน (แพ็ค) ขนาดบรรจุ ราคาต่อแพ็ค วันหมดอายุ -> สร้างล็อต (FEFO/FIFO)
-//   เตือนตั้งแต่ก่อนบันทึก เมื่อราคาต่อหน่วยหรือขนาดบรรจุเปลี่ยนจากครั้งก่อน · ราคาเปลี่ยน = ต้นทุนสูตรที่ใช้คำนวณใหม่
+//   เตือนตั้งแต่ก่อนบันทึก เมื่อราคาต่อหน่วยหรือขนาดบรรจุเปลี่ยนจากครั้งก่อน / ราคาเปลี่ยน = ต้นทุนสูตรที่ใช้คำนวณใหม่
 //   ได้ของไม่ครบบิล: กรอก "ตามบิล" ส่วนที่ขาดเป็นยอดรอทวง (ติดตามที่ใบรับของย้อนหลัง)
 
 interface Line {
@@ -194,7 +196,7 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
     <form onSubmit={submit} className="space-y-4">
       {error && <p className="alert-error">{error}</p>}
       {result && (
-        <div className="alert-success">{"" + translateUi("บันทึกใบรับของแล้ว") + " "}{result.recosted > 0 && <>{" " + translateUi("· คำนวณต้นทุนสูตรใหม่") + " "}{result.recosted}{" " + translateUi("สูตร (รวมสูตรแม่)") + ""}</>}
+        <div className="alert-success">{"" + translateUi("บันทึกใบรับของแล้ว") + " "}{result.recosted > 0 && <>{" " + translateUi("/ คำนวณต้นทุนสูตรใหม่") + " "}{result.recosted}{" " + translateUi("สูตร (รวมสูตรแม่)") + ""}</>}
           {result.warnings.length > 0 && (
             <ul className="mt-1 list-disc pl-5 text-amber-900">
               {result.warnings.map((w) => (
@@ -275,13 +277,13 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
                     <span>{"" + translateUi("เข้าสต็อก") + " "}{fmtNum(baseQty)} {ing.unit}</span>
                     {Number(l.packSize) > 0 && l.packPrice !== '' && (
                       <span>
-                        {baht(Number(l.packPrice) / Number(l.packSize))}/{ing.unit}{" " + translateUi("· หลัง yield") + " "}{baht((Number(l.packPrice) / Number(l.packSize)) * 10000 / (ing.trim_yield_pct * ing.cook_yield_pct))}/{ing.unit}
+                        {baht(Number(l.packPrice) / Number(l.packSize))}/{ing.unit}{" " + translateUi("/ หลัง yield") + " "}{baht((Number(l.packPrice) / Number(l.packSize)) * 10000 / (ing.trim_yield_pct * ing.cook_yield_pct))}/{ing.unit}
                       </span>
                     )}
                     {last.get(ing.id) && <span>{"" + translateUi("ครั้งก่อน") + " "}{baht(Number(last.get(ing.id)!.unit_cost))}/{ing.unit}</span>}
                     <span className="ml-auto font-medium text-gray-700">{baht((Number(l.packs) || 0) * (Number(l.packPrice) || 0))}</span>
                   </div>
-                  {warns.length > 0 && <p className="note">⚠ {warns.join(' · ')}</p>}
+                  {warns.length > 0 && <p className="note">⚠ {warns.join(' / ')}</p>}
                 </>
               )}
             </div>
@@ -344,7 +346,7 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
         <div className="flex flex-wrap justify-between gap-2 border-b pb-3">
           <div>
             <h2 className="title-lg">{translateUi("ใบรับของ (ตรวจรับเทียบบิล)")}</h2>
-            <p className="text-sm text-gray-500">{"" + translateUi("วันที่รับ") + " "}{new Date(receipt.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })}{" " + translateUi("· ผู้รับ") + " "}{receipt.received_by_name ?? '-'}
+            <p className="text-sm text-gray-500">{"" + translateUi("วันที่รับ") + " "}{new Date(receipt.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })}{" " + translateUi("/ ผู้รับ") + " "}{receipt.received_by_name ?? '-'}
             </p>
             {receipt.note && <p className="text-sm text-gray-700">{"" + translateUi("หมายเหตุ:") + " "}{receipt.note}</p>}
           </div>
@@ -385,7 +387,7 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
                         <div className="hint">{fmtNum(Number(l.pack_qty))} × {fmtNum(Number(l.pack_size))} {l.unit}</div>
                       )}
                       {l.expiry_date && <div className="hint">{"" + translateUi("หมดอายุ") + " "}{new Date(l.expiry_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</div>}
-                      {glaze !== null && <div className="hint">{"" + translateUi("รวม") + " "}{fmtNum(Number(l.gross_qty))}{" " + translateUi("· น้ำแข็ง") + " "}{pct(glaze)}</div>}
+                      {glaze !== null && <div className="hint">{"" + translateUi("รวม") + " "}{fmtNum(Number(l.gross_qty))}{" " + translateUi("/ น้ำแข็ง") + " "}{pct(glaze)}</div>}
                     </td>
                     <td className="px-2 py-1.5 num">
                       {l.pack_price !== null ? `${baht(Number(l.pack_price))}/แพ็ค` : `${baht(Number(l.unit_cost))}/${l.unit}`}
@@ -418,7 +420,7 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
             </tbody>
             <tfoot>
               <tr className="border-t text-right">
-                <td colSpan={6} className="px-2 py-2">{"" + translateUi("ยอดตามบิล") + " "}<strong>{baht(Number(head.invoice_total))}</strong>{" " + translateUi("· รับจริง") + " "}<strong>{baht(Number(head.total_cost))}</strong>{" " + translateUi("· รอทวง") + ""}{' '}
+                <td colSpan={6} className="px-2 py-2">{"" + translateUi("ยอดตามบิล") + " "}<strong>{baht(Number(head.invoice_total))}</strong>{" " + translateUi("/ รับจริง") + " "}<strong>{baht(Number(head.total_cost))}</strong>{" " + translateUi("/ รอทวง") + ""}{' '}
                   <strong className={Number(head.claim_total) > 0 ? 'text-red-700' : ''}>{baht(Number(head.claim_total))}</strong>
                 </td>
               </tr>
@@ -435,23 +437,36 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
 }
 
 function ReceiptList({ restaurantId, openId, canClaim, onOpen }: { restaurantId: string; openId: string | null; canClaim: boolean; onOpen: (id: string | null) => void }) {
+  const t = useText()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [onlyClaims, setOnlyClaims] = useState(false)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [loading, setLoading] = useState(false)
+  const [more, setMore] = useState(false)
+  const request = useRef(0)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const { data, error: err } = await supabase
+    const sequence = ++request.current
+    setLoading(true)
+    let query = supabase
       .from('stock_receipts')
       .select('id,supplier,invoice_no,received_on,note,item_count,total_cost,invoice_total,claim_total,expense_id,received_by_name,created_at')
       .eq('restaurant_id', restaurantId)
+    if (onlyClaims) query = query.gt('claim_total', 0)
+    const { data, error: err } = await query
       .order('created_at', { ascending: false })
-      .limit(100)
-    if (err) setError('โหลดใบรับของไม่ได้ (ต้องรัน migration 0025 ก่อน)')
-    else setReceipts((data ?? []) as Receipt[])
-  }, [restaurantId])
+      .order('id', { ascending: false }).range(page * pageSize, page * pageSize + pageSize)
+    if (sequence !== request.current) return
+    setLoading(false)
+    if (err) { setError(t('โหลดใบรับของไม่ได้ กรุณาลองใหม่', 'Could not load receipts. Please retry.')); setReceipts([]); setMore(false) }
+    else { setError(null); setReceipts((data ?? []).slice(0, pageSize) as Receipt[]); setMore((data ?? []).length > pageSize) }
+  }, [restaurantId, page, pageSize, onlyClaims])
 
   useEffect(() => {
     void load()
+    return () => { request.current++ }
   }, [load, openId])
 
   const open = receipts.find((r) => r.id === openId)
@@ -463,19 +478,21 @@ function ReceiptList({ restaurantId, openId, canClaim, onOpen }: { restaurantId:
     <div>
       {error && <p className="alert-error">{error}</p>}
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span className="text-sm text-gray-600">{"" + translateUi("รอทวงทั้งหมด") + " "}<strong className={pending > 0 ? 'text-red-700' : ''}>{baht(pending)}</strong>
+        <span className="text-sm text-gray-600">{t('รอทวงในหน้านี้', 'Pending claims on this page')} <strong className={pending > 0 ? 'text-red-700' : ''}>{baht(pending)}</strong>
         </span>
         <label className="ml-auto flex items-center gap-2 text-sm text-gray-600">
-          <input type="checkbox" checked={onlyClaims} onChange={(e) => setOnlyClaims(e.target.checked)} />{"" + translateUi("เฉพาะใบที่ยังมียอดรอทวง") + " "}</label>
+          <input type="checkbox" checked={onlyClaims} onChange={(e) => { setOnlyClaims(e.target.checked); setPage(0) }} />{"" + translateUi("เฉพาะใบที่ยังมียอดรอทวง") + " "}</label>
       </div>
-      <ul className="list-card">
+      <Pagination label={t('ใบรับของย้อนหลัง', 'Receipt history')} page={page} pageSize={pageSize} count={receipts.length} hasNext={more} loading={loading}
+        onPrevious={() => setPage(n => n - 1)} onNext={() => setPage(n => n + 1)} onPageSizeChange={n => { setPageSize(n); setPage(0) }} />
+      <ul className="list-card history-scroll">
         {shown.map((r) => (
           <li key={r.id}>
             <button className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 p-3 text-left hover:bg-gray-50" onClick={() => onOpen(r.id)}>
               <span className="min-w-40 flex-1">
-                <span className="block font-medium text-gray-900">{r.supplier ?? 'ไม่ระบุผู้ขาย'}{r.invoice_no && ` · ${r.invoice_no}`}</span>
+                <span className="block font-medium text-gray-900">{r.supplier ?? 'ไม่ระบุผู้ขาย'}{r.invoice_no && ` / ${r.invoice_no}`}</span>
                 <span className="hint">
-                  {new Date(r.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} · {r.received_by_name ?? '-'} · {r.item_count}{" " + translateUi("รายการ") + " "}</span>
+                  {new Date(r.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} / {r.received_by_name ?? '-'} / {r.item_count}{" " + translateUi("รายการ") + " "}</span>
               </span>
               {Number(r.claim_total) > 0 && <span className="badge badge-red">{"" + translateUi("รอทวง") + " "}{baht(Number(r.claim_total))}</span>}
               <span className="w-28 num font-semibold">{baht(Number(r.invoice_total || r.total_cost))}</span>
@@ -511,6 +528,7 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
   const [rows, setRows] = useState<SupplierRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const settings = useReceiveSettings(restaurantId)
+  const pagination = useLocalPagination(rows, `${restaurantId}:${from}:${to}`, translateUi('ผู้ขาย'))
 
   useEffect(() => {
     if (!from || !to) return
@@ -537,10 +555,11 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
           <span className="label">{translateUi("ถึง")}</span>
           <input className="input" type="date" value={to} max={today()} onChange={(e) => e.target.value && setTo(e.target.value)} />
         </label>
-        <p className="hint">{"" + translateUi("เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล · น้ำแข็งไม่เกิน") + " "}{settings.glazeMax}%</p>
+        <p className="hint">{"" + translateUi("เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล / น้ำแข็งไม่เกิน") + " "}{settings.glazeMax}%</p>
       </div>
       {error && <p className="alert-error">{error}</p>}
-      <div className="table-wrap">
+      {pagination.controls}
+      <div className="table-wrap history-scroll">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="text-right">
@@ -556,7 +575,7 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {rows.map((r) => {
+            {pagination.items.map((r) => {
               const gap = r.gap_pct === null ? null : Number(r.gap_pct)
               const glaze = r.glaze_pct === null ? null : Number(r.glaze_pct)
               return (
@@ -597,7 +616,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
     <div className="page">
       <PageHead
         title={translateUi("รับเข้า")}
-        subtitle={translateUi("เลือกผู้ขาย กรอกจำนวน ราคา วันหมดอายุ · ทุกการรับเป็นล็อตใหม่ (หยิบแบบ FEFO คิดต้นทุนแบบ FIFO)")}
+        subtitle={translateUi("เลือกผู้ขาย กรอกจำนวน ราคา วันหมดอายุ / ทุกการรับเป็นล็อตใหม่ (หยิบแบบ FEFO คิดต้นทุนแบบ FIFO)")}
         action={
           <>
             {canReceive && <button className={chip(tab === 'new')} onClick={() => setTab('new')}>{translateUi("รับของใหม่")}</button>}

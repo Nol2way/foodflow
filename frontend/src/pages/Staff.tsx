@@ -1,4 +1,5 @@
 import { translateUi } from "../lib/uiText"
+import { useLocalPagination } from '../components/Pagination'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { MANAGER_ASSIGNABLE, ROLE_LABEL, roleLabels, rolesFor, type Role } from '../lib/roles'
 import { ApiError, api, apiMessage } from '../lib/api'
@@ -59,6 +60,8 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const pagination = useLocalPagination(staff.filter(m => `${m.email} ${m.display_name ?? ''}`.toLowerCase().includes(search.toLowerCase())), restaurantId + search, translateUi('พนักงาน'))
 
   const load = useCallback(async () => {
     try {
@@ -160,7 +163,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
           <RolePicker options={assignable} value={roles} onToggle={(r) => setRoles((prev) => toggle(prev, r))} />
         </div>
       </form>
-      <p className="mb-4 hint">{"" + translateUi("ถ้าอีเมลยังไม่มีบัญชี ระบบจะสร้างบัญชีพร้อมรหัสชั่วคราวให้ส่งต่อพนักงาน (พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก) · พนักงาน 1 คนมีได้หลายบทบาท เห็นหน้าของทุกบทบาทรวมกัน · ร้านต้องมีเจ้าของอย่างน้อย 1 คนเสมอ") + " "}{!isOwner && ' · ผู้จัดการจัดการได้เฉพาะหน้าร้าน ครัว บัญชี และสต็อก'}
+      <p className="mb-4 hint">{"" + translateUi("ถ้าอีเมลยังไม่มีบัญชี ระบบจะสร้างบัญชีพร้อมรหัสชั่วคราวให้ส่งต่อพนักงาน (พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก) / พนักงาน 1 คนมีได้หลายบทบาท เห็นหน้าของทุกบทบาทรวมกัน / ร้านต้องมีเจ้าของอย่างน้อย 1 คนเสมอ") + " "}{!isOwner && ' / ผู้จัดการจัดการได้เฉพาะหน้าร้าน ครัว บัญชี และสต็อก'}
       </p>
 
       {temp && (
@@ -175,12 +178,14 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
       )}
       {message && <p className="alert-warn">{message}</p>}
 
-      <ul className="list-card">
-        {staff.map((m) => (
+      <input className="input mt-4 w-full" aria-label={translateUi('ค้นหา')} placeholder={translateUi('ค้นหา')} value={search} onChange={e => setSearch(e.target.value)} />
+      {pagination.controls}
+      <ul className="list-card history-scroll">
+        {pagination.items.map((m) => (
           <li key={m.user_id} className="space-y-2 p-3">
             <div className="row-between">
               <span className="break-all font-medium text-gray-900">
-                {m.display_name && <span>{m.display_name} · </span>}
+                {m.display_name && <span>{m.display_name} / </span>}
                 {m.email}
                 {m.user_id === session?.user.id && <span className="font-normal text-gray-400">{" " + translateUi("(คุณ)") + ""}</span>}
               </span>

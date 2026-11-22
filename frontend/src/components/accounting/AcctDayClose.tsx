@@ -102,7 +102,7 @@ export default function AcctDayClose({
       const r = await api<{ line: keyof typeof LINE_TEXT }>('/accounting/day-close', {
         body: { restaurant_id: restaurantId, date, counted_cash: Number(counted), note: note.trim() || null },
       })
-      setMsg({ ok: true, text: `ปิดวัน ${date} แล้ว · ${LINE_TEXT[r.line]}` })
+      setMsg({ ok: true, text: `ปิดวัน ${date} แล้ว / ${LINE_TEXT[r.line]}` })
       setCounted('')
       setNote('')
       void load()
@@ -144,7 +144,7 @@ export default function AcctDayClose({
       {day && m && (
         <>
           <div className="grid gap-3 sm:grid-cols-4">
-            <Stat label={translateUi("ยอดขายสุทธิ")} value={baht(m.netSales)} hint={`${day.bills} บิล${day.cancelled_bills ? ` · ยกเลิก ${day.cancelled_bills}` : ''}`} />
+            <Stat label={translateUi("ยอดขายสุทธิ")} value={baht(m.netSales)} hint={`${day.bills} บิล${day.cancelled_bills ? ` / ยกเลิก ${day.cancelled_bills}` : ''}`} />
             <Stat label={translateUi("ต้นทุนอาหาร")} value={baht(m.foodCost)} hint={m.foodCostPct === null ? undefined : `${m.foodCostPct}% ของยอดขาย`} />
             <Stat label={translateUi("ค่าใช้จ่าย")} value={baht(m.expenses)} />
             <Stat label={translateUi("กำไรวันนี้")} value={baht(m.netProfit)} tone={m.netProfit < 0 ? 'bad' : 'good'} />
@@ -167,7 +167,7 @@ export default function AcctDayClose({
                   <div>
                     <div className="stat-label">{translateUi("ส่วนต่าง")}</div>
                     <div className={`stat-value ${Number(day.close.difference) < 0 ? 'text-red-600' : ''}`}>{baht(Number(day.close.difference))}</div>
-                    <div className="hint">{"" + translateUi("ยืนยันโดย") + " "}{day.close.confirmed_by_name ?? '-'} · {new Date(day.close.created_at).toLocaleString('th-TH')}
+                    <div className="hint">{"" + translateUi("ยืนยันโดย") + " "}{day.close.confirmed_by_name ?? '-'} / {new Date(day.close.created_at).toLocaleString('th-TH')}
                     </div>
                   </div>
                 </>
@@ -180,7 +180,7 @@ export default function AcctDayClose({
                   <div>
                     <div className="stat-label">{translateUi("ส่วนต่าง")}</div>
                     <div className={`stat-value ${diff !== null && diff < 0 ? 'text-red-600' : ''}`}>
-                      {diff === null ? '–' : diff === 0 ? 'ตรงยอด' : `${diff > 0 ? 'เกิน' : 'ขาด'} ${baht(Math.abs(diff))}`}
+                      {diff === null ? '-' : diff === 0 ? 'ตรงยอด' : `${diff > 0 ? 'เกิน' : 'ขาด'} ${baht(Math.abs(diff))}`}
                     </div>
                   </div>
                 </>
@@ -196,7 +196,7 @@ export default function AcctDayClose({
                 </button>
               </div>
             )}
-            <p className="mt-2 hint">{"" + translateUi("ปิดวันแล้วจะล็อกรายการของวันนั้น บันทึกเพิ่มไม่ได้ (บิลที่จ่ายหลังปิดวันเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ · ส่วนต่างลงบัญชีเงินสดขาด/เกิน") + " "}</p>
+            <p className="mt-2 hint">{"" + translateUi("ปิดวันแล้วจะล็อกรายการของวันนั้น บันทึกเพิ่มไม่ได้ (บิลที่จ่ายหลังปิดวันเข้าวันถัดไป) แก้ได้เฉพาะกลับรายการ / ส่วนต่างลงบัญชีเงินสดขาด/เกิน") + " "}</p>
           </div>
         </>
       )}
@@ -207,7 +207,7 @@ export default function AcctDayClose({
             <li key={b.id} className={`p-3 ${b.reversed ? 'text-gray-400' : ''}`}>
               <div className="toolbar justify-between">
                 <span>
-                  #{b.entry_no} · {b.memo}
+                  #{b.entry_no} / {b.memo}
                   {b.reversed && <span className="badge badge-red ml-2">{translateUi("ยกเลิกแล้ว")}</span>}
                 </span>
                 <span className="flex items-center gap-3">

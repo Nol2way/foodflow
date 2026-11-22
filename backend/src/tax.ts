@@ -1,7 +1,7 @@
-// เอกสารภาษีตามกรมสรรพากร (0031/0032) · ทำงานในเครื่องทั้งหมด ไม่เรียก API ภายนอก
-//   ABB = ใบกำกับภาษีอย่างย่อ · TAX = ใบเสร็จรับเงิน/ใบกำกับภาษี (เต็มรูป) · CN = ใบลดหนี้
+// เอกสารภาษีตามกรมสรรพากร (0031/0032) / ทำงานในเครื่องทั้งหมด ไม่เรียก API ภายนอก
+//   ABB = ใบกำกับภาษีอย่างย่อ / TAX = ใบเสร็จรับเงิน/ใบกำกับภาษี (เต็มรูป) / CN = ใบลดหนี้
 //   สร้างฉบับร่าง → ยืนยันเอง (ออกเลขไม่ขาดช่วงด้วย next_tax_doc_no + สร้าง XML ETDA เก็บใน xml_payload ในธุรกรรมเดียว)
-//   VAT แยกจากยอดรวม: ROUND((total - exempt) * rate / (100 + rate), 2) · rate จาก shop_settings (ปกติ 7)
+//   VAT แยกจากยอดรวม: ROUND((total - exempt) * rate / (100 + rate), 2) / rate จาก shop_settings (ปกติ 7)
 //   ทุกการเขียนผ่านฟังก์ชัน security definer ด้วย JWT ผู้ใช้ (ฐานข้อมูลตรวจสิทธิ์ซ้ำ)
 import type { Context, Hono } from 'hono'
 import type { AppEnv, Role } from './env.ts'
@@ -24,7 +24,7 @@ export const docRoles = (t: DocType) => (t === 'CN' ? TAX_CREDIT : TAX_ISSUE)
 // ETDA ขมธอ.3-2560 TypeCode (สร้างจริงในฐานข้อมูล tax_doc_build_xml)
 export const ETDA_TYPE_CODE: Record<DocType, string> = { TAX: 'T03', ABB: 'T05', CN: '81' }
 
-// VAT จากยอดรวมภาษี (ใช้แสดงตัวอย่าง/ทดสอบ · ค่าจริงคิดในฐานข้อมูลสูตรเดียวกัน)
+// VAT จากยอดรวมภาษี (ใช้แสดงตัวอย่าง/ทดสอบ / ค่าจริงคิดในฐานข้อมูลสูตรเดียวกัน)
 export function splitVat(total: number, exempt = 0, rate = 7): { taxable: number; vat: number } {
   const base = Math.round((total - exempt) * 100)
   const vat = Math.round((base * rate) / (100 + rate))
@@ -101,7 +101,7 @@ export function registerTax(app: Hono<AppEnv>, h: Helpers) {
     return { ...rest, has_xml: typeof xml_payload === 'string' }
   }
 
-  // สร้างเอกสาร (ฉบับร่าง) · confirm=true + terminal_code = ยืนยันทันที
+  // สร้างเอกสาร (ฉบับร่าง) / confirm=true + terminal_code = ยืนยันทันที
   app.post('/tax/documents', auth, async (c) => {
     const b = await body(c)
     const type = String(b.doc_type ?? '').toUpperCase() as DocType

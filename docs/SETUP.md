@@ -1,4 +1,4 @@
-# SETUP — วิธีรันและดีพลอย Plato
+# SETUP - วิธีรันและดีพลอย Plato
 
 ขั้นตอน release, หมุน secret, backup/restore และข้อจำกัดบริการจริง: [operations](operations.md) ฟีเจอร์ใหม่: [features](features.md)
 
@@ -42,10 +42,10 @@ npm --prefix backend ci
    | `0001_core.sql` | ตารางหลัก บทบาท พนักงานรับออเดอร์ ลำดับสถานะออเดอร์ โปรโมชัน ติ๊กเสร็จ/เสิร์ฟรายเมนู |
    | `0002_display_payment_reports.sql` | จอ iPad แบบแมกกาซีน ผู้จัดการดูบัญชี ชำระเงิน/พร้อมเพย์ สมาชิกสะสมแต้ม รายงานรายวัน |
    | `0003_users_inventory.sql` | ผู้ใช้ของระบบเอง (`app_users`) หลายบทบาทต่อคน ประวัติ/ใบนับ/ใบรับสต็อก ขายตามน้ำหนัก หน่วยนับ |
-   | `0004_accounting.sql` | บัญชีคู่เชื่อมสต็อก ผังบัญชี ลงบัญชีอัตโนมัติ ปิดวัน · ดู `docs/accounting.md` |
-   | `0005_stock.sql` | สต็อกแบบ ledger + ล็อต FEFO/FIFO สูตรซ้อน นับ blind ส่วนต่าง AvT yield par สิทธิ์สต็อก · ดู `docs/stock.md` |
+   | `0004_accounting.sql` | บัญชีคู่เชื่อมสต็อก ผังบัญชี ลงบัญชีอัตโนมัติ ปิดวัน / ดู `docs/accounting.md` |
+   | `0005_stock.sql` | สต็อกแบบ ledger + ล็อต FEFO/FIFO สูตรซ้อน นับ blind ส่วนต่าง AvT yield par สิทธิ์สต็อก / ดู `docs/stock.md` |
    | `0006_tax_shifts.sql` | ภาษีกรมสรรพากร (ใบกำกับอย่างย่อ/เต็มรูป e-Tax) และกะแคชเชียร์ |
-   | `0007_order_cancel_kitchen.sql` | เลือกยกเลิกบางเมนูในออเดอร์ · ขั้นทำอาหารเป็นของครัวเท่านั้น |
+   | `0007_order_cancel_kitchen.sql` | เลือกยกเลิกบางเมนูในออเดอร์ / ขั้นทำอาหารเป็นของครัวเท่านั้น |
    | `0008_fix_accounting_stock.sql` | แก้สรุปรายจ่าย void, การยกเลิกบิลภาษี และยอดบรรทัด XML |
    | `0009_audit_invariants.sql` | session, RLS, payment, import และ audit fixes |
    | `0010_pos_workflows.sql` | POS options, table/bill workflows, offline idempotency และ audit |
@@ -53,7 +53,7 @@ npm --prefix backend ci
 
    รายละเอียดว่าแต่ละไฟล์รวมจาก migration เดิมไฟล์ไหน และวิธีอัปเดต**ฐานข้อมูลที่เคยรันชุดเดิม 34 ไฟล์แล้ว** ดู [`database/migrations/README.md`](../database/migrations/README.md)
 
-3. ข้อมูลตัวอย่าง (ไม่บังคับ): `database/seed/seed.sql` (ร้าน เมนู โต๊ะ) → `database/seed/seed_demo.sql` (ออเดอร์ทดลองย้อนหลัง 6 สัปดาห์ ผู้ขาย วัตถุดิบ สูตร + สูตรย่อย) → `database/seed/seed_stock_demo.sql` (ไม่บังคับ: ใบรับ/ใบนับ/yield test ย้อนหลังให้หน้าสต็อกมีข้อมูล ลงบัญชีจริง) → `database/seed/seed_test_users.sql` (บัญชีทดสอบครบทุกบทบาท ล็อกอินได้ทันที รหัสผ่านดูที่ต้นไฟล์ · มีคำสั่งลบอยู่ท้ายไฟล์)
+3. ข้อมูลตัวอย่าง (ไม่บังคับ): `database/seed/seed.sql` (ร้าน เมนู โต๊ะ) → `database/seed/seed_demo.sql` (ออเดอร์ทดลองย้อนหลัง 6 สัปดาห์ ผู้ขาย วัตถุดิบ สูตร + สูตรย่อย) → `database/seed/seed_stock_demo.sql` (ไม่บังคับ: ใบรับ/ใบนับ/yield test ย้อนหลังให้หน้าสต็อกมีข้อมูล ลงบัญชีจริง) → `database/seed/seed_test_users.sql` (บัญชีทดสอบครบทุกบทบาท ล็อกอินได้ทันที รหัสผ่านดูที่ต้นไฟล์ / มีคำสั่งลบอยู่ท้ายไฟล์)
 4. สร้าง **เจ้าของร้านคนแรก** ด้วย SQL ที่คอมเมนต์ไว้ท้าย `seed.sql` (`app_create_user` + บทบาท `owner`) พนักงานคนต่อไปเจ้าของเพิ่มเองที่หน้า `/staff` (ระบบสร้างรหัสชั่วคราวให้ส่งต่อ หน้าเว็บบังคับพนักงานไปตั้งรหัสใหม่ตอนเข้าครั้งแรก (backend ยังไม่ได้บังคับ must_change_password ในทุก endpoint))
 5. **ไม่ใช้ Supabase Auth แล้ว:** ผู้ใช้อยู่ในตาราง `app_users` (รหัสผ่านเข้ารหัส bcrypt) backend ตรวจรหัสแล้วออก JWT เอง ไม่ต้องตั้งค่าเมนู Authentication
 6. ไปที่ **Project Settings → API** คัดลอก `Project URL`, `anon key`, `service_role key` และ **JWT secret** (หัวข้อ JWT Settings → Legacy JWT secret)
@@ -77,9 +77,9 @@ npm run dev                      # http://localhost:8787
 |--------|--------|----------|
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | `.dev.vars` หรือ `wrangler.toml` | เปิดเผยได้ |
 | `SUPABASE_SERVICE_ROLE_KEY` | `.dev.vars` / secret | ความลับ |
-| `SUPABASE_JWT_SECRET` | `.dev.vars` / secret | ความลับ · ใช้ลงนามโทเคนล็อกอิน (ไม่ตั้ง = ล็อกอินไม่ได้) |
+| `SUPABASE_JWT_SECRET` | `.dev.vars` / secret | ความลับ / ใช้ลงนามโทเคนล็อกอิน (ไม่ตั้ง = ล็อกอินไม่ได้) |
 | `SESSION_HOURS` | `.dev.vars` / `wrangler.toml` | อายุการล็อกอิน (ชั่วโมง) ค่าเริ่มต้น 12 |
-| `GEMINI_API_KEY` | `.dev.vars` / secret | ไม่ตั้ง = ปิดฟีเจอร์ AI ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) · แนะนำโปรยังใช้ได้ (คิดจากกติกา) |
+| `GEMINI_API_KEY` | `.dev.vars` / secret | ไม่ตั้ง = ปิดฟีเจอร์ AI ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) / แนะนำโปรยังใช้ได้ (คิดจากกติกา) |
 | `LINE_CHANNEL_ACCESS_TOKEN` | `.dev.vars` / secret | ไม่ตั้ง = ส่งรายงานเข้า LINE อัตโนมัติไม่ได้ (ยังกดแชร์เข้า LINE เองได้) |
 | `REPORT_HOUR` | `wrangler.toml` | ชั่วโมงที่ส่งรายงานรายวัน (เวลาร้าน) ค่าเริ่มต้น 22 |
 
@@ -106,20 +106,20 @@ npm run dev                      # http://localhost:5173
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | เชื่อม Supabase (เปิดเผยได้ คุมสิทธิ์ด้วย RLS) |
 | `VITE_API_URL` | ตอนพัฒนา `http://localhost:8787` (ไม่มี `/api` หรือ `/` ท้ายค่า) หรือเว้นว่างเพื่อใช้ Vite proxy; production โดเมนเดียวกันเว้นว่าง |
 
-**ทดลองใช้:** ล็อกอินที่ `/login` ด้วยบัญชีหน้าร้าน (`staff`) หรือเจ้าของ → `/pos` เลือกโต๊ะ เลือกเมนู กด **ส่งเข้าครัว** → เปิด `/kitchen` ด้วยบัญชีครัวใน private window/อีก browser profile (แท็บปกติแชร์ session กัน; อีกเครื่องต้องตั้ง share/LAN URL) จะเห็นออเดอร์ขึ้นทันที → เสิร์ฟแล้วรับชำระที่ `/counter` · หน้าอื่นตามบทบาท: `/accounting` · `/stock` · `/menu` · `/promotions` · `/import` · `/staff`
+**ทดลองใช้:** ล็อกอินที่ `/login` ด้วยบัญชีหน้าร้าน (`staff`) หรือเจ้าของ → `/pos` เลือกโต๊ะ เลือกเมนู กด **ส่งเข้าครัว** → เปิด `/kitchen` ด้วยบัญชีครัวใน private window/อีก browser profile (แท็บปกติแชร์ session กัน; อีกเครื่องต้องตั้ง share/LAN URL) จะเห็นออเดอร์ขึ้นทันที → เสิร์ฟแล้วรับชำระที่ `/counter` / หน้าอื่นตามบทบาท: `/accounting` / `/stock` / `/menu` / `/promotions` / `/import` / `/staff`
 
 ### ลิงก์สาธารณะชั่วคราวจากเครื่องตัวเอง
 
 ```bash
 npm run share     # ที่รากโปรเจกต์
 ```
-เปิด backend + หน้าเว็บในเครื่อง แล้วสร้างลิงก์ `https://xxxx.trycloudflare.com` (พร้อม QR) ให้มือถือ/iPad/คนอื่นเปิดได้จากทุกที่ · ได้ลิงก์ใหม่ทุกครั้งที่รัน · Ctrl+C = ปิด ลิงก์ใช้ไม่ได้ทันที · ต้องมี `cloudflared` (`winget install Cloudflare.cloudflared`) · หาพอร์ตว่างเอง ไม่ชนกับ `npm run dev` ที่เปิดค้างไว้
+เปิด backend + หน้าเว็บในเครื่อง แล้วสร้างลิงก์ `https://xxxx.trycloudflare.com` (พร้อม QR) ให้มือถือ/iPad/คนอื่นเปิดได้จากทุกที่ / ได้ลิงก์ใหม่ทุกครั้งที่รัน / Ctrl+C = ปิด ลิงก์ใช้ไม่ได้ทันที / ต้องมี `cloudflared` (`winget install Cloudflare.cloudflared`) / หาพอร์ตว่างเอง ไม่ชนกับ `npm run dev` ที่เปิดค้างไว้
 
 ## 6. Deploy
 
 **แบบที่ใช้อยู่ (แนะนำ) Cloudflare Worker ตัวเดียว: หน้าเว็บ + API + Cron โดเมนเดียวกัน**
 
-ต้นฉบับอ้างถึงโดเมน `foodflow.sittha9986.workers.dev` แต่ยังไม่ได้ deploy fork นี้ · ตั้งค่าใน `wrangler.jsonc` ที่รากโปรเจกต์ (เสิร์ฟ `frontend/dist` และส่ง `/api/*` ให้ backend)
+ต้นฉบับอ้างถึงโดเมน `foodflow.sittha9986.workers.dev` แต่ยังไม่ได้ deploy fork นี้ / ตั้งค่าใน `wrangler.jsonc` ที่รากโปรเจกต์ (เสิร์ฟ `frontend/dist` และส่ง `/api/*` ให้ backend)
 
 ```bash
 npx --prefix backend wrangler login     # ครั้งแรกครั้งเดียว
@@ -141,7 +141,7 @@ npm run build
 | Build command | `npm run build:pages` (ติดตั้งแพ็กเกจ backend ก่อน แล้ว build หน้าเว็บ) |
 | Build output | `dist` |
 
-ตั้งตัวแปรที่ Pages → Settings → Variables and Secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` และ secret `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY` · เว้น `VITE_API_URL` ว่าง · push ขึ้น `main` แล้วได้ทั้งเว็บและ `/api/*` (Swagger ที่ `/api/docs`)
+ตั้งตัวแปรที่ Pages → Settings → Variables and Secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` และ secret `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY` / เว้น `VITE_API_URL` ว่าง / push ขึ้น `main` แล้วได้ทั้งเว็บและ `/api/*` (Swagger ที่ `/api/docs`)
 
 **แบบ B Worker แยก:**
 ```bash
@@ -156,12 +156,12 @@ npm run deploy                                      # ต้องสั่ง�
 | อาการ | สาเหตุ | วิธีแก้ |
 |-------|--------|---------|
 | หน้าเว็บขึ้นว่ายังไม่ได้ตั้งค่า Supabase | ไม่มี `frontend/.env.local` หรือยังไม่ restart | สร้าง/แก้ `.env` แล้วรัน `npm run dev` ใหม่ |
-| `/import`, `/staff`, AI ขึ้น "เชื่อมต่อ backend ไม่ได้" | ยังไม่ได้รัน backend หรือ `VITE_API_URL` ผิด | ดูหัวข้อ 4–5 |
+| `/import`, `/staff`, AI ขึ้น "เชื่อมต่อ backend ไม่ได้" | ยังไม่ได้รัน backend หรือ `VITE_API_URL` ผิด | ดูหัวข้อ 4-5 |
 | เรียก API แล้ว 404 บนเว็บจริง | ลืม deploy Worker (แบบ B) / Pages ไม่ได้ตั้ง Root directory = `frontend` | ดูหัวข้อ 6 |
 | Pages build ไม่ผ่าน: หา `hono` ไม่เจอ | Build command ไม่ใช่ `npm run build:pages` | แก้ Build command |
 | Swagger ขึ้นหน้าว่าง | เครือข่ายบล็อก `cdn.jsdelivr.net` | เปิดไฟล์ `docs/openapi.json` ใน [editor.swagger.io](https://editor.swagger.io) แทน |
 | AI ตอบ "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" | ไม่ได้ใส่ key | ใส่ใน `.dev.vars` / secret แล้วรันใหม่ |
-| หน้ารับออเดอร์ไม่มีเมนู/โต๊ะ หรือส่งเข้าครัวไม่ได้ | ยังไม่ได้รัน migration ครบ 0001–0011 หรือบัญชีไม่ใช่ `owner`/`staff` | ตรวจ migration ที่ apply จริงและบทบาท |
+| หน้ารับออเดอร์ไม่มีเมนู/โต๊ะ หรือส่งเข้าครัวไม่ได้ | ยังไม่ได้รัน migration ครบ 0001-0011 หรือบัญชีไม่ใช่ `owner`/`staff` | ตรวจ migration ที่ apply จริงและบทบาท |
 | ส่งออเดอร์แล้วขึ้น "... หมดแล้ว" | เมนูถูกตั้งเป็นหมดระหว่างเลือก | เอาเมนูนั้นออกแล้วส่งใหม่ |
 | ออเดอร์ไม่ขึ้นหน้าจอครัว | ยังไม่เปิด Realtime ให้ `orders` | Supabase → Database → Replication |
 | `permission denied` / แก้ข้อมูลไม่ได้ | บทบาทไม่มีสิทธิ์ตามตารางใน README | ตรวจบทบาทใน `staff_members` |
@@ -181,7 +181,7 @@ npm run deploy                                      # ต้องสั่ง�
 | `npm run test:backend` | ทุก endpoint (Supabase/Gemini จำลอง), ตัวอ่าน CSV, Swagger ตรงกับ route | `npm run install:all` |
 | `npm run test:database` | migration ทั้งหมด + สิทธิ์ทุกบทบาท + วิเคราะห์ + นำเข้า CSV + พนักงาน + บัญชีคู่ (`test_accounting.py`) + สต็อก ledger/ล็อต/AvT/ย้ายข้อมูลเดิม (`test_stock.py`) บน Postgres ชั่วคราว | `npm run setup:database` ใช้ dependency ที่ pin และเลือก `.venv` อัตโนมัติ |
 
-> ชุดทดสอบฐานข้อมูลจำลอง auth ของ Supabase ด้วย stub จึงไม่ใช่ Supabase จริง · การทดสอบหน้าเว็บจริง (E2E) ดูหัวข้อถัดไป
+> ชุดทดสอบฐานข้อมูลจำลอง auth ของ Supabase ด้วย stub จึงไม่ใช่ Supabase จริง / การทดสอบหน้าเว็บจริง (E2E) ดูหัวข้อถัดไป
 
 ### ทดสอบหน้าเว็บจริง (E2E ด้วย Playwright)
 
@@ -189,15 +189,15 @@ npm run deploy                                      # ต้องสั่ง�
 
 1. ในโปรเจกต์ Supabase ที่ใช้ทดสอบ: รัน migration ครบ + `seed.sql` + `seed_test_users.sql`
 2. ครั้งแรก: `cd frontend && npx playwright install chromium`
-3. เปิด backend ด้วย `npm run dev:backend` ในอีก terminal ก่อน (Playwright เปิดเฉพาะ frontend) แล้วรัน `npm run test:e2e` (ใช้ dev server ที่เปิดอยู่ที่พอร์ต 5173 หรือเปิดให้เอง) · ผลแบบละเอียด: `npx playwright show-report e2e-report`
+3. เปิด backend ด้วย `npm run dev:backend` ในอีก terminal ก่อน (Playwright เปิดเฉพาะ frontend) แล้วรัน `npm run test:e2e` (ใช้ dev server ที่เปิดอยู่ที่พอร์ต 5173 หรือเปิดให้เอง) / ผลแบบละเอียด: `npx playwright show-report e2e-report`
 
 | ไฟล์ | ทดสอบอะไร |
 |------|-----------|
 | `e2e/roles.spec.ts` | ทุกบทบาทเห็นเมนูตรงสิทธิ์, บัญชีไม่มีบทบาท, ครัวเข้าหน้าบัญชีไม่ได้, ผู้จัดการดูบัญชีอย่างเดียว, ร้านอื่นไม่เห็นเมนูร้านเรา (ไม่แก้ข้อมูล) |
 | `e2e/order-flow.spec.ts` | รับออเดอร์ → ครัว → เสิร์ฟ → รับชำระ → ใบเสร็จ → รายงานรายวัน (**สร้างออเดอร์จริง** ชื่อลูกค้า `E2E-...`) |
 
-- ต้องตั้ง `E2E_ALLOW_REMOTE=1`, `E2E_SUPABASE_URL` ตรงกับ Vite และ `E2E_PASSWORD` สำหรับบัญชี staging · ทดสอบเว็บที่อื่น: ตั้ง `E2E_BASE_URL`
-- ใบเสร็จ/รายงานเดิม 0017–0018 อยู่ในชุดรวม 0002 แล้ว เตรียมฐานทดสอบด้วย 0001–0011; ตรวจผล skip จากรายงานจริง ไม่ถือว่า skip เท่ากับผ่าน
+- ต้องตั้ง `E2E_ALLOW_REMOTE=1`, `E2E_SUPABASE_URL` ตรงกับ Vite และ `E2E_PASSWORD` สำหรับบัญชี staging / ทดสอบเว็บที่อื่น: ตั้ง `E2E_BASE_URL`
+- ใบเสร็จ/รายงานเดิม 0017-0018 อยู่ในชุดรวม 0002 แล้ว เตรียมฐานทดสอบด้วย 0001-0011; ตรวจผล skip จากรายงานจริง ไม่ถือว่า skip เท่ากับผ่าน
 - E2E order-flow สร้างข้อมูลและรายการบัญชีจริง ใช้ฐานทดสอบแยก แล้วคืน snapshot/สร้างฐานทดสอบใหม่ตามขั้นตอนของทีม ห้ามใช้ DELETE ลัดกับบิลที่ลงบัญชีแล้ว
 
 **ก่อนใช้งานจริง:** ใช้ฐาน production ที่ไม่เคย seed บัญชี/ออเดอร์ทดสอบ หรือวางแผนล้างข้อมูลโดยตรวจ foreign keys และ journal triggers ก่อน ไม่รันคำสั่งลบเหมารวม

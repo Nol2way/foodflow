@@ -1,4 +1,4 @@
-// เอกสาร OpenAPI ของโมดูลสต็อกวัตถุดิบ (รวมเข้า openapi.ts) · route อยู่ที่ src/stock.ts
+// เอกสาร OpenAPI ของโมดูลสต็อกวัตถุดิบ (รวมเข้า openapi.ts) / route อยู่ที่ src/stock.ts
 
 const uuid = { type: 'string', format: 'uuid' } as const
 const date = { type: 'string', format: 'date', examples: ['2026-10-26'] } as const
@@ -38,10 +38,10 @@ const APPROVE = 'เจ้าของ ผู้จัดการ'
 export const stockTag = {
   name: 'สต็อกวัตถุดิบ',
   description: [
-    'ยอดคงเหลือ = ผลรวมของ ledger (stock_movements) แก้ตรงไม่ได้ · ledger เพิ่มได้อย่างเดียว ผิดให้กลับรายการ',
-    'สต็อกมี 3 แหล่ง: **นำเข้า** · **ตัดตามสูตร** (อัตโนมัติเมื่อครัวกดเริ่มทำ คืนเมื่อยกเลิก) · **นับสุดท้าย** (ไม่มีการบันทึกของเสียแยก)',
-    'หยิบของแบบ **FEFO** คิดต้นทุนแบบ **FIFO** ตามล็อต · หน่วยฐานทุกตัวเลข: g / ml / pcs',
-    'Actual vs Theoretical: ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร · ส่วนต่าง = นับจริง − ยอดที่ควรเหลือ',
+    'ยอดคงเหลือ = ผลรวมของ ledger (stock_movements) แก้ตรงไม่ได้ / ledger เพิ่มได้อย่างเดียว ผิดให้กลับรายการ',
+    'สต็อกมี 3 แหล่ง: **นำเข้า** / **ตัดตามสูตร** (อัตโนมัติเมื่อครัวกดเริ่มทำ คืนเมื่อยกเลิก) / **นับสุดท้าย** (ไม่มีการบันทึกของเสียแยก)',
+    'หยิบของแบบ **FEFO** คิดต้นทุนแบบ **FIFO** ตามล็อต / หน่วยฐานทุกตัวเลข: g / ml / pcs',
+    'Actual vs Theoretical: ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร / ส่วนต่าง = นับจริง − ยอดที่ควรเหลือ',
     'ข้อผิดพลาดจากกฎสต็อกตอบ `{ error: "<code>", message: "<ไทย>" }` เช่น `insufficient_stock` (409), `lot_already_used` (409)',
   ].join('\n'),
 }
@@ -115,7 +115,7 @@ const VarianceLine = obj({
   deducted_qty: { ...qty, description: 'ตัดตามสูตรสุทธิ (หักคืนแล้ว)' }, expected_qty: { ...qty, description: 'ยอดที่ควรเหลือ' },
   counted_qty: qty, variance_qty: { ...qty, description: 'นับจริง − ควรเหลือ (ติดลบ = ของหายไม่ทราบสาเหตุ)' },
   variance_value: money, variance_pct: { type: ['number', 'null'] },
-  color: { type: 'string', enum: ['green', 'yellow', 'red'], description: 'เขียว < 2% · เหลือง 2-5% · แดง > 5% ของยอดที่ควรเหลือ' },
+  color: { type: 'string', enum: ['green', 'yellow', 'red'], description: 'เขียว < 2% / เหลือง 2-5% / แดง > 5% ของยอดที่ควรเหลือ' },
   negative_streak: { type: 'integer' }, recipe_alert: { type: 'boolean', description: 'ติดลบต่อเนื่อง 3 รอบ: สูตรหรือ yield อาจไม่ตรง' },
   note: { type: ['string', 'null'] }, entered_text: { type: ['string', 'null'] },
 })
@@ -211,7 +211,7 @@ export const stockPaths = {
     }),
   },
   '/api/stock/recipes/{id}': {
-    put: op('แก้สูตร (แทนที่ทุกบรรทัด) · ต้นทุนสูตรนี้และสูตรแม่คำนวณใหม่', WRITE, 'stockUpdateRecipe', {
+    put: op('แก้สูตร (แทนที่ทุกบรรทัด) / ต้นทุนสูตรนี้และสูตรแม่คำนวณใหม่', WRITE, 'stockUpdateRecipe', {
       parameters: [path('id', 'สูตร')], requestBody: body(ref('StockRecipeInput')),
       responses: { ...ok('บันทึกแล้ว', obj({ recipe: ref('StockRecipe') })), ...errors({ '404': 'ไม่พบ', '409': 'sub_recipe_in_use' }) },
     }),

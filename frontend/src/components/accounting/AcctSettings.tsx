@@ -1,6 +1,6 @@
 import { translateUi } from "../../lib/uiText"
-// ตั้งค่าบัญชี: โหมดเริ่มต้น จด VAT เป้า Food/Prime Cost ใบรับของจ่ายด้วยอะไร · ยอดยกมา · รายได้ตามหมวดเมนู
-// ผังบัญชี (เพิ่ม/ปิดหมวดเอง) · จ่ายเจ้าหนี้ · ข้อมูลผู้ประกอบการ (ใบกำกับภาษี) · เครื่อง POS + เลขอนุมัติกรมสรรพากร
+// ตั้งค่าบัญชี: โหมดเริ่มต้น จด VAT เป้า Food/Prime Cost ใบรับของจ่ายด้วยอะไร / ยอดยกมา / รายได้ตามหมวดเมนู
+// ผังบัญชี (เพิ่ม/ปิดหมวดเอง) / จ่ายเจ้าหนี้ / ข้อมูลผู้ประกอบการ (ใบกำกับภาษี) / เครื่อง POS + เลขอนุมัติกรมสรรพากร
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
@@ -62,7 +62,7 @@ export default function AcctSettings({
   const [terminals, setTerminals] = useState<Terminal[]>([])
   const [regDraft, setRegDraft] = useState<Record<string, string>>({})
   const [newTerm, setNewTerm] = useState({ code: '', name: '', reg: '' })
-  const canEditTax = canWrite // RLS tax_settings: owner / accountant · pos_terminals: owner / manager
+  const canEditTax = canWrite // RLS tax_settings: owner / accountant / pos_terminals: owner / manager
 
   useEffect(() => setF(settings), [settings])
 
@@ -282,7 +282,7 @@ export default function AcctSettings({
       </form>
 
       <Section title={translateUi("ข้อมูลผู้ประกอบการ (พิมพ์บนใบกำกับภาษีและรายงานภาษี)")}>
-        {!f.vat_registered && <p className="note mb-3">{translateUi("ร้านยังไม่ได้ตั้งค่าจด VAT · ออกใบกำกับภาษีได้หลังเปิด \"จดทะเบียนภาษีมูลค่าเพิ่ม\" ด้านบน")}</p>}
+        {!f.vat_registered && <p className="note mb-3">{translateUi("ร้านยังไม่ได้ตั้งค่าจด VAT / ออกใบกำกับภาษีได้หลังเปิด \"จดทะเบียนภาษีมูลค่าเพิ่ม\" ด้านบน")}</p>}
         <form onSubmit={(e) => void saveTax(e)} className="card grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="label">{"" + translateUi("เลขประจำตัวผู้เสียภาษีอากร (13 หลัก)") + " "}<span className="text-red-600">*</span>
@@ -393,7 +393,7 @@ export default function AcctSettings({
                         >{"" + translateUi("บันทึก") + " "}</button>
                       </div>
                     ) : (
-                      <span className="font-mono">{x.pos_reg_no ?? '—'}</span>
+                      <span className="font-mono">{x.pos_reg_no ?? '-'}</span>
                     )}
                   </td>
                   <td className="text-right">
@@ -444,7 +444,7 @@ export default function AcctSettings({
             <button className="btn btn-secondary">{translateUi("+ เพิ่มเครื่อง")}</button>
           </form>
         )}
-        <p className="mt-2 hint">{"" + translateUi("ใบกำกับภาษีอย่างย่อ (ABB) ออกได้เฉพาะเครื่องที่มีเลขอนุมัติ · รหัสเครื่องใช้ในเลขที่เอกสาร เปลี่ยนไม่ได้หลังออกเอกสารแล้ว") + " "}</p>
+        <p className="mt-2 hint">{"" + translateUi("ใบกำกับภาษีอย่างย่อ (ABB) ออกได้เฉพาะเครื่องที่มีเลขอนุมัติ / รหัสเครื่องใช้ในเลขที่เอกสาร เปลี่ยนไม่ได้หลังออกเอกสารแล้ว") + " "}</p>
       </Section>
 
       <Section title={translateUi("รายได้ตามหมวดเมนู")}>
@@ -513,7 +513,7 @@ export default function AcctSettings({
                   </td>
                   <td>
                     {TYPE_LABEL[a.type]}
-                    {GROUP_LABEL[a.grp] && ` · ${GROUP_LABEL[a.grp]}`}
+                    {GROUP_LABEL[a.grp] && ` / ${GROUP_LABEL[a.grp]}`}
                   </td>
                   <td className="num">{baht(Math.abs(balances[a.id] ?? 0))}</td>
                   <td className="text-right">

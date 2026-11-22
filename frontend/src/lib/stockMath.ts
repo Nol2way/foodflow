@@ -1,4 +1,4 @@
-// สูตรคำนวณของโมดูลสต็อกวัตถุดิบ (ใช้ร่วมกัน: หน้าเว็บ · backend · unit test)
+// สูตรคำนวณของโมดูลสต็อกวัตถุดิบ (ใช้ร่วมกัน: หน้าเว็บ / backend / unit test)
 // ฐานข้อมูลคำนวณซ้ำด้วยสูตรเดียวกันเสมอ (database/migrations/0027-0029) ตัวเลขในหน้าเว็บมีไว้แสดงผล/ตรวจก่อนส่ง
 
 export type RecipeUnit = 'g' | 'ml' | 'pcs'
@@ -29,7 +29,7 @@ export const round = (n: number, d = 2) => {
 }
 
 // ===== Actual vs Theoretical =====
-// ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร · ส่วนต่าง = นับจริง − ยอดที่ควรเหลือ (ติดลบ = ของหายไม่ทราบสาเหตุ)
+// ยอดที่ควรเหลือ = นับรอบก่อน + นำเข้า − ตัดตามสูตร / ส่วนต่าง = นับจริง − ยอดที่ควรเหลือ (ติดลบ = ของหายไม่ทราบสาเหตุ)
 export function expectedQty(opening: number, received: number, deducted: number): number {
   return round(opening + received - deducted, 3)
 }
@@ -38,7 +38,7 @@ export function variancePct(expected: number, variance: number): number | null {
   return expected > 0 ? round((variance / expected) * 100, 2) : null
 }
 
-// สี: เขียว |%| < 2 · เหลือง 2-5 · แดง > 5 (ของยอดที่ควรเหลือ) · ควรเหลือ 0 แต่นับได้ไม่ตรง = แดง
+// สี: เขียว |%| < 2 / เหลือง 2-5 / แดง > 5 (ของยอดที่ควรเหลือ) / ควรเหลือ 0 แต่นับได้ไม่ตรง = แดง
 export function varianceColor(expected: number, variance: number): VarianceColor {
   if (!(expected > 0)) return variance === 0 ? 'green' : 'red'
   const pct = (Math.abs(variance) / expected) * 100
@@ -67,7 +67,7 @@ export function avt(i: AvtInput) {
   }
 }
 
-// ติดลบต่อเนื่องกี่รอบ นับจากใบล่าสุดย้อนไป (variances เรียงใหม่ -> เก่า) · >= 3 = สูตรหรือ yield อาจไม่ตรง
+// ติดลบต่อเนื่องกี่รอบ นับจากใบล่าสุดย้อนไป (variances เรียงใหม่ -> เก่า) / >= 3 = สูตรหรือ yield อาจไม่ตรง
 export function negativeStreak(variancesNewestFirst: number[]): number {
   let n = 0
   for (const v of variancesNewestFirst) {
@@ -135,7 +135,7 @@ export function costFifo(lots: Lot[], qty: number): { cost: number; allocations:
 }
 
 // ===== Yield =====
-// ดิบที่ต้องใช้ = สุทธิ ÷ (trim x cook) · ต้นทุนต่อหน่วยที่ใช้ได้ = ราคาซื้อ ÷ (trim x cook)
+// ดิบที่ต้องใช้ = สุทธิ ÷ (trim x cook) / ต้นทุนต่อหน่วยที่ใช้ได้ = ราคาซื้อ ÷ (trim x cook)
 export function rawQty(net: number, trimPct = 100, cookPct = 100): number {
   return (net * 10000) / ((trimPct || 100) * (cookPct || 100))
 }
@@ -149,7 +149,7 @@ export interface YieldTrial {
 }
 export type YieldKind = 'trim' | 'cook'
 
-// ชั่งก่อน-หลัง 3 ครั้ง · ค่าเฉลี่ย = เฉลี่ยของ (หลัง ÷ ก่อน x 100) · ตัดแต่งแล้วต้องไม่หนักขึ้น · หุงสุกได้ไม่เกิน 4 เท่า
+// ชั่งก่อน-หลัง 3 ครั้ง / ค่าเฉลี่ย = เฉลี่ยของ (หลัง ÷ ก่อน x 100) / ตัดแต่งแล้วต้องไม่หนักขึ้น / หุงสุกได้ไม่เกิน 4 เท่า
 export function yieldAverage(trials: YieldTrial[], kind: YieldKind): { avg: number; each: number[] } {
   if (trials.length !== 3) throw new Error('three_trials_required')
   for (const t of trials) {
@@ -162,14 +162,14 @@ export function yieldAverage(trials: YieldTrial[], kind: YieldKind): { avg: numb
 }
 
 // ===== Par และจำนวนแนะนำสั่ง =====
-// รอบสั่ง = 7 ÷ จำนวนวันที่ผู้ขายมาส่งต่อสัปดาห์ · Par = ใช้ต่อวัน x (lead time + รอบสั่ง) + safety stock
+// รอบสั่ง = 7 ÷ จำนวนวันที่ผู้ขายมาส่งต่อสัปดาห์ / Par = ใช้ต่อวัน x (lead time + รอบสั่ง) + safety stock
 export function orderCycleDays(deliveryDays: number[] | null | undefined): number {
   return deliveryDays && deliveryDays.length ? round(7 / deliveryDays.length, 2) : 7
 }
 export function parLevel(dailyUsage: number, leadTimeDays: number, cycleDays: number, safetyStock: number): number {
   return round(dailyUsage * (leadTimeDays + cycleDays) + safetyStock, 3)
 }
-// แนะนำสั่ง = par − คงเหลือ (ไม่ติดลบ) · ปัดขึ้นเป็นหน่วยซื้อ
+// แนะนำสั่ง = par − คงเหลือ (ไม่ติดลบ) / ปัดขึ้นเป็นหน่วยซื้อ
 export function suggestedOrder(par: number, onHand: number, conversionFactor = 1): { qty: number; packs: number } {
   const qty = Math.max(round(par - onHand, 3), 0)
   return { qty, packs: Math.ceil(qty / (conversionFactor || 1)) }

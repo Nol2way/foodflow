@@ -33,7 +33,7 @@ export function promptPayPayload(id: string, amount?: number): string {
   const hasAmount = amount !== undefined && amount > 0
   const body =
     field('00', '01') +
-    field('01', hasAmount ? '12' : '11') + // 12 = ใช้ครั้งเดียว (มียอด) · 11 = ใช้ซ้ำได้
+    field('01', hasAmount ? '12' : '11') + // 12 = ใช้ครั้งเดียว (มียอด) / 11 = ใช้ซ้ำได้
     field('29', field('00', 'A000000677010111') + target) +
     field('58', 'TH') +
     field('53', '764') + // บาท

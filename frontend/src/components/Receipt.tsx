@@ -19,8 +19,8 @@ import {
 import Icon from './Icon'
 
 // ใบเสร็จ/เอกสารภาษี พิมพ์ได้ทั้งเครื่องพิมพ์ทั่วไปและเครื่องพิมพ์ใบเสร็จ 80 มม.
-//   orderIds   → ใบอย่างย่อ (ABB · ม.86/6) ถ้าออกแล้ว ไม่งั้นใบเสร็จรับเงินธรรมดา (bill_receipt 0017)
-//   documentId → ABB / ใบกำกับภาษีเต็มรูป (TAX · ม.86/4) / ใบลดหนี้ (CN · ม.86/10)
+//   orderIds   → ใบอย่างย่อ (ABB / ม.86/6) ถ้าออกแล้ว ไม่งั้นใบเสร็จรับเงินธรรมดา (bill_receipt 0017)
+//   documentId → ABB / ใบกำกับภาษีเต็มรูป (TAX / ม.86/4) / ใบลดหนี้ (CN / ม.86/10)
 //   shiftId    → Z-Report ปิดกะ (X-Report ถ้ากะยังเปิด)
 
 interface ReceiptData {
@@ -127,7 +127,7 @@ async function loadZView(shiftId: string): Promise<View> {
       .in('order_id', ids)
       .eq('status', 'confirmed')
       .order('doc_number')
-    // ภาษีขายสุทธิ: ABB ที่ถูกแปลงเป็นใบเต็มรูปแล้วนับที่ TAX แทน (ไม่นับซ้ำ) · CN หักออก
+    // ภาษีขายสุทธิ: ABB ที่ถูกแปลงเป็นใบเต็มรูปแล้วนับที่ TAX แทน (ไม่นับซ้ำ) / CN หักออก
     const replaced = new Set((data ?? []).filter((d) => d.doc_type === 'TAX' && d.ref_document_id).map((d) => d.ref_document_id as string))
     for (const d of data ?? []) {
       if (d.doc_type === 'ABB' && replaced.has(d.id as string)) continue
@@ -224,7 +224,7 @@ function DraftBanner({ doc }: { doc: TaxDocument }) {
   if (doc.status === 'confirmed') return null
   return (
     <div className="mb-2 border-2 border-red-500 p-1 text-center field-error font-bold">
-      {doc.status === 'draft' ? 'ฉบับร่าง · ยังไม่ใช่ใบกำกับภาษี' : 'เอกสารถูกยกเลิก'}
+      {doc.status === 'draft' ? 'ฉบับร่าง / ยังไม่ใช่ใบกำกับภาษี' : 'เอกสารถูกยกเลิก'}
     </div>
   )
 }
@@ -347,7 +347,7 @@ function MemberLines({ data }: { data: ReceiptData | null }) {
   )
 }
 
-// ม.86/6: ชื่อ/เลขผู้เสียภาษีผู้ขาย · คำว่า "ใบกำกับภาษีอย่างย่อ" · เลขที่เรียงลำดับ · รายการ · ราคารวม VAT + "VAT INCLUDED"
+// ม.86/6: ชื่อ/เลขผู้เสียภาษีผู้ขาย / คำว่า "ใบกำกับภาษีอย่างย่อ" / เลขที่เรียงลำดับ / รายการ / ราคารวม VAT + "VAT INCLUDED"
 function AbbSlip({ doc, data, bill }: { doc: TaxDocument; data: ReceiptData | null; bill: ReceiptData | null }) {
   return (
     <div>
@@ -367,7 +367,7 @@ function AbbSlip({ doc, data, bill }: { doc: TaxDocument; data: ReceiptData | nu
       <Rule />
       <VatBreakdown doc={doc} label={translateUi("รวมทั้งสิ้น (รวม VAT)")} />
       {data?.payment_method && <Row label={translateUi("ชำระโดย")} value={METHOD[data.payment_method] ?? '-'} />}
-      <div className="mt-1 text-xs text-gray-600">{translateUi("V = สินค้า/บริการที่มีภาษีมูลค่าเพิ่ม · VAT INCLUDED")}</div>
+      <div className="mt-1 text-xs text-gray-600">{translateUi("V = สินค้า/บริการที่มีภาษีมูลค่าเพิ่ม / VAT INCLUDED")}</div>
       <MemberLines data={bill} />
       <Rule />
       {doc.confirmed_by_name && <div className="text-center text-xs">{"" + translateUi("แคชเชียร์:") + " "}{doc.confirmed_by_name}</div>}
@@ -376,7 +376,7 @@ function AbbSlip({ doc, data, bill }: { doc: TaxDocument; data: ReceiptData | nu
   )
 }
 
-// ม.86/4: คำว่า "ใบกำกับภาษี" · ผู้ขาย/ผู้ซื้อ (ชื่อ ที่อยู่ เลขผู้เสียภาษี สาขา) · เลขที่ · รายการ · VAT แยก · วันที่
+// ม.86/4: คำว่า "ใบกำกับภาษี" / ผู้ขาย/ผู้ซื้อ (ชื่อ ที่อยู่ เลขผู้เสียภาษี สาขา) / เลขที่ / รายการ / VAT แยก / วันที่
 function FullTaxInvoice({ doc, data }: { doc: TaxDocument; data: ReceiptData | null }) {
   return (
     <div>
@@ -414,7 +414,7 @@ function FullTaxInvoice({ doc, data }: { doc: TaxDocument; data: ReceiptData | n
   )
 }
 
-// ม.86/10: คำว่า "ใบลดหนี้" · ผู้ขาย/ผู้ซื้อ · เลขที่ · อ้างอิงใบกำกับเดิม · มูลค่าเดิม/ที่ถูกต้อง/ผลต่าง · VAT ของผลต่าง · เหตุผล
+// ม.86/10: คำว่า "ใบลดหนี้" / ผู้ขาย/ผู้ซื้อ / เลขที่ / อ้างอิงใบกำกับเดิม / มูลค่าเดิม/ที่ถูกต้อง/ผลต่าง / VAT ของผลต่าง / เหตุผล
 function CreditNote({ doc, ref, priorCredit }: { doc: TaxDocument; ref: TaxDocument; priorCredit: number }) {
   const before = Math.round((ref.total_amount - priorCredit) * 100) / 100
   const correct = Math.round((before - doc.total_amount) * 100) / 100
@@ -482,7 +482,7 @@ function ZReport({ report: r, restaurant, tax, netVat }: { report: ShiftReport; 
     <div>
       <div className="text-center">
         <div className="text-base font-bold">{restaurant}</div>
-        <div className="font-bold">{closed ? 'Z-REPORT · สรุปปิดกะ' : 'X-REPORT · สรุประหว่างกะ'}</div>
+        <div className="font-bold">{closed ? 'Z-REPORT / สรุปปิดกะ' : 'X-REPORT / สรุประหว่างกะ'}</div>
       </div>
       <Rule />
       <Row label={translateUi("แคชเชียร์")} value={s.cashier_name} />
@@ -507,7 +507,7 @@ function ZReport({ report: r, restaurant, tax, netVat }: { report: ShiftReport; 
               <Row label={`${DOC_TITLE[t.doc_type]} (${t.count})`} value={money(t.doc_type === 'CN' ? -t.total : t.total)} />
               <div className="text-xs text-gray-600">
                 {t.first}
-                {t.last !== t.first ? ` – ${t.last}` : ''}
+                {t.last !== t.first ? ` - ${t.last}` : ''}
               </div>
               <Row label={translateUi("  ก่อน VAT / VAT")} value={`${money(t.taxable + t.exempt)} / ${money(t.vat)}`} muted />
             </div>
@@ -538,7 +538,7 @@ function ZReport({ report: r, restaurant, tax, netVat }: { report: ShiftReport; 
               <Row label={`${new Date(l.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} ${l.type === 'cash_in' ? 'เข้า' : 'ออก'}`} value={`${l.type === 'cash_in' ? '+' : '−'}${money(l.amount)}`} />
               <div className="pl-2 text-gray-600">
                 {l.reason}
-                {l.by ? ` · ${l.by}` : ''}
+                {l.by ? ` / ${l.by}` : ''}
               </div>
             </div>
           ))}

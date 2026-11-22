@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { api } from './api'
 
-// เอกสารภาษีตามประมวลรัษฎากร ม.86/4 (เต็มรูป) · 86/6 (อย่างย่อ) · 86/10 (ใบลดหนี้) + กะแคชเชียร์ (0031)
-// เขียนผ่าน backend /api/tax หรือ RPC security definer เท่านั้น · อ่านตรงจากตารางได้ตาม RLS
+// เอกสารภาษีตามประมวลรัษฎากร ม.86/4 (เต็มรูป) / 86/6 (อย่างย่อ) / 86/10 (ใบลดหนี้) + กะแคชเชียร์ (0031)
+// เขียนผ่าน backend /api/tax หรือ RPC security definer เท่านั้น / อ่านตรงจากตารางได้ตาม RLS
 
 export type DocType = 'ABB' | 'TAX' | 'CN'
 export type DocStatus = 'draft' | 'confirmed' | 'voided'
@@ -70,7 +70,7 @@ export const DOC_TITLE: Record<DocType, string> = {
   CN: 'ใบลดหนี้',
 }
 
-// เลขประจำตัวผู้เสียภาษี 13 หลัก · checksum mod 11 (ตรงกับ th_tax_id_valid ในฐานข้อมูล) · สูตรเดียวอยู่ที่ accounting.ts
+// เลขประจำตัวผู้เสียภาษี 13 หลัก / checksum mod 11 (ตรงกับ th_tax_id_valid ในฐานข้อมูล) / สูตรเดียวอยู่ที่ accounting.ts
 export { thaiTaxIdValid } from './accounting'
 
 export const formatTaxId = (id: string | null | undefined) =>
@@ -91,7 +91,7 @@ export const money = (n: number) => n.toLocaleString('th-TH', { minimumFractionD
 export const thaiDateTime = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '-'
 
-// ข้อผิดพลาดจาก RPC ที่เรียกตรง (shift_* / tax_doc_update_draft) · เรียกผ่าน /api ได้ข้อความไทยจาก backend อยู่แล้ว
+// ข้อผิดพลาดจาก RPC ที่เรียกตรง (shift_* / tax_doc_update_draft) / เรียกผ่าน /api ได้ข้อความไทยจาก backend อยู่แล้ว
 const DB_ERRORS: Record<string, string> = {
   forbidden: 'ไม่มีสิทธิ์ทำรายการนี้',
   invalid_amount: 'จำนวนเงินไม่ถูกต้อง',

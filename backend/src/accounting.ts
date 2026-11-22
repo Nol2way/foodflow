@@ -1,4 +1,4 @@
-// API โมดูลบัญชี (0026) · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS + has_role ตรวจซ้ำ)
+// API โมดูลบัญชี (0026) / ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS + has_role ตรวจซ้ำ)
 // สูตร Food/Prime Cost กำไร งบดุล และไฟล์ส่งออกใช้ร่วมกับหน้าเว็บ (frontend/src/lib/accounting.ts)
 import type { Context, Hono, MiddlewareHandler } from 'hono'
 import { InputError, money, validDate, optionalText } from './validation.ts'
@@ -275,7 +275,7 @@ export function zReport(r: ShiftReport, docs: ShiftTaxDoc[]) {
     const n = byType(t)
     return n.length ? { count: n.length, first: n[0], last: n[n.length - 1] } : { count: 0, first: null, last: null }
   }
-  // ใบเต็มรูปที่แปลงจาก ABB (มี ref) ไม่นับยอดซ้ำ · ใบลดหนี้ติดลบ
+  // ใบเต็มรูปที่แปลงจาก ABB (มี ref) ไม่นับยอดซ้ำ / ใบลดหนี้ติดลบ
   const sign = (d: ShiftTaxDoc) => (d.doc_type === 'CN' ? -1 : d.doc_type === 'TAX' && d.ref_document_id ? 0 : 1)
   const signed = (d: ShiftTaxDoc, k: 'vat_amount' | 'total_amount') => sign(d) * cents(d[k])
   return {
@@ -437,7 +437,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (!(amount > 0) || amount > 100_000_000 || !(vat >= 0) || vat > amount) return fail(c, 400, 'invalid_amount', { message: 'จำนวนเงินไม่ถูกต้อง' })
     if (!['cash', 'bank', 'credit'].includes(String(b.payment_method ?? 'cash'))) return fail(c, 400, 'invalid_payment_method')
     if (b.spent_on !== undefined && !validDate(b.spent_on)) return fail(c, 400, 'invalid_date')
-    // ผู้ขาย / ใบกำกับภาษีซื้อ / หัก ณ ที่จ่าย (0031) · ฐานข้อมูลคิดยอดหัก ณ ที่จ่ายและแบบ ภ.ง.ด. เอง
+    // ผู้ขาย / ใบกำกับภาษีซื้อ / หัก ณ ที่จ่าย (0031) / ฐานข้อมูลคิดยอดหัก ณ ที่จ่ายและแบบ ภ.ง.ด. เอง
     const opt = optionalText
     const tax = {
       supplier_name: opt(b.supplier_name, 200),
@@ -459,13 +459,13 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (tax.wht_rate !== null && (typeof tax.wht_rate !== 'number' || !WHT_RATES.includes(tax.wht_rate) || !tax.supplier_name || !tax.supplier_tax_id)) {
       return fail(c, 400, 'invalid_wht', { message: 'หัก ณ ที่จ่าย: อัตรา 1, 2, 3 หรือ 5% และต้องมีชื่อ/เลขผู้เสียภาษีของผู้ขาย' })
     }
-    // แบบ ภ.ง.ด. (ไม่ส่ง = ฐานข้อมูลเลือกจากเลขผู้เสียภาษี) · ต้องตรงกับประเภทผู้ขาย: ขึ้นต้น 0 = นิติบุคคล = ภ.ง.ด.53
+    // แบบ ภ.ง.ด. (ไม่ส่ง = ฐานข้อมูลเลือกจากเลขผู้เสียภาษี) / ต้องตรงกับประเภทผู้ขาย: ขึ้นต้น 0 = นิติบุคคล = ภ.ง.ด.53
     if (tax.wht_type !== null) {
       if (tax.wht_rate === null || !WHT_TYPES.includes(tax.wht_type as WhtType)) {
         return fail(c, 400, 'invalid_wht_type', { message: 'แบบหัก ณ ที่จ่ายต้องเป็น pnd3 หรือ pnd53 และต้องระบุอัตรา' })
       }
       if (tax.wht_type !== whtTypeFor(tax.supplier_tax_id ?? '')) {
-        return fail(c, 400, 'wht_type_mismatch', { message: 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) · ภ.ง.ด.3 ใช้กับบุคคลธรรมดา' })
+        return fail(c, 400, 'wht_type_mismatch', { message: 'ภ.ง.ด.53 ใช้กับนิติบุคคล (เลขผู้เสียภาษีขึ้นต้นด้วย 0) / ภ.ง.ด.3 ใช้กับบุคคลธรรมดา' })
       }
     }
     const taxFields = Object.fromEntries(
@@ -597,7 +597,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     return c.json({ close: result, line }, 201)
   })
 
-  // ----- ตั้งค่าบัญชี (เจ้าของ) · onboarding: ส่ง onboarded=true -----
+  // ----- ตั้งค่าบัญชี (เจ้าของ) / onboarding: ส่ง onboarded=true -----
   app.get('/accounting/settings', auth, async (c) => {
     const rid = await requireRole(c, c.req.query('restaurant_id'), READ)
     if (typeof rid !== 'string') return rid
@@ -638,7 +638,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     })
   })
 
-  // ----- รายงานภาษีตามแบบกรมสรรพากร (รายเดือน) · format=json (ค่าเริ่มต้น) | csv -----
+  // ----- รายงานภาษีตามแบบกรมสรรพากร (รายเดือน) / format=json (ค่าเริ่มต้น) | csv -----
   const csvFile = (name: string, content: string) =>
     new Response(content, {
       headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' },
@@ -709,7 +709,7 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     return csvFile(`pp30-${p.m.month}.csv`, reportCsv('สรุปภาษีมูลค่าเพิ่ม (ภ.พ.30)', sellerMeta(seller, p.m.label), ['ข้อ', 'รายการ', 'จำนวนเงิน (บาท)'], rows))
   })
 
-  // สรุปภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) · type=pnd3|pnd53 (ไม่ใส่ = ทั้งสองแบบ)
+  // สรุปภาษีหัก ณ ที่จ่าย (ภ.ง.ด.3 / ภ.ง.ด.53) / type=pnd3|pnd53 (ไม่ใส่ = ทั้งสองแบบ)
   app.get('/accounting/reports/wht', auth, async (c) => {
     const p = await taxReportInput(c)
     if (p instanceof Response) return p

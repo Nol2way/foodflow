@@ -24,7 +24,7 @@ import {
 } from '../lib/display'
 
 // จอแสดงผล iPad แบบแมกกาซีน: เปิดด้วยลิงก์ลับ /display/:token ไม่ต้องล็อกอิน
-// เนื้อหามาจาก display_content (0013–0015) และโหลดใหม่ทุกนาที (ราคา/เมนูหมด/โปรตามเวลา/การตั้งค่า)
+// เนื้อหามาจาก display_content (0013-0015) และโหลดใหม่ทุกนาที (ราคา/เมนูหมด/โปรตามเวลา/การตั้งค่า)
 // ?preview=1 = พรีวิวในหน้าจัดการเมนู: รับค่าตั้งค่าที่ยังไม่บันทึกผ่าน postMessage
 
 const REFRESH_MS = 60000
@@ -52,7 +52,7 @@ function useClock() {
   return now
 }
 
-// ไม่ให้ iPad ดับจอ (รองรับ iPadOS 16.4+) · ขอใหม่เมื่อกลับมาที่แท็บ
+// ไม่ให้ iPad ดับจอ (รองรับ iPadOS 16.4+) / ขอใหม่เมื่อกลับมาที่แท็บ
 function useWakeLock() {
   useEffect(() => {
     let lock: { release: () => Promise<void> } | null = null
@@ -355,7 +355,7 @@ function CoverSlide({ content, now, tagline }: { content: DisplayContent; now: D
         <p className="mag-rise mt-6 text-xl text-white/85 md:text-3xl" style={{ animationDelay: '550ms' }}>
           {tagline ||
             (content.items.length > 0
-              ? `เมนูแนะนำ ${content.items.length} รายการ${content.promotions.length ? ` · โปรวันนี้ ${content.promotions.length} รายการ` : ''}`
+              ? `เมนูแนะนำ ${content.items.length} รายการ${content.promotions.length ? ` / โปรวันนี้ ${content.promotions.length} รายการ` : ''}`
               : content.promotions.length
                 ? `โปรวันนี้ ${content.promotions.length} รายการ`
                 : 'ยังไม่มีเมนูแนะนำ (ตั้งได้ที่หน้าจัดการเมนู)')}
@@ -378,7 +378,7 @@ export default function Display() {
   const [index, setIndex] = useState(0)
   const [round, setRound] = useState(0) // เล่นครบรอบแล้วเปลี่ยนสื่อของเมนูที่มีหลายชิ้น
   const [videoSeconds, setVideoSeconds] = useState<number | undefined>()
-  // หยุดแบบสตอรี่ IG: กดค้าง = หยุดจนกว่าจะปล่อย · ปุ่ม ❚❚ = หยุดค้างไว้จนกดเล่นต่อ
+  // หยุดแบบสตอรี่ IG: กดค้าง = หยุดจนกว่าจะปล่อย / ปุ่ม ❚❚ = หยุดค้างไว้จนกดเล่นต่อ
   const [holding, setHolding] = useState(false)
   const [stopped, setStopped] = useState(false)
   const paused = holding || stopped
@@ -448,7 +448,7 @@ export default function Display() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, settings.showCover])
 
-  // เวลาที่เล่นไปแล้วของสไลด์นี้ (ไม่นับช่วงที่หยุด) · เปลี่ยนสไลด์ = เริ่มนับใหม่
+  // เวลาที่เล่นไปแล้วของสไลด์นี้ (ไม่นับช่วงที่หยุด) / เปลี่ยนสไลด์ = เริ่มนับใหม่
   const elapsedRef = useRef(0)
   useEffect(() => {
     keyRef.current = currentKey
@@ -485,7 +485,7 @@ export default function Display() {
     if (m?.kind === 'image') new Image().src = mediaSrc(m)
   }, [index, slides])
 
-  // คีย์บอร์ด: เว้นวรรค = หยุด/เล่น · ลูกศร = ก่อนหน้า/ถัดไป
+  // คีย์บอร์ด: เว้นวรรค = หยุด/เล่น / ลูกศร = ก่อนหน้า/ถัดไป
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === ' ') {
@@ -498,7 +498,7 @@ export default function Display() {
     return () => window.removeEventListener('keydown', onKey)
   }, [go])
 
-  // แตะแบบสตอรี่ IG: แตะซ้าย 1/3 = ย้อน · แตะขวา = ถัดไป · กดค้าง = หยุดจนปล่อย
+  // แตะแบบสตอรี่ IG: แตะซ้าย 1/3 = ย้อน / แตะขวา = ถัดไป / กดค้าง = หยุดจนปล่อย
   const press = useRef<{ timer: number; held: boolean; pointerId: number } | null>(null)
   function onPointerDown(e: ReactPointerEvent) {
     if (e.button !== 0 || press.current) return
@@ -635,7 +635,7 @@ export default function Display() {
       {/* หยุดค้างไว้: บอกให้รู้ว่ายังไม่เล่นต่อ */}
       {stopped && !holding && (
         <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
-          <span className="rounded-full bg-black/60 px-4 py-2 text-sm text-white backdrop-blur">{"" + translateUi("หยุดชั่วคราว · แตะ ▶ เพื่อเล่นต่อ · แตะซ้าย/ขวาเพื่อเลื่อน") + " "}</span>
+          <span className="rounded-full bg-black/60 px-4 py-2 text-sm text-white backdrop-blur">{"" + translateUi("หยุดชั่วคราว / แตะ ▶ เพื่อเล่นต่อ / แตะซ้าย/ขวาเพื่อเลื่อน") + " "}</span>
         </div>
       )}
     </div>

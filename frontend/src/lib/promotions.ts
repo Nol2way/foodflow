@@ -9,10 +9,10 @@ export function describePromotion(p: Promotion): string {
   const parts = [p.discount_type === 'percent' ? `${en ? 'Discount' : 'ลด'} ${Number(p.value)}%` : `${en ? 'Discount' : 'ลด'} ${baht(Number(p.value))}`]
   if (Number(p.min_subtotal) > 0) parts.push(`${en ? 'Minimum spend' : 'ซื้อครบ'} ${baht(Number(p.min_subtotal))}`)
   if (p.days_of_week?.length) parts.push(`${en ? '' : 'วัน'}${p.days_of_week.map((d) => en ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d] : DAY_SHORT[d]).join(' ')}`)
-  if (p.start_time || p.end_time) parts.push(`${p.start_time?.slice(0, 5) ?? '00:00'}–${p.end_time?.slice(0, 5) ?? '24:00'}`)
+  if (p.start_time || p.end_time) parts.push(`${p.start_time?.slice(0, 5) ?? '00:00'}-${p.end_time?.slice(0, 5) ?? '24:00'}`)
   if (p.starts_on || p.ends_on) parts.push(`${p.starts_on ?? '...'} ${en ? 'to' : 'ถึง'} ${p.ends_on ?? '...'}`)
   if (p.max_uses) parts.push(en ? `Limited to ${p.max_uses} uses` : `จำกัด ${p.max_uses.toLocaleString('th-TH')} ครั้ง`)
-  return parts.join(' · ')
+  return parts.join(' / ')
 }
 
 // วันที่วันนี้แบบ YYYY-MM-DD ตามเครื่อง (ใช้เป็นค่าต่ำสุดของช่องวันที่)

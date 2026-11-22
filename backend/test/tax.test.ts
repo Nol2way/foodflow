@@ -89,7 +89,7 @@ const doc = (o: Partial<TaxDocRow>): TaxDocRow => ({
   buyer_name: null, buyer_tax_id: null, buyer_branch_code: null, taxable_amount: 100, exempt_amount: 0, vat_amount: 7, total_amount: 107, ...o,
 })
 
-test('salesTaxReport: ABB รวมต่อวัน/เครื่อง · CN ติดลบ · TAX แทน ABB ไม่นับซ้ำ', () => {
+test('salesTaxReport: ABB รวมต่อวัน/เครื่อง / CN ติดลบ / TAX แทน ABB ไม่นับซ้ำ', () => {
   const docs = [
     doc({ id: 'a1', doc_number: 'ABB-POS01-202611-000001' }),
     doc({ id: 'a2', doc_number: 'ABB-POS01-202611-000002' }),
@@ -148,7 +148,7 @@ test('zReport: ส่วนต่างเงินสด + ช่วงเล�
 // ----- route -----
 const CONFIRMED = { id: DOC, doc_type: 'ABB', doc_number: 'ABB-POS01-202611-000001', status: 'confirmed', xml_payload: '<?xml version="1.0"?><x/>' }
 
-test('POST /tax/documents: สร้างร่างด้วย JWT ผู้ใช้ · ครัว 403 · CN ต้องมี ref', async () => {
+test('POST /tax/documents: สร้างร่างด้วย JWT ผู้ใช้ / ครัว 403 / CN ต้องมี ref', async () => {
   on('/rpc/tax_doc_create', () => json(DOC))
   on('/rest/v1/tax_documents?', () => json([{ id: DOC, status: 'draft' }]))
   const r = await req('/api/tax/documents', { as: 'staff', body: { restaurant_id: RID, doc_type: 'abb', order_id: ORDER } })
@@ -161,7 +161,7 @@ test('POST /tax/documents: สร้างร่างด้วย JWT ผู้
   assert.equal((await req('/api/tax/documents', { as: 'owner', body: { restaurant_id: RID, doc_type: 'CN', order_id: ORDER } })).status, 400)
 })
 
-test('POST /tax/documents confirm=true: ยืนยันทันที ไม่คืน XML ใน JSON · ยืนยันไม่ผ่านคืน document_id', async () => {
+test('POST /tax/documents confirm=true: ยืนยันทันที ไม่คืน XML ใน JSON / ยืนยันไม่ผ่านคืน document_id', async () => {
   on('/rpc/tax_doc_create', () => json(DOC))
   on('/rpc/tax_doc_confirm', () => json(CONFIRMED))
   const r = await req('/api/tax/documents', { as: 'owner', body: { restaurant_id: RID, doc_type: 'ABB', order_id: ORDER, confirm: true, terminal_code: 'pos01' } })
@@ -190,7 +190,7 @@ test('POST /tax/documents/:id/confirm: ข้อผิดพลาดฐาน�
   assert.equal((await req(`/api/tax/documents/${DOC}/confirm`, { as: 'owner', body: { restaurant_id: RID } })).status, 400)
 })
 
-test('GET /tax/documents/:id/xml: ดาวน์โหลดไฟล์ · ร่าง 409', async () => {
+test('GET /tax/documents/:id/xml: ดาวน์โหลดไฟล์ / ร่าง 409', async () => {
   on('/rest/v1/tax_documents?select=doc_number', () => json([CONFIRMED]))
   const r = await req(`/api/tax/documents/${DOC}/xml?restaurant_id=${RID}`, { as: 'accountant' })
   assert.equal(r.status, 200)
@@ -202,7 +202,7 @@ test('GET /tax/documents/:id/xml: ดาวน์โหลดไฟล์ · ร
   assert.equal((await req(`/api/tax/documents/${DOC}/xml?restaurant_id=${RID}`, { as: 'accountant' })).status, 409)
 })
 
-test('GET /accounting/reports/sales-tax: JSON + CSV (BOM, หัวผู้ประกอบการ) · month ผิด 400 · พนักงาน 403', async () => {
+test('GET /accounting/reports/sales-tax: JSON + CSV (BOM, หัวผู้ประกอบการ) / month ผิด 400 / พนักงาน 403', async () => {
   on('/rest/v1/tax_settings', () => json([{ company_name: 'บจก. ร้านอาหาร', tax_id: '0105551234567', branch_code: '00000', registered_address: 'กรุงเทพฯ' }]))
   on('/rpc/tax_document_export', () => json([doc({ id: 'a1', doc_number: 'ABB-POS01-202611-000001' })]))
   const r = await req(`/api/accounting/reports/sales-tax?restaurant_id=${RID}&month=2026-11`, { as: 'accountant' })
@@ -238,7 +238,7 @@ test('GET /accounting/reports/wht: กรองแบบ + type ผิด 400', 
   assert.equal((await req(`/api/accounting/reports/wht?restaurant_id=${RID}&month=2026-11&type=pnd1`, { as: 'owner' })).status, 400)
 })
 
-test('shifts: เปิด / เงินออก / ปิด + Z-Report · ครัว 403 · กะซ้ำ 409', async () => {
+test('shifts: เปิด / เงินออก / ปิด + Z-Report / ครัว 403 / กะซ้ำ 409', async () => {
   on('/rpc/shift_open', () => json({ id: SHIFT, status: 'open' }))
   const o = await req('/api/shifts/open', { as: 'staff', body: { restaurant_id: RID, starting_cash: 1000 } })
   assert.equal(o.status, 201)
@@ -267,7 +267,7 @@ test('shifts: เปิด / เงินออก / ปิด + Z-Report · ค
   assert.equal((await req('/api/shifts/open', { as: 'staff', body: { restaurant_id: RID, starting_cash: 0 } })).status, 409)
 })
 
-test('POST /accounting/expenses: ใบกำกับภาษีซื้อ / หัก ณ ที่จ่าย ส่งต่อฐานข้อมูล · ข้อมูลไม่ครบ 400', async () => {
+test('POST /accounting/expenses: ใบกำกับภาษีซื้อ / หัก ณ ที่จ่าย ส่งต่อฐานข้อมูล / ข้อมูลไม่ครบ 400', async () => {
   on('/rest/v1/expenses', () => json([{ id: 'e1' }], 201), 'POST')
   const base = { restaurant_id: RID, account_id: DOC, amount: 1070, vat_amount: 70 }
   const ok = await req('/api/accounting/expenses', {

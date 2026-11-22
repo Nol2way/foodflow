@@ -44,7 +44,7 @@ function toState(rows: StaffRow[] | null): StaffState {
   return { loading: false, roles, restaurantId, error: null }
 }
 
-// บทบาทที่จำไว้ (หน่วยความจำ > localStorage) · รีเฟรชหน้าแล้วก็ไม่ต้องรอ
+// บทบาทที่จำไว้ (หน่วยความจำ > localStorage) / รีเฟรชหน้าแล้วก็ไม่ต้องรอ
 function rememberedStaff(userId: string): StaffState | null {
   const mem = peek<StaffRow[]>(`staff:${userId}`)
   if (mem) return toState(mem)
@@ -77,7 +77,7 @@ function loadStaff(userId: string): Promise<StaffRow[]> {
   )
 }
 
-// อ่านบทบาทและร้านของผู้ใช้ที่ล็อกอิน: 1 แถวต่อ 1 บทบาท (0020) · ตอนนี้รองรับ 1 ผู้ใช้ต่อ 1 ร้าน
+// อ่านบทบาทและร้านของผู้ใช้ที่ล็อกอิน: 1 แถวต่อ 1 บทบาท (0020) / ตอนนี้รองรับ 1 ผู้ใช้ต่อ 1 ร้าน
 // เปลี่ยนหน้า: ใช้ค่าที่จำไว้ทันที (ไม่ขึ้น "กำลังโหลด...") แล้วตรวจกับฐานข้อมูลเบื้องหลังเมื่อเกิน 5 นาที
 export function useStaff(userId: string | undefined): StaffState {
   const identity = getSession()?.access_token

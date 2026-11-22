@@ -1,4 +1,5 @@
 import Modal from '../components/Modal'
+import { useLocalPagination } from '../components/Pagination'
 import { translateUi } from "../lib/uiText"
 import { useEffect, useRef, useState } from 'react'
 import RequireRole from '../components/RequireRole'
@@ -8,7 +9,7 @@ import { rolesFor, type Role } from '../lib/roles'
 import { dateTime, daysAgoIso, errorText, stockApi, todayIso, useLoad, type Movement } from '../lib/stockApi'
 import { fmtNum, MOVEMENT_LABEL, type MovementType } from '../lib/stockMath'
 
-// ประวัติ ledger (stock_history ใน 0029) · เพิ่มได้อย่างเดียว แก้ไม่ได้ ผิดให้กลับรายการ
+// ประวัติ ledger (stock_history ใน 0029) / เพิ่มได้อย่างเดียว แก้ไม่ได้ ผิดให้กลับรายการ
 const BADGE: Record<MovementType, string> = {
   receive: 'badge-green',
   recipe_deduct: 'badge-gray',
@@ -59,11 +60,12 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   }
 
   const rows = list.data?.movements ?? []
+  const pagination = useLocalPagination(rows, JSON.stringify(f), translateUi('ประวัติสต็อก'))
   const set = (patch: Partial<typeof f>) => { setReversing(null); setReason(''); setF((x) => ({ ...x, ...patch })) }
 
   return (
     <div className="page">
-      <PageHead title={translateUi("ประวัติสต็อก")} subtitle={translateUi("ทุกการเข้า-ออก: นำเข้า · ตัดตามสูตร · คืนจากออเดอร์ยกเลิก · ปรับจากการนับ (แก้ย้อนหลังไม่ได้)")} />
+      <PageHead title={translateUi("ประวัติสต็อก")} subtitle={translateUi("ทุกการเข้า-ออก: นำเข้า / ตัดตามสูตร / คืนจากออเดอร์ยกเลิก / ปรับจากการนับ (แก้ย้อนหลังไม่ได้)")} />
       <StockNav roles={roles} />
       {msg && <p className={msg.ok ? 'alert-success' : 'alert-error'}>{msg.text}</p>}
       {(list.error || ings.error) && <p className="alert-error">{list.error ?? ings.error}</p>}
@@ -100,10 +102,11 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
         </label>
       </div>
 
+      {pagination.controls}
       {list.data && rows.length === 0 ? (
         <Empty>{translateUi("ไม่มีรายการในช่วงนี้")}</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap history-scroll">
           <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="text-left">
@@ -118,7 +121,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.map((m) => (
+              {pagination.items.map((m) => (
                 <tr key={m.id} className={`align-top ${m.reversed_by ? 'text-gray-400' : ''}`}>
                   <td className="px-3 py-2 whitespace-nowrap text-gray-600">{dateTime(m.created_at)}</td>
                   <td className="px-3 py-2">{m.ingredient_name}</td>

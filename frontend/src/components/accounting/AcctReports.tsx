@@ -1,7 +1,7 @@
 import { translateUi } from "../../lib/uiText"
-// รายงาน: กำไรต่อเมนู · งบกำไรขาดทุน · เหมา 60% vs ตามจริง · ส่งออก (ทุกโหมด)
-//         สมุดรายวัน · บัญชีแยกประเภท · งบดุล · งบกระแสเงินสด · ภาษีขาย/ซื้อ (โหมดมืออาชีพ)
-//         เอกสารภาษี & e-Tax · รายงานภาษี ภ.พ.30 / ภ.ง.ด. (ทุกโหมด เมื่อจด VAT หรือมีหัก ณ ที่จ่าย)
+// รายงาน: กำไรต่อเมนู / งบกำไรขาดทุน / เหมา 60% vs ตามจริง / ส่งออก (ทุกโหมด)
+//         สมุดรายวัน / บัญชีแยกประเภท / งบดุล / งบกระแสเงินสด / ภาษีขาย/ซื้อ (โหมดมืออาชีพ)
+//         เอกสารภาษี & e-Tax / รายงานภาษี ภ.พ.30 / ภ.ง.ด. (ทุกโหมด เมื่อจด VAT หรือมีหัก ณ ที่จ่าย)
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { apiDownload, apiMessage } from '../../lib/api'
@@ -189,7 +189,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
       {view === 'ledger' && (
         <>
           <select className="input mb-3" value={ledgerAccount} onChange={(e) => setLedgerAccount(e.target.value)} aria-label={translateUi("บัญชี")}>
-            <option value="">{translateUi("— เลือกบัญชี —")}</option>
+            <option value="">{translateUi("- เลือกบัญชี -")}</option>
             {trial.map((r) => (
               <option key={r.account_id} value={r.account_id}>
                 {r.code} {r.name}
@@ -229,7 +229,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
             </div>
           ))}
         </div>
-        <p className="mt-2 hint">{"" + translateUi("ช่วงวันที่") + " "}{from}{" " + translateUi("ถึง") + " "}{to}{" " + translateUi("· CSV เปิดใน Excel ได้ภาษาไทยถูกต้อง") + ""}</p>
+        <p className="mt-2 hint">{"" + translateUi("ช่วงวันที่") + " "}{from}{" " + translateUi("ถึง") + " "}{to}{" " + translateUi("/ CSV เปิดใน Excel ได้ภาษาไทยถูกต้อง") + ""}</p>
       </Section>
     </div>
   )
@@ -246,7 +246,7 @@ function ProfitLoss({ s }: { s: Summary }) {
           { label: 'หัก ส่วนลดโปรโมชันและแต้ม', amount: -s.discounts, indent: true },
           { label: 'ยอดขายสุทธิ', amount: m.netSales, strong: true },
           ...s.expenses_by_account.filter((r) => r.grp === 'food_cost').map((r) => ({ label: r.name, amount: r.amount, indent: true })),
-          { label: `ต้นทุนอาหาร (${m.foodCostPct ?? '–'}%)`, amount: m.foodCost, strong: true },
+          { label: `ต้นทุนอาหาร (${m.foodCostPct ?? '-'}%)`, amount: m.foodCost, strong: true },
           { label: 'กำไรขั้นต้น', amount: m.grossProfit, strong: true },
           ...s.expenses_by_account.filter((r) => r.grp !== 'food_cost').map((r) => ({ label: r.name, amount: r.amount, indent: true })),
           ...(s.other_income ? [{ label: 'รายได้อื่น', amount: s.other_income, indent: true }] : []),
@@ -254,7 +254,7 @@ function ProfitLoss({ s }: { s: Summary }) {
         ]}
       />
       <p className="mt-2 hint">
-        Prime Cost {m.primeCostPct ?? '–'}{"" + translateUi("% · ต้นทุนขายจริง") + " "}{baht(k.cogsActual)}{" " + translateUi("= ต้นงวด") + " "}{baht(k.opening)}{" " + translateUi("+ รับเข้า") + " "}{baht(k.purchases)}{" " + translateUi("− ปลายงวด") + " "}{baht(k.closing)}
+        Prime Cost {m.primeCostPct ?? '-'}{"" + translateUi("% / ต้นทุนขายจริง") + " "}{baht(k.cogsActual)}{" " + translateUi("= ต้นงวด") + " "}{baht(k.opening)}{" " + translateUi("+ รับเข้า") + " "}{baht(k.purchases)}{" " + translateUi("− ปลายงวด") + " "}{baht(k.closing)}
         {k.matches ? ' ✓' : ' (ไม่ตรง ให้ตรวจ)'}
       </p>
     </>
@@ -288,7 +288,7 @@ function MenuTable({ rows }: { rows: MenuProfit[] }) {
               <td className="text-right">
                 <Money value={r.gross_profit} />
               </td>
-              <td className="num">{r.revenue > 0 ? ((r.gross_profit / r.revenue) * 100).toFixed(0) + '%' : '–'}</td>
+              <td className="num">{r.revenue > 0 ? ((r.gross_profit / r.revenue) * 100).toFixed(0) + '%' : '-'}</td>
             </tr>
           ))}
           {rows.length === 0 && (
@@ -298,7 +298,7 @@ function MenuTable({ rows }: { rows: MenuProfit[] }) {
           )}
         </tbody>
       </table>
-      <p className="px-3 py-2 hint">{translateUi("ยอดขายก่อนหักส่วนลดท้ายบิล · ต้นทุนตามสูตรปัจจุบัน")}</p>
+      <p className="px-3 py-2 hint">{translateUi("ยอดขายก่อนหักส่วนลดท้ายบิล / ต้นทุนตามสูตรปัจจุบัน")}</p>
     </div>
   )
 }
@@ -317,7 +317,7 @@ function Tax60({ s }: { s: Summary }) {
           <AmountTable rows={[{ label: 'เงินได้', amount: c.income }, { label: 'ค่าใช้จ่ายจริง', amount: -c.actualExpense }, { label: 'เงินได้หลังหักค่าใช้จ่าย', amount: c.actualNet, strong: true }]} />
         </div>
       </div>
-      <p className="note mt-3">{"" + translateUi("ข้อมูลประกอบเท่านั้น ไม่ใช่คำแนะนำภาษี · ในช่วงนี้") + " "}{c.lowerNet === 'same' ? 'สองแบบเท่ากัน' : `แบบ${c.lowerNet === 'flat' ? 'เหมา 60%' : 'ตามจริง'}ทำให้เงินได้หลังหักค่าใช้จ่ายต่ำกว่า`}{" " + translateUi("· หักตามจริงต้องมีหลักฐานรายจ่ายครบ · ภาษีจริงขึ้นกับค่าลดหย่อนและเงินได้อื่น ควรปรึกษานักบัญชี") + " "}</p>
+      <p className="note mt-3">{"" + translateUi("ข้อมูลประกอบเท่านั้น ไม่ใช่คำแนะนำภาษี / ในช่วงนี้") + " "}{c.lowerNet === 'same' ? 'สองแบบเท่ากัน' : `แบบ${c.lowerNet === 'flat' ? 'เหมา 60%' : 'ตามจริง'}ทำให้เงินได้หลังหักค่าใช้จ่ายต่ำกว่า`}{" " + translateUi("/ หักตามจริงต้องมีหลักฐานรายจ่ายครบ / ภาษีจริงขึ้นกับค่าลดหย่อนและเงินได้อื่น ควรปรึกษานักบัญชี") + " "}</p>
     </>
   )
 }
@@ -343,9 +343,9 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
           <tbody key={g[0].entry_id} className="border-t-2">
             <tr className="bg-gray-50">
               <td colSpan={4} className="text-xs text-gray-600">
-                {g[0].entry_date} · #{g[0].entry_no} · <span className="badge badge-gray">{SOURCE_LABEL[g[0].source_type] ?? g[0].source_type}</span> {g[0].memo}
-                {g[0].reason && <span className="text-red-600">{" " + translateUi("· เหตุผล:") + " "}{g[0].reason}</span>}
-                {g[0].created_by_name && <span> · {g[0].created_by_name}</span>}
+                {g[0].entry_date} / #{g[0].entry_no} / <span className="badge badge-gray">{SOURCE_LABEL[g[0].source_type] ?? g[0].source_type}</span> {g[0].memo}
+                {g[0].reason && <span className="text-red-600">{" " + translateUi("/ เหตุผล:") + " "}{g[0].reason}</span>}
+                {g[0].created_by_name && <span> / {g[0].created_by_name}</span>}
               </td>
             </tr>
             {g.map((l, i) => (
@@ -397,7 +397,7 @@ function Ledger({ rows, account }: { rows: JournalRow[]; account: TrialRow }) {
               <tr key={i} className="border-t">
                 <td>{r.entry_date}</td>
                 <td>
-                  #{r.entry_no} {SOURCE_LABEL[r.source_type] ?? r.source_type} · {r.memo}
+                  #{r.entry_no} {SOURCE_LABEL[r.source_type] ?? r.source_type} / {r.memo}
                 </td>
                 <td className="num">{r.debit > 0 ? baht(r.debit) : ''}</td>
                 <td className="num">{r.credit > 0 ? baht(r.credit) : ''}</td>

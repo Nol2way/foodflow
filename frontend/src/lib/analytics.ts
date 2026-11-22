@@ -43,7 +43,7 @@ export function classifyHours(totals: number[]): Level[] {
 
 const pad = (h: number) => String(h).padStart(2, '0')
 
-// รวมชั่วโมงติดกันเป็นช่วง เช่น [11,12,13,18] -> ['11:00–14:00', '18:00–19:00']
+// รวมชั่วโมงติดกันเป็นช่วง เช่น [11,12,13,18] -> ['11:00-14:00', '18:00-19:00']
 export function toRanges(hours: number[]): string[] {
   const sorted = [...hours].sort((a, b) => a - b)
   const out: string[] = []
@@ -51,7 +51,7 @@ export function toRanges(hours: number[]): string[] {
   while (i < sorted.length) {
     let j = i
     while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++
-    out.push(`${pad(sorted[i])}:00–${pad(sorted[j] + 1)}:00`)
+    out.push(`${pad(sorted[i])}:00-${pad(sorted[j] + 1)}:00`)
     i = j + 1
   }
   return out

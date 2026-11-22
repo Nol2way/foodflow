@@ -1,4 +1,4 @@
-# ผลเตรียมโปรเจกต์ — 22 พฤศจิกายน 2026
+# ผลเตรียมโปรเจกต์ - 22 พฤศจิกายน 2026
 
 > เอกสารนี้เป็น snapshot ก่อนแก้ ใช้เก็บหลักฐานเดิม สถานะ implementation ล่าสุดดู [คู่มือฟีเจอร์](features.md) และ remediation results; ตัวเลข/ข้อค้นพบด้านล่างไม่ใช่ผลหลังแก้
 
@@ -24,7 +24,7 @@
 ## เอกสารที่อ่านและแก้
 
 - อ่านเอกสารต้นทาง `D:/foodflow/docs` ครบ 14 ไฟล์: PDF 9 ไฟล์ 119 หน้า, ภาพ Quiz 2 และ Markdown 4 ไฟล์ ดู [course-context](course-context.md)
-- ตรวจคู่มือใน repo เทียบ source, schema, router และ API แล้วแก้ auth เป็น app_users/custom JWT, หลายบทบาท, migration 0001–0008, stock/accounting ปัจจุบัน และแยกประวัติผลทดสอบออกจากผลรอบนี้
+- ตรวจคู่มือใน repo เทียบ source, schema, router และ API แล้วแก้ auth เป็น app_users/custom JWT, หลายบทบาท, migration 0001-0008, stock/accounting ปัจจุบัน และแยกประวัติผลทดสอบออกจากผลรอบนี้
 - เปลี่ยนสารบัญงาน 4 คนเป็นแผนสองคน ระบุ partial features และ dependency ของ payment; ยังไม่ติ๊กงานที่ไม่มี implementation/test ครบ
 - เพิ่ม [สารบัญคู่มือ](README.md) และ [migration guide](../database/migrations/README.md) ที่ลิงก์เดิมชี้หาไฟล์ที่ไม่มีอยู่
 - อัปเดต Markdown 4 ไฟล์ในโฟลเดอร์ต้นทางให้ตรงแผนปัจจุบัน โดยรักษา PDF/PNG เดิม ค่าลับถูกนำออกจาก README ต้นทางแล้ว
@@ -37,9 +37,9 @@
 | `npm --prefix backend test` | 130/130 | API/unit tests ใช้ mock สำหรับบริการภายนอก |
 | `npm --prefix frontend run build` | ผ่าน | TypeScript + Vite production build สำหรับ config local นี้ |
 | `npm --prefix frontend test` | ผ่านทั้ง 8 ไฟล์ | Pure-function unit tests |
-| `.venv/Scripts/python.exe -X utf8 database/tests/test_rls.py` | 501/501 | ฐาน PostgreSQL ชั่วคราว; hardcode 0001–0007 |
-| `.venv/Scripts/python.exe -X utf8 database/tests/test_accounting.py` | 125/125 | ฐานชั่วคราวผ่าน harness 0001–0008 |
-| `.venv/Scripts/python.exe -X utf8 database/tests/test_stock.py` | 131/131 | ฐานชั่วคราว 0001–0008 และเคส upgrade archive แยก |
+| `.venv/Scripts/python.exe -X utf8 database/tests/test_rls.py` | 501/501 | ฐาน PostgreSQL ชั่วคราว; hardcode 0001-0007 |
+| `.venv/Scripts/python.exe -X utf8 database/tests/test_accounting.py` | 125/125 | ฐานชั่วคราวผ่าน harness 0001-0008 |
+| `.venv/Scripts/python.exe -X utf8 database/tests/test_stock.py` | 131/131 | ฐานชั่วคราว 0001-0008 และเคส upgrade archive แยก |
 | Playwright `roles.spec.ts` | 10/10 | Edge + Supabase จริง: หกบทบาท, ไม่มีบทบาท, ครัวถูกกันหน้าบัญชี, ผู้จัดการอ่านรายจ่าย, ร้านอื่นไม่เห็นเมนู |
 | Browser smoke | ผ่าน | หน้า login, HTTP login 200, หน้าแรกเจ้าของ, ไม่มี pageerror |
 | `npm run openapi` | ผ่าน | สร้าง spec จาก source โดยเนื้อหาไม่เปลี่ยน |
@@ -63,7 +63,7 @@ E2E รอบนี้ใช้ config local ใน `frontend/e2e-results/readin
 
 ใช้ [แผนสองคน](tasks/2-people/README.md) เป็น checklist หลัก:
 
-1. ปิด P1-B1–B6 และ P2-B1–B6 พร้อม regression tests และ CI; ให้ความสำคัญกับ direct paid update, storage cleanup, rate limiter และสิทธิ์ข้ามร้าน
+1. ปิด P1-B1-B6 และ P2-B1-B6 พร้อม regression tests และ CI; ให้ความสำคัญกับ direct paid update, storage cleanup, rate limiter และสิทธิ์ข้ามร้าน
 2. ฟีเจอร์แกนหลักตาม phase 2 โดยต่อยอด UI/RPC ที่มีอยู่แล้ว
 3. ฟีเจอร์ phase 3 และรวม payment ตาม dependency; ตรวจ DB บนฐานสะอาดก่อนนำไปใช้กับ remote
 

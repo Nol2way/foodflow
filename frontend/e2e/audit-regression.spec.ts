@@ -357,9 +357,12 @@ test('idle expired session leaves protected screen', async ({ browser }) => {
   const { page, context } = await pageFor(browser, async () => undefined);
   try {
     await page.goto(origin + '/members');
-    await page.evaluate(async () => {
-      const session = await import('/src/lib/session.ts');
-      session.setSession({ ...session.getSession(), expires_at: Date.now() + 300 });
+    await expect(page.getByRole('heading', { name: 'สมาชิกสะสมแต้ม' })).toBeVisible();
+    await page.evaluate(() => {
+      const key = 'plato.session';
+      const value = JSON.stringify({ ...JSON.parse(localStorage.getItem(key)), expires_at: Date.now() + 300 });
+      localStorage.setItem(key, value);
+      window.dispatchEvent(new StorageEvent('storage', { key, newValue: value, storageArea: localStorage }));
     });
     await expect(page).toHaveURL(/\/login/);
   } finally { await context.close(); }
@@ -412,6 +415,7 @@ test('received order editor saves quantity and note', async ({ browser }) => {
   try {
     await page.goto(origin + '/bills');
     await page.getByLabel('สถานะ').selectOption('received');
+    await page.locator('article summary').first().click();
     await page.getByRole('button', { name: 'แก้ไขรายการ' }).click();
     const dialog = page.getByRole('dialog', { name: 'แก้ไขออเดอร์ก่อนครัวรับ' });
     await dialog.getByLabel('จำนวน', { exact: true }).fill('3');
@@ -693,16 +697,19 @@ test('audit history paginates with the oldest loaded event cursor', async ({ bro
   const { page, context } = await pageFor(browser, async ({ path, body, fulfill }) => {
     if (!path.endsWith('/audit_events')) return;
     calls.push(body());
-    return fulfill(body().p_before === null ? Array.from({ length: 100 }, (_, i) => row(200 - i)) : [row(100), row(99)]);
+    return fulfill(body().p_before === null ? Array.from({ length: body().p_limit }, (_, i) => row(200 - i)) : [row(190), row(189)]);
   });
   try {
     await page.goto(origin + '/audit');
-    await expect(page.locator('tbody tr')).toHaveCount(100);
-    await page.getByRole('button', { name: 'โหลดเก่ากว่านี้' }).click();
-    await expect(page.locator('tbody tr')).toHaveCount(102);
-    assert.equal(calls.at(-1).p_before, 101);
-    assert.equal(calls.at(-1).p_limit, 100);
-    await expect(page.getByRole('button', { name: 'โหลดเก่ากว่านี้' })).toHaveCount(0);
+    await expect(page.locator('tbody tr')).toHaveCount(10);
+    await page.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    assert.equal(calls.at(-1).p_before, 191);
+    assert.equal(calls.at(-1).p_limit, 11);
+    await expect(page.getByRole('button', { name: 'ถัดไป', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'ก่อนหน้า', exact: true }).click();
+    await expect(page.locator('tbody tr')).toHaveCount(10);
+    assert.equal(calls.at(-1).p_before, null);
   } finally { await context.close(); }
 });
 
@@ -757,7 +764,7 @@ test('split orders can be paid separately without applying allocated discounts t
   } finally { await context.close(); }
 });
 
-test('bill history pages past 100 with stable cursors and resets for exact ID searches', async ({ browser }) => {
+test('bill history replaces compact pages with stable cursors and resets for exact ID searches', async ({ browser }) => {
   const calls = [];
   const exact = '00000000-0000-4000-8000-000000000099';
   const { page, context } = await pageFor(browser, async ({ path, param, fulfill }) => {
@@ -765,15 +772,22 @@ test('bill history pages past 100 with stable cursors and resets for exact ID se
     calls.push({ cursor: param('or'), ordering: param('order'), id: param('id'), customer: param('customer_label') });
     if (param('id')) return fulfill([{ ...order(exact), status: 'paid' }]);
     if (param('customer_label')) return fulfill([]);
-    return fulfill(param('or') ? [{ ...order('older-bill'), status: 'paid' }] : Array.from({ length: 100 }, (_, i) => ({ ...order('bill-' + i), status: 'paid' })));
+    return fulfill(param('or') ? [{ ...order('older-bill'), status: 'paid' }] : Array.from({ length: Number(param('limit')) }, (_, i) => ({ ...order('bill-' + i), status: 'paid' })));
   });
   try {
     await page.goto(origin + '/bills');
-    await expect(page.locator('article')).toHaveCount(100);
-    await page.getByRole('button', { name: 'โหลดบิลเก่ากว่านี้' }).click();
-    await expect(page.locator('article')).toHaveCount(101);
+    await expect(page.locator('article')).toHaveCount(10);
+    await expect(page.locator('article details[open]')).toHaveCount(0);
+    expect((await page.locator('.history-scroll').boundingBox()).height).toBeLessThanOrEqual(585);
+    await page.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+    await expect(page.locator('article')).toHaveCount(1);
     assert.equal(calls.at(-1).ordering, 'created_at.desc,id.desc');
-    assert.ok(calls.at(-1).cursor.includes('id.lt.bill-99'));
+    assert.ok(calls.at(-1).cursor.includes('id.lt.bill-9'));
+    await page.getByRole('button', { name: 'ก่อนหน้า', exact: true }).click();
+    await expect(page.locator('article')).toHaveCount(10);
+    assert.equal(calls.at(-1).cursor, null);
+    await page.getByLabel('แบ่งหน้าบิล: ต่อหน้า', { exact: true }).selectOption('20');
+    await expect(page.locator('article')).toHaveCount(20);
     const search = page.getByLabel('ค้นหาเลขออเดอร์หรือชื่อลูกค้า');
     await search.fill(exact);
     await expect(page.locator('article')).toHaveCount(1);
@@ -782,6 +796,27 @@ test('bill history pages past 100 with stable cursors and resets for exact ID se
     await search.fill('Alice');
     await expect(page.locator('article')).toHaveCount(0);
     assert.equal(calls.at(-1).customer, 'ilike.%Alice%');
+  } finally { await context.close(); }
+});
+
+test('member pages are bounded and filtering resets the server offset', async ({ browser }) => {
+  const calls = [];
+  const { page, context } = await pageFor(browser, async ({ path, param, fulfill }) => {
+    if (!path.endsWith('/members')) return;
+    const offset = Number(param('offset') ?? 0);
+    calls.push(offset);
+    const list = Array.from({ length: 25 }, (_, i) => ({ id: 'member-' + i, phone: '08000000' + String(i).padStart(2, '0'), name: 'Member ' + i, points: 10, created_at: date }));
+    return fulfill(list.slice(offset, offset + Number(param('limit') ?? 11)));
+  });
+  try {
+    await page.goto(origin + '/members');
+    await expect(page.locator('tbody tr')).toHaveCount(10);
+    await page.getByRole('button', { name: 'ถัดไป', exact: true }).click();
+    await expect.poll(() => calls.at(-1)).toBe(10);
+    await expect(page.locator('tbody tr').first()).toContainText('Member 10');
+    await page.getByLabel('ค้นหาเบอร์โทรหรือชื่อ', { exact: true }).fill('Member');
+    await expect.poll(() => calls.at(-1)).toBe(0);
+    await expect(page.locator('tbody tr')).toHaveCount(10);
   } finally { await context.close(); }
 });
 

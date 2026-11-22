@@ -1,4 +1,5 @@
 import Modal from '../components/Modal'
+import { useLocalPagination } from '../components/Pagination'
 import { translateUi } from "../lib/uiText"
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import RequireRole from '../components/RequireRole'
@@ -11,7 +12,7 @@ import { errorText, stockApi, useLoad, type StockIngredient, type Supplier } fro
 import { displayQty, fmtNum, RECIPE_UNITS, yieldUnitCost, type AbcClass, type RecipeUnit } from '../lib/stockMath'
 import { useUnits } from '../lib/units'
 
-// ตั้งค่าสต็อก: วัตถุดิบ · ผู้ขาย · สูตร (รองรับสูตรย่อย) · หน่วย · เกณฑ์ตรวจรับ · เปิด/ปิดเมนูเอง
+// ตั้งค่าสต็อก: วัตถุดิบ / ผู้ขาย / สูตร (รองรับสูตรย่อย) / หน่วย / เกณฑ์ตรวจรับ / เปิด/ปิดเมนูเอง
 // ยอดคงเหลือ/ต้นทุนแก้ที่นี่ไม่ได้ (มาจากรับเข้า ตัดตามสูตร และการนับ)
 
 const DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
@@ -72,6 +73,7 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
     return !q || i.name.toLowerCase().includes(q) || (i.storage_location ?? '').toLowerCase().includes(q) || (i.category ?? '').toLowerCase().includes(q)
   })
   const base = form.recipe_unit === 'pcs' ? form.unit || 'ชิ้น' : form.recipe_unit
+  const pagination = useLocalPagination(visible, search, translateUi('วัตถุดิบ'))
   const f = (k: keyof IngForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value })
 
   async function save(e: FormEvent) {
@@ -121,7 +123,8 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
         <input className="input w-48 py-1.5" placeholder={translateUi("ค้นหา ชื่อ/ตำแหน่ง/หมวด")} value={search} onChange={(e) => setSearch(e.target.value)} />
         {canWrite && <button className="btn btn-primary btn-sm" onClick={() => { setEditing('new'); setForm(NEW_ING) }}>{translateUi("+ เพิ่มวัตถุดิบ")}</button>}
       </div>
-      <div className="table-wrap">
+      {pagination.controls}
+      <div className="table-wrap history-scroll">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="text-left">
@@ -135,21 +138,21 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
             </tr>
           </thead>
           <tbody className="divide-y">
-            {visible.map((i) => (
+            {pagination.items.map((i) => (
               <tr key={i.id} className={i.is_active ? '' : 'text-gray-400'}>
                 <td className="px-3 py-2">
                   <span className="font-medium">{i.name}</span>
                   <span className="badge badge-gray ml-1.5">{i.abc_class}</span>
                   {!i.is_active && <span className="badge badge-gray ml-1">{translateUi("ปิดใช้งาน")}</span>}
                   <div className="hint">{"" + translateUi("ซื้อเป็น") + " "}{i.purchase_unit} (= {fmtNum(Number(i.conversion_factor))} {i.unit})
-                    {i.display_unit && Number(i.display_factor) !== 1 && ` · ครัวนับเป็น ${i.display_unit} (= ${fmtNum(Number(i.display_factor))} ${i.unit})`}
+                    {i.display_unit && Number(i.display_factor) !== 1 && ` / ครัวนับเป็น ${i.display_unit} (= ${fmtNum(Number(i.display_factor))} ${i.unit})`}
                   </div>
                 </td>
                 <td className="px-3 py-2 num">{displayQty(Number(i.quantity_on_hand), i.unit, i.display_unit, Number(i.display_factor))}</td>
                 <td className="px-3 py-2 num text-gray-600">
                   {baht(yieldUnitCost(Number(i.last_unit_cost ?? i.cost_per_unit), Number(i.trim_yield_pct), Number(i.cook_yield_pct)))}/{i.unit}
                 </td>
-                <td className="px-3 py-2 text-xs text-gray-600">{"" + translateUi("ตัดแต่ง") + " "}{fmtNum(Number(i.trim_yield_pct), 2)}{"" + translateUi("% · สุก") + " "}{fmtNum(Number(i.cook_yield_pct), 2)}%</td>
+                <td className="px-3 py-2 text-xs text-gray-600">{"" + translateUi("ตัดแต่ง") + " "}{fmtNum(Number(i.trim_yield_pct), 2)}{"" + translateUi("% / สุก") + " "}{fmtNum(Number(i.cook_yield_pct), 2)}%</td>
                 <td className="px-3 py-2 text-gray-600">{i.storage_location ?? '-'}</td>
                 <td className="px-3 py-2 text-gray-600">{i.supplier_id ? supName.get(i.supplier_id) : '-'}</td>
                 <td className="px-3 py-2 text-right">{canWrite && <button className="link-muted" onClick={() => { setEditing(i); setForm(toForm(i)) }}>{translateUi("แก้ไข")}</button>}</td>
@@ -214,7 +217,7 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
                 <span className="label">{translateUi("ปรุงสุก cook %")}</span>
                 <input className="input w-full text-right" type="number" min="0.01" max="400" step="any" required value={form.cook_yield_pct} onChange={f('cook_yield_pct')} />
               </label>
-              <p className="self-end hint sm:col-span-2">{"" + translateUi("ต้นทุนต่อหน่วยที่ใช้ได้ = ราคาซื้อ ÷ (trim × cook) · สูตรใช้สุทธิ 100") + " "}{base}{" " + translateUi("ตัดดิบ") + ""}{' '}
+              <p className="self-end hint sm:col-span-2">{"" + translateUi("ต้นทุนต่อหน่วยที่ใช้ได้ = ราคาซื้อ ÷ (trim × cook) / สูตรใช้สุทธิ 100") + " "}{base}{" " + translateUi("ตัดดิบ") + ""}{' '}
                 {fmtNum((100 * 10000) / ((Number(form.trim_yield_pct) || 100) * (Number(form.cook_yield_pct) || 100)))} {base}
               </p>
             </fieldset>
@@ -276,7 +279,7 @@ function IngredientsSection({ restaurantId, canWrite, suppliers, ingredients, re
               </fieldset>
             ) : (
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />{"" + translateUi("ใช้งานอยู่ (ปิดแล้วไม่แสดงในใบนับ/รับเข้า · ประวัติยังอยู่)") + " "}</label>
+                <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />{"" + translateUi("ใช้งานอยู่ (ปิดแล้วไม่แสดงในใบนับ/รับเข้า / ประวัติยังอยู่)") + " "}</label>
             )}
             <div className="flex justify-end gap-2">
               <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setEditing(null)}>{translateUi("ยกเลิก")}</button>
@@ -320,7 +323,7 @@ function SuppliersSection({ restaurantId, canWrite, suppliers, reload, notify }:
         {suppliers.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
             <span className="min-w-40 flex-1 font-medium text-gray-900">{s.name}{s.phone && <span className="ml-2 font-normal text-gray-500">{s.phone}</span>}</span>
-            <span className="text-gray-600">{"" + translateUi("สั่งแล้วได้ของใน") + " "}{s.lead_time_days}{" " + translateUi("วัน · ส่ง") + " "}{s.delivery_days.map((d) => DAYS[d]).join(' ')}</span>
+            <span className="text-gray-600">{"" + translateUi("สั่งแล้วได้ของใน") + " "}{s.lead_time_days}{" " + translateUi("วัน / ส่ง") + " "}{s.delivery_days.map((d) => DAYS[d]).join(' ')}</span>
             {canWrite && (
               <button className="link-muted" onClick={() => setEdit({ id: s.id, name: s.name, phone: s.phone ?? '', lead: String(s.lead_time_days), days: s.delivery_days })}>{translateUi("แก้ไข")}</button>
             )}
@@ -383,7 +386,7 @@ function UnitsSection({ restaurantId, canWrite, notify }: { restaurantId: string
   return (
     <section className="mt-8">
       <h2 className="section-title">{translateUi("หน่วยนับของร้าน")}</h2>
-      <p className="mb-2 text-sm text-gray-500">{translateUi("ใช้เป็นหน่วยซื้อ/หน่วยแปลงตอนรับของ (เช่น ลัง เข่ง) · สต็อกและสูตรเก็บเป็นหน่วยฐาน g / ml / pcs เสมอ")}</p>
+      <p className="mb-2 text-sm text-gray-500">{translateUi("ใช้เป็นหน่วยซื้อ/หน่วยแปลงตอนรับของ (เช่น ลัง เข่ง) / สต็อกและสูตรเก็บเป็นหน่วยฐาน g / ml / pcs เสมอ")}</p>
       <div className="card">
         <div className="flex flex-wrap gap-1.5">
           {units.rows.map((u) => (
@@ -404,7 +407,7 @@ function UnitsSection({ restaurantId, canWrite, notify }: { restaurantId: string
   )
 }
 
-// เกณฑ์ตรวจรับของ (เจ้าของ): รับจริงห่างจากบิลเกิน ± % = ขาด/เกิน · น้ำแข็งเคลือบสูงสุด
+// เกณฑ์ตรวจรับของ (เจ้าของ): รับจริงห่างจากบิลเกิน ± % = ขาด/เกิน / น้ำแข็งเคลือบสูงสุด
 function ReceiveSettings({ restaurantId, notify }: { restaurantId: string; notify: (ok: boolean, text: string) => void }) {
   const [v, setV] = useState({ tolerance: '2', glaze: '12' })
   useLoad(async () => {
@@ -459,7 +462,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
 
   return (
     <div className="page">
-      <PageHead title={translateUi("ตั้งค่าสต็อก")} subtitle={translateUi("วัตถุดิบ ผู้ขาย สูตร หน่วย · ยอดคงเหลือแก้ที่นี่ไม่ได้ (มาจากรับเข้า ตัดตามสูตร และการนับ)")} />
+      <PageHead title={translateUi("ตั้งค่าสต็อก")} subtitle={translateUi("วัตถุดิบ ผู้ขาย สูตร หน่วย / ยอดคงเหลือแก้ที่นี่ไม่ได้ (มาจากรับเข้า ตัดตามสูตร และการนับ)")} />
       <StockNav roles={roles} />
       {msg && <p className={msg.ok ? 'alert-success' : 'alert-error'}>{msg.text}</p>}
       {data.error && <p className="alert-error">{data.error}</p>}
@@ -469,7 +472,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
           <SuppliersSection restaurantId={restaurantId} canWrite={canWrite} suppliers={data.data.suppliers} reload={reload} notify={notify} />
           <section className="mt-8">
             <h2 className="section-title">{translateUi("สูตร")}</h2>
-            <p className="mb-3 text-sm text-gray-500">{"" + translateUi("ตัดสต็อกเมื่อครัวกด \"เริ่มทำ\" ตามสูตร (แตกสูตรย่อยถึงวัตถุดิบดิบ) · ยกเลิกออเดอร์ = คืนสต็อกอัตโนมัติ · ของไม่พอ ระบบปิดเมนูให้เอง") + " "}</p>
+            <p className="mb-3 text-sm text-gray-500">{"" + translateUi("ตัดสต็อกเมื่อครัวกด \"เริ่มทำ\" ตามสูตร (แตกสูตรย่อยถึงวัตถุดิบดิบ) / ยกเลิกออเดอร์ = คืนสต็อกอัตโนมัติ / ของไม่พอ ระบบปิดเมนูให้เอง") + " "}</p>
             <RecipeEditor restaurantId={restaurantId} recipes={data.data.recipes} menus={data.data.menus} ingredients={active} canWrite={canWrite}
               onSaved={(text) => { notify(true, text); reload() }} />
           </section>

@@ -80,7 +80,7 @@ t('เงื่อนไขโปร', () =>
     'วันนี้ถึง 14:00 น.',
     'ถึงวันที่ 5/11',
   ]))
-t('เวลาแสดง: วิดีโอ 8–30 วิ · YouTube 30 วิ · ตั้งเองได้', () => {
+t('เวลาแสดง: วิดีโอ 8-30 วิ / YouTube 30 วิ / ตั้งเองได้', () => {
   const s = buildSlides(content([item('v', media('v1', 'video'))]))[1]
   assert.equal(slideDuration(s, 3), 8000)
   assert.equal(slideDuration(s, 12.5), 12500)

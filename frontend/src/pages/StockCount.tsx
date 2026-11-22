@@ -1,4 +1,5 @@
 import { translateUi } from "../lib/uiText"
+import { useLocalPagination } from '../components/Pagination'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RequireRole from '../components/RequireRole'
@@ -10,8 +11,8 @@ import { dateTime, errorText, stockApi, useLoad, type SheetItem } from '../lib/s
 import { COUNT_TYPES, fmtNum, round, type AbcClass, type CountType } from '../lib/stockMath'
 
 // นับสต็อกแบบ blind (submit_stock_count ใน 0029)
-//   ใบนับไม่แสดงยอดในระบบ/ยอดที่ควรเหลือ · เรียงตามตำแหน่งจัดเก็บ (เดินชั้นไหนนับชั้นนั้น) · กรองคลาส ABC
-//   กรอกเป็นหน่วยที่ครัวพูด (ถุง ฟอง) + เศษเป็นหน่วยฐาน · ช่องที่ไม่กรอก = ไม่ได้นับ (ไม่ปรับยอด)
+//   ใบนับไม่แสดงยอดในระบบ/ยอดที่ควรเหลือ / เรียงตามตำแหน่งจัดเก็บ (เดินชั้นไหนนับชั้นนั้น) / กรองคลาส ABC
+//   กรอกเป็นหน่วยที่ครัวพูด (ถุง ฟอง) + เศษเป็นหน่วยฐาน / ช่องที่ไม่กรอก = ไม่ได้นับ (ไม่ปรับยอด)
 //   บันทึกแล้วระบบปรับยอดเป็นยอดนับจริงทันที ผู้ตรวจ (เจ้าของ/ผู้จัดการ) รับรองภายหลัง
 
 interface Entry {
@@ -29,7 +30,7 @@ const toBaseQty = (i: SheetItem, e: Entry) =>
 const enteredText = (i: SheetItem, e: Entry) =>
   hasDisplay(i) ? [e.units && `${e.units} ${i.display_unit}`, e.loose && `${e.loose} ${i.unit}`].filter(Boolean).join(' + ') : ''
 
-// ร่างใบนับเก็บในเครื่อง (นับนานแล้วรีเฟรชไม่หาย) · ไม่มีที่เก็บก็ทำงานได้ปกติ
+// ร่างใบนับเก็บในเครื่อง (นับนานแล้วรีเฟรชไม่หาย) / ไม่มีที่เก็บก็ทำงานได้ปกติ
 const draftKey = (rid: string) => `plato.stockcount.${rid}`
 function loadDraft(rid: string): Record<string, Entry> {
   try {
@@ -114,7 +115,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
             ))}
           </div>
         </div>
-        <p className="hint">{translateUi("A = มูลค่าสูง นับบ่อย (เช่น ทุกวัน) · C = นับรายเดือน")}</p>
+        <p className="hint">{translateUi("A = มูลค่าสูง นับบ่อย (เช่น ทุกวัน) / C = นับรายเดือน")}</p>
         <span className="ml-auto text-sm text-gray-600">{"" + translateUi("นับแล้ว") + " "}<strong>{done}</strong> / {items.length}</span>
       </div>
 
@@ -180,6 +181,7 @@ function CountList({ restaurantId, roles, justSaved }: { restaurantId: string; r
   const [error, setError] = useState<string | null>(null)
   const isOwner = roles.includes('owner')
   const canVerify = isOwner || roles.includes('manager')
+  const pagination = useLocalPagination(list.data?.counts ?? [], restaurantId + (justSaved ?? ''), translateUi('ใบนับย้อนหลัง'))
 
   async function verify(id: string) {
     try {
@@ -194,23 +196,24 @@ function CountList({ restaurantId, roles, justSaved }: { restaurantId: string; r
   return (
     <div>
       {justSaved && (
-        <p className="alert-success">{"" + translateUi("บันทึกใบนับแล้ว ยอดในระบบปรับเป็นยอดนับจริง ·") + " "}<Link className="link" to={`/stock-variance?count=${justSaved}`}>{translateUi("ดูรายงานส่วนต่าง")}</Link>
+        <p className="alert-success">{"" + translateUi("บันทึกใบนับแล้ว ยอดในระบบปรับเป็นยอดนับจริง /") + " "}<Link className="link" to={`/stock-variance?count=${justSaved}`}>{translateUi("ดูรายงานส่วนต่าง")}</Link>
         </p>
       )}
       {(error || list.error) && <p className="alert-error">{error ?? list.error}</p>}
       {list.data && list.data.counts.length === 0 && <Empty>{translateUi("ยังไม่มีใบนับ")}</Empty>}
-      <ul className="list-card">
-        {(list.data?.counts ?? []).map((c) => {
+      {pagination.controls}
+      <ul className="list-card history-scroll">
+        {pagination.items.map((c) => {
           const mine = c.counted_by === session?.user.id
           return (
             <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
               <span className="min-w-48 flex-1">
-                <span className="block font-medium text-gray-900">{dateTime(c.created_at)} · {COUNT_TYPES[c.count_type]}</span>
-                <span className="hint">{"" + translateUi("ผู้นับ") + " "}{c.counted_by_name ?? '-'} · {c.item_count}{" " + translateUi("รายการ · ไม่ตรง") + " "}{c.diff_count}</span>
+                <span className="block font-medium text-gray-900">{dateTime(c.created_at)} / {COUNT_TYPES[c.count_type]}</span>
+                <span className="hint">{"" + translateUi("ผู้นับ") + " "}{c.counted_by_name ?? '-'} / {c.item_count}{" " + translateUi("รายการ / ไม่ตรง") + " "}{c.diff_count}</span>
               </span>
               <span className={`tabular-nums ${Number(c.diff_value) < 0 ? 'text-red-700' : 'text-gray-700'}`}>{baht(Number(c.diff_value))}</span>
               {c.verified_at ? (
-                <span className="badge badge-green">{"" + translateUi("รับรองแล้ว ·") + " "}{c.verified_by_name ?? '-'}</span>
+                <span className="badge badge-green">{"" + translateUi("รับรองแล้ว /") + " "}{c.verified_by_name ?? '-'}</span>
               ) : canVerify && (!mine || isOwner) ? (
                 <button className="btn btn-secondary btn-sm" onClick={() => void verify(c.id)}>{translateUi("รับรองใบนับ")}</button>
               ) : (
@@ -233,7 +236,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
     <div className="page">
       <PageHead
         title={translateUi("นับสต็อก")}
-        subtitle={translateUi("นับแบบ blind: ไม่แสดงยอดในระบบ · เดินตามชั้นวาง · ช่องที่ไม่กรอก = ไม่ได้นับ")}
+        subtitle={translateUi("นับแบบ blind: ไม่แสดงยอดในระบบ / เดินตามชั้นวาง / ช่องที่ไม่กรอก = ไม่ได้นับ")}
         action={
           <>
             <button className={chip(tab === 'count')} onClick={() => setTab('count')}>{translateUi("ใบนับ")}</button>

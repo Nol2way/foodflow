@@ -23,9 +23,9 @@ export default function FeatureReports({ restaurantId, date, kind }: { restauran
     return () => { seq.current++ }
   }, [restaurantId, date, kind])
   return <section className="card mt-4">
-    <h2 className="section-title">{kind === 'promotions' ? text('ผลโปรโมชัน', 'Promotion results') : text('ความพึงพอใจลูกค้า', 'Customer feedback')} · {date}</h2>
+    <h2 className="section-title">{kind === 'promotions' ? text('ผลโปรโมชัน', 'Promotion results') : text('ความพึงพอใจลูกค้า', 'Customer feedback')} / {date}</h2>
     {error && <p role="alert">{error}</p>}
     {kind === 'promotions' ? <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><th>{text('โปรโมชัน', 'Promotion')}</th><th>{text('ครั้ง', 'Uses')}</th><th>{text('ส่วนลด', 'Discount')}</th><th>{text('ยอดขายที่ร่วมโปร', 'Attributed sales')}</th></tr></thead><tbody>{promos.map(row => <tr key={row.id}><td>{row.name}</td><td>{row.uses}</td><td>{baht(Number(row.discount))}</td><td>{baht(Number(row.attributed_sales))}</td></tr>)}</tbody></table><p className="hint">{text('บิลที่ใช้หลายโปรอาจปรากฏในแต่ละโปร ยอดคอลัมน์นี้ไม่ใช่ยอดขายสุทธิรวมร้าน', 'A bill with several promotions can appear in each promotion. This column is not total shop revenue.')}</p></div>
-      : feedback && <><p>{text('คะแนนเฉลี่ย', 'Average')} {feedback.average === null ? '—' : Number(feedback.average).toFixed(1)} / 5 · {feedback.count} {text('คำตอบ', 'responses')}</p><ul>{[1,2,3,4,5].map(star => <li key={star}>{star} ★: {feedback.ratings?.[star] ?? 0}</li>)}</ul></>}
+      : feedback && <><p>{text('คะแนนเฉลี่ย', 'Average')} {feedback.average === null ? '-' : Number(feedback.average).toFixed(1)} / 5 / {feedback.count} {text('คำตอบ', 'responses')}</p><ul>{[1,2,3,4,5].map(star => <li key={star}>{star} ★: {feedback.ratings?.[star] ?? 0}</li>)}</ul></>}
   </section>
 }

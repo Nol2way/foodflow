@@ -127,7 +127,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
   return (
     <div className="page-narrow">
       <h1 className="page-title">{translateUi("นำเข้ายอดขายย้อนหลัง (CSV / Excel)")}</h1>
-      <p className="mb-4 text-sm text-gray-600">{"" + translateUi("ใช้ข้อมูลจาก POS เดิมหรือสมุดจด เพื่อให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก ออเดอร์ที่นำเข้าจะเป็นสถานะ \"ชำระแล้ว\" และ") + " "}<b>{translateUi("ไม่ตัดสต็อก")}</b> · <a className="link" href="/sample-sales.csv" download>{translateUi("ดาวน์โหลดไฟล์ตัวอย่าง")}</a>
+      <p className="mb-4 text-sm text-gray-600">{"" + translateUi("ใช้ข้อมูลจาก POS เดิมหรือสมุดจด เพื่อให้หน้าวิเคราะห์มีข้อมูลตั้งแต่วันแรก ออเดอร์ที่นำเข้าจะเป็นสถานะ \"ชำระแล้ว\" และ") + " "}<b>{translateUi("ไม่ตัดสต็อก")}</b> / <a className="link" href="/sample-sales.csv" download>{translateUi("ดาวน์โหลดไฟล์ตัวอย่าง")}</a>
       </p>
 
       <div className="card text-sm">
@@ -135,7 +135,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
         <ul className="list-disc space-y-1 pl-5 text-gray-600">
           <li>{"" + translateUi("คอลัมน์ที่ต้องมี:") + " "}<code>datetime</code>{" " + translateUi("(หรือ") + " "}<code>date</code> + <code>time</code>), <code>item</code>, <code>qty</code></li>
           <li>{"" + translateUi("ไม่บังคับ:") + " "}<code>ref</code>{" " + translateUi("(เลขที่บิล แถวที่เลขบิลเดียวกันในวันเดียวกันรวมเป็น 1 ออเดอร์),") + " "}<code>price</code>{" " + translateUi("(ไม่ใส่ = ราคาเมนูปัจจุบัน)") + ""}</li>
-          <li>{"" + translateUi("วันที่") + " "}<code>2026-09-01</code>{" " + translateUi("หรือ") + " "}<code>01/09/2569</code>{" " + translateUi("· เวลาเป็นเวลาท้องถิ่นของร้าน") + ""}</li>
+          <li>{"" + translateUi("วันที่") + " "}<code>2026-09-01</code>{" " + translateUi("หรือ") + " "}<code>01/09/2569</code>{" " + translateUi("/ เวลาเป็นเวลาท้องถิ่นของร้าน") + ""}</li>
           <li>{translateUi("ชื่อเมนูต้องตรงกับในระบบ (ไม่สนตัวพิมพ์เล็ก/ใหญ่)")}</li>
           <li>{translateUi("Excel .xlsx ต้องมีแผ่นงานเดียว ใช้หัวคอลัมน์เดียวกับ CSV และตรวจตัวอย่างก่อนนำเข้า")}</li>
         </ul>
@@ -168,10 +168,10 @@ function Board({ restaurantId }: { restaurantId: string }) {
       {preview && (
         <div className="card mt-4 text-sm">
           <p className="font-medium">{"" + translateUi("ผลตรวจ") + " "}{fileName}</p>
-          <p>{"" + translateUi("จะนำเข้า") + " "}{preview.orders}{" " + translateUi("ออเดอร์ /") + " "}{preview.lines}{" " + translateUi("รายการ") + ""}{preview.skipped_lines > 0 && ` · ข้าม ${preview.skipped_lines} แถว`}</p>
+          <p>{"" + translateUi("จะนำเข้า") + " "}{preview.orders}{" " + translateUi("ออเดอร์ /") + " "}{preview.lines}{" " + translateUi("รายการ") + ""}{preview.skipped_lines > 0 && ` / ข้าม ${preview.skipped_lines} แถว`}</p>
           {preview.unknown_items.length > 0 && (
             <p className={`mt-2 ${preview.blocked ? 'text-red-600' : 'text-gray-600'}`}>{"" + translateUi("ชื่อเมนูที่ไม่พบในระบบ:") + " "}{preview.unknown_items.join(', ')}
-              {preview.blocked && ' — แก้ชื่อในไฟล์ให้ตรง หรือติ๊ก "ข้ามแถว..." แล้วตรวจใหม่'}
+              {preview.blocked && ' - แก้ชื่อในไฟล์ให้ตรง หรือติ๊ก "ข้ามแถว..." แล้วตรวจใหม่'}
             </p>
           )}
         </div>

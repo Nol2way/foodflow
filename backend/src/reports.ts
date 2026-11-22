@@ -25,7 +25,7 @@ export const reportHour = (env: Env) => {
   return Number.isInteger(h) && h >= 0 && h <= 23 ? h : 22
 }
 
-// เรียกจาก Cron ทุกชั่วโมง · คืนจำนวนร้านที่ส่งสำเร็จ (ร้านหนึ่งพังไม่กระทบร้านอื่น)
+// เรียกจาก Cron ทุกชั่วโมง / คืนจำนวนร้านที่ส่งสำเร็จ (ร้านหนึ่งพังไม่กระทบร้านอื่น)
 export async function sendDueReports(env: Env, scheduledTime = Date.now()): Promise<{ sent: number; failed: number }> {
   if (!env.LINE_CHANNEL_ACCESS_TOKEN) return { sent: 0, failed: 0 }
   const db = asService(env)

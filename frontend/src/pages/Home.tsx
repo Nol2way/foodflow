@@ -84,7 +84,7 @@ function Landing() {
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-white/35">{translateUi("ออเดอร์ · ครัว · บัญชี · สต็อก · AI คาดการณ์ยอดขาย")}</p>
+        <p className="relative text-xs text-white/35">{translateUi("ออเดอร์ / ครัว / บัญชี / สต็อก / AI คาดการณ์ยอดขาย")}</p>
       </section>
 
       <section className="grid place-items-center px-4 py-10">
@@ -162,7 +162,7 @@ export default function Home() {
               {hasRole && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {roleLabels(staff.roles)
-                    .split(' · ')
+                    .split(' / ')
                     .map((r) => (
                       <span key={r} className="badge bg-white/10 text-white/85">
                         {r}
@@ -186,7 +186,7 @@ export default function Home() {
                     <span className={`h-2 w-2 rounded-full ${l.dot}`} />
                     {l.label}
                   </span>
-                  <span className="mt-1 block text-2xl font-bold tabular-nums">{counts ? (counts[l.status] ?? 0) : '–'}</span>
+                  <span className="mt-1 block text-2xl font-bold tabular-nums">{counts ? (counts[l.status] ?? 0) : '-'}</span>
                 </Link>
               ))}
             </div>

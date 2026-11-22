@@ -10,7 +10,7 @@ import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
 import { useCachedState } from '../lib/useCachedState'
 
-// รายงานสรุปรายวัน (daily_report ใน 0018) · แชร์เข้า LINE เอง หรือให้ backend ส่งเข้า LINE ร้าน
+// รายงานสรุปรายวัน (daily_report ใน 0018) / แชร์เข้า LINE เอง หรือให้ backend ส่งเข้า LINE ร้าน
 
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
 
@@ -108,7 +108,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
                         {i + 1}. {t.name}
                       </span>
                       <span className="tabular-nums text-gray-600">
-                        {t.quantity}{" " + translateUi("ที่ ·") + " "}{baht(Number(t.amount))}
+                        {t.quantity}{" " + translateUi("ที่ /") + " "}{baht(Number(t.amount))}
                       </span>
                     </li>
                   ))}
@@ -149,7 +149,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
                     ))}
                   </ul>
                 )}
-                <p className="mt-3 text-sm text-gray-600">{"" + translateUi("รายจ่ายที่บันทึกวันนี้") + " "}{baht(Number(r.expenses))}{" " + translateUi("· สมาชิกใหม่") + " "}{r.new_members}{" " + translateUi("คน") + " "}</p>
+                <p className="mt-3 text-sm text-gray-600">{"" + translateUi("รายจ่ายที่บันทึกวันนี้") + " "}{baht(Number(r.expenses))}{" " + translateUi("/ สมาชิกใหม่") + " "}{r.new_members}{" " + translateUi("คน") + " "}</p>
               </section>
             </div>
           </div>

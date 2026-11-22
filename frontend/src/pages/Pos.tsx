@@ -167,7 +167,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
   }
 
   const target =
-    orderType === 'takeaway' ? (customer.trim() ? `${translateUi('กลับบ้าน')} · ${customer.trim()}` : translateUi('กลับบ้าน')) : tables.find((t) => t.id === tableId)?.label
+    orderType === 'takeaway' ? (customer.trim() ? `${translateUi('กลับบ้าน')} / ${customer.trim()}` : translateUi('กลับบ้าน')) : tables.find((t) => t.id === tableId)?.label
   // โปรที่ใช้ได้ตอนนี้ เลือกให้อัตโนมัติ (ใช้หลายโปรได้ถ้าไม่ชนกัน) พนักงานติ๊กเปลี่ยนได้
   const livePromos = promotions.all.filter((p) => promotions.liveIds.has(p.id))
   const promoLines = lines.map((l) => ({ menuItemId: l.item.id, amount: lineAmount(l) }))
@@ -211,7 +211,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
     const disc = saved ? Number(saved.discount_total) : discount
     setMessage({
       ok: true,
-      text: `ส่งออเดอร์ ${target} เข้าครัวแล้ว (${count} รายการ · ${baht(net)}${disc > 0 ? ` ลด ${baht(disc)}` : ''})`,
+      text: `ส่งออเดอร์ ${target} เข้าครัวแล้ว (${count} รายการ / ${baht(net)}${disc > 0 ? ` ลด ${baht(disc)}` : ''})`,
     })
     promoSel.resetAuto()
     void promotions.reload() // จำนวนครั้งที่เหลือเปลี่ยน
@@ -410,10 +410,10 @@ function Board({ restaurantId }: { restaurantId: string }) {
               {tableOrders.map((o) => (
                 <li key={o.id} className="flex justify-between text-gray-600">
                   <span>
-                    {new Date(o.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} · {orderLabel(o)}
+                    {new Date(o.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} / {orderLabel(o)}
                   </span>
                   <span>
-                    {translateUi(STATUS_LABEL[o.status] ?? '')} · {baht(Number(o.total))}
+                    {translateUi(STATUS_LABEL[o.status] ?? '')} / {baht(Number(o.total))}
                   </span>
                 </li>
               ))}
@@ -434,7 +434,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           >
             <div>
               <h2 className="title-lg">{weighing.name}</h2>
-              <p className="text-sm text-gray-500">{"" + translateUi("ราคา") + " "}{baht(weighing.price)}{" " + translateUi("ต่อ กก. · ชั่งแล้วกรอกน้ำหนักจริง") + ""}</p>
+              <p className="text-sm text-gray-500">{"" + translateUi("ราคา") + " "}{baht(weighing.price)}{" " + translateUi("ต่อ กก. / ชั่งแล้วกรอกน้ำหนักจริง") + ""}</p>
             </div>
             <label className="block">
               <span className="label">{translateUi("น้ำหนัก (กก.)")}</span>

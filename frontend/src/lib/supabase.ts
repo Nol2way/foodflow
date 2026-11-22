@@ -7,7 +7,7 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 // ถ้ายังไม่ได้ตั้งค่า .env จะไม่ให้แอปพังทั้งหน้า แต่แสดงคำเตือนแทน
 export const isConfigured = Boolean(url && key)
 
-// ใช้โทเคนที่ backend ออกให้ตอนล็อกอิน (ไม่ใช้ Supabase Auth) · ยังไม่ล็อกอิน = ใช้ anon key (เช่น จอ iPad)
+// ใช้โทเคนที่ backend ออกให้ตอนล็อกอิน (ไม่ใช้ Supabase Auth) / ยังไม่ล็อกอิน = ใช้ anon key (เช่น จอ iPad)
 export const supabase = createClient(url ?? 'http://localhost:54321', key ?? 'missing-key', {
   accessToken: async () => getToken(),
 })

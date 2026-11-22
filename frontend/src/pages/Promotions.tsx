@@ -9,9 +9,9 @@ import PromoSuggestions from '../components/PromoSuggestions'
 import type { MenuItem, Promotion } from '../lib/types'
 import { useCachedState } from '../lib/useCachedState'
 
-// จัดการโปรโมชัน (เจ้าของ, ผู้จัดการ) · พนักงานหน้าร้านเลือกใช้ตอนรับออเดอร์
+// จัดการโปรโมชัน (เจ้าของ, ผู้จัดการ) / พนักงานหน้าร้านเลือกใช้ตอนรับออเดอร์
 // ฐานข้อมูลตรวจเงื่อนไขและคำนวณส่วนลดเอง (staff_place_order, counter_pay_bill)
-// วันที่ย้อนหลังกว่าวันนี้ไม่ได้ · วันสิ้นสุดต้องไม่ก่อนวันเริ่ม · จำกัดจำนวนครั้งได้ (ฐานข้อมูลบังคับซ้ำใน 0012)
+// วันที่ย้อนหลังกว่าวันนี้ไม่ได้ / วันสิ้นสุดต้องไม่ก่อนวันเริ่ม / จำกัดจำนวนครั้งได้ (ฐานข้อมูลบังคับซ้ำใน 0012)
 
 const EMPTY = {
   coupon_code: '',
@@ -208,7 +208,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
             value={form.max_uses}
             onChange={(e) => set('max_uses', e.target.value)}
           />
-          <span className="text-xs text-gray-400">{translateUi("นับ 1 ครั้งต่อ 1 ออเดอร์ (ใส่ตอนรับออเดอร์) หรือ 1 บิล (ใส่ตอนรับชำระ) · เว้นว่าง = ไม่จำกัด")}</span>
+          <span className="text-xs text-gray-400">{translateUi("นับ 1 ครั้งต่อ 1 ออเดอร์ (ใส่ตอนรับออเดอร์) หรือ 1 บิล (ใส่ตอนรับชำระ) / เว้นว่าง = ไม่จำกัด")}</span>
         </div>
         <div className="toolbar">
           <span className="text-gray-500">{translateUi("ช่วงวันที่")}</span>
@@ -226,7 +226,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           <input className="input py-1.5" type="date" min={minEnd} value={form.ends_on} onChange={(e) => set('ends_on', e.target.value)} />
           <span className="ml-2 text-gray-500">{translateUi("เวลา")}</span>
           <input className="input py-1.5" type="time" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} />
-          <span>–</span>
+          <span>-</span>
           <input className="input py-1.5" type="time" value={form.end_time} onChange={(e) => set('end_time', e.target.value)} />
         </div>
         <div className="toolbar">
@@ -265,7 +265,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
             <button type="button" className="btn btn-secondary" onClick={() => edit(null)}>{translateUi("ยกเลิก")}</button>
           )}
         </div>
-        <p className="hint">{translateUi("เวลาและวันคิดตามเขตเวลาของร้าน · ดูช่วงลูกค้าน้อย (ออฟพีค) ได้ที่หน้าวิเคราะห์ เพื่อตั้งโปรดึงลูกค้า")}</p>
+        <p className="hint">{translateUi("เวลาและวันคิดตามเขตเวลาของร้าน / ดูช่วงลูกค้าน้อย (ออฟพีค) ได้ที่หน้าวิเคราะห์ เพื่อตั้งโปรดึงลูกค้า")}</p>
       </form>
 
       <ul className="space-y-2">
@@ -285,7 +285,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                   )}
                 </div>
                 <div className="text-gray-500">
-                  {describePromotion(p)} · {its.length ? its.map(menuName).join(', ') : 'ทั้งบิล'}
+                  {describePromotion(p)} / {its.length ? its.map(menuName).join(', ') : 'ทั้งบิล'}
                 </div>
                 <div className="mt-0.5 hint">{"" + translateUi("ใช้ไปแล้ว") + " "}{(usage[p.id] ?? 0).toLocaleString('th-TH')}
                   {p.max_uses ? ` / ${p.max_uses.toLocaleString('th-TH')} ครั้ง (เหลือ ${Math.max(0, p.max_uses - (usage[p.id] ?? 0)).toLocaleString('th-TH')})` : ' ครั้ง'}

@@ -1,4 +1,4 @@
-// ทดสอบ API สต็อกวัตถุดิบด้วย fetch จำลอง (ไม่ต่อ Supabase จริง) · กฎสต็อกจริงทดสอบที่ database/tests/test_stock.py
+// ทดสอบ API สต็อกวัตถุดิบด้วย fetch จำลอง (ไม่ต่อ Supabase จริง) / กฎสต็อกจริงทดสอบที่ database/tests/test_stock.py
 import { beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from '../src/app.ts'
@@ -74,7 +74,7 @@ beforeEach(() => {
 })
 
 // ---------- สิทธิ์ ----------
-test('ภาพรวม: เจ้าของ ผู้จัดการ สต็อก บัญชีเปิดได้ · ครัว 403 · ไม่ล็อกอิน 401', async () => {
+test('ภาพรวม: เจ้าของ ผู้จัดการ สต็อก บัญชีเปิดได้ / ครัว 403 / ไม่ล็อกอิน 401', async () => {
   on('/rpc/stock_overview', () => json({ stock_value: 100, out: [], low: [] }))
   for (const who of ['owner', 'manager', 'stock', 'accountant']) {
     assert.equal((await req(`/api/stock/overview?restaurant_id=${RID}`, { as: who })).status, 200, who)
@@ -175,7 +175,7 @@ test('กลับรายการ: ไม่ใส่เหตุผล 400',
 })
 
 // ---------- นับสต็อก ----------
-test('นับ: ใบนับ blind ส่งเฉพาะรายการ ไม่มียอดในระบบ · กรอง ABC', async () => {
+test('นับ: ใบนับ blind ส่งเฉพาะรายการ ไม่มียอดในระบบ / กรอง ABC', async () => {
   on('/rpc/stock_count_sheet', () => json([{ ingredient_id: ING, name: 'กุ้ง', storage_location: 'ตู้แช่ 1' }]))
   const r = await req(`/api/stock/count-sheet?restaurant_id=${RID}&abc=a,B`, { as: 'stock' })
   assert.equal(r.status, 200)
@@ -206,7 +206,7 @@ test('รายงานส่วนต่าง: ส่งต่อแถวจ
 })
 
 // ---------- วัตถุดิบ ----------
-test('วัตถุดิบ: ต้องเลือกหน่วยฐาน · g/ml ใช้ชื่อหน่วยฐาน · ยอดแก้ผ่าน PATCH ไม่ได้', async () => {
+test('วัตถุดิบ: ต้องเลือกหน่วยฐาน / g/ml ใช้ชื่อหน่วยฐาน / ยอดแก้ผ่าน PATCH ไม่ได้', async () => {
   on('/rest/v1/ingredients', () => json([{ id: ING }]), 'POST')
   on('/rest/v1/ingredients', () => json([{ id: ING }]), 'PATCH')
   assert.equal((await req('/api/stock/ingredients', { as: 'stock', body: { restaurant_id: RID, name: 'กุ้ง' } })).status, 400)
@@ -249,7 +249,7 @@ test('ผู้ขาย: วันส่งของต้องเป็น 0-
 })
 
 // ---------- สูตร ----------
-test('สูตร: บรรทัดต้องเป็นวัตถุดิบหรือสูตรย่อยอย่างใดอย่างหนึ่ง · บันทึกผ่าน stock_save_recipe', async () => {
+test('สูตร: บรรทัดต้องเป็นวัตถุดิบหรือสูตรย่อยอย่างใดอย่างหนึ่ง / บันทึกผ่าน stock_save_recipe', async () => {
   on('/rpc/stock_save_recipe', () => json(ING2))
   on('/rest/v1/recipes', () => json([{ id: ING2, name: 'น้ำจิ้ม', recipe_lines: [] }]), 'GET')
   const bad = await req('/api/stock/recipes', { as: 'stock', body: { restaurant_id: RID, name: 'x', lines: [{ ingredient_id: ING, sub_recipe_id: ING2, qty: 1 }] } })
@@ -287,7 +287,7 @@ test('yield test: ต้องชั่ง 3 ครั้ง', async () => {
   assert.deepEqual(args.p_trials, [{ before: 500, after: 350 }, { before: 400, after: 300 }, { before: 1000, after: 800 }])
 })
 
-test('ประวัติ: กรองวัตถุดิบ ผู้ทำรายการ ประเภท · ช่วงวันที่รวมวันสุดท้าย', async () => {
+test('ประวัติ: กรองวัตถุดิบ ผู้ทำรายการ ประเภท / ช่วงวันที่รวมวันสุดท้าย', async () => {
   on('/rpc/stock_history', () => json([]))
   const r = await req(`/api/stock/history?restaurant_id=${RID}&from=2026-10-01&to=2026-10-26&ingredient_id=${ING}&actor_id=${USERS.stock}&type=receive`, { as: 'manager' })
   assert.equal(r.status, 200)

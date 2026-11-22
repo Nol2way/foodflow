@@ -9,7 +9,7 @@ import PromptPayQR from '../components/PromptPayQR'
 import type { ShopSettings } from '../lib/types'
 import AppearanceSettings from '../components/AppearanceSettings'
 
-// ตั้งค่าร้าน (เจ้าของเท่านั้น · shop_settings ใน 0017): พร้อมเพย์ ใบเสร็จ สะสมแต้ม ผู้รับรายงานทาง LINE
+// ตั้งค่าร้าน (เจ้าของเท่านั้น / shop_settings ใน 0017): พร้อมเพย์ ใบเสร็จ สะสมแต้ม ผู้รับรายงานทาง LINE
 
 function Board({ restaurantId }: { restaurantId: string }) {
   const { settings, loaded, reload, error: loadError } = useShopSettings(restaurantId)
@@ -85,7 +85,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 onChange={(e) => set({ promptpay_id: e.target.value })}
               />
               {!ppValid && <p className="mt-1 field-error">{translateUi("ใช้เบอร์มือถือ 10 หลัก เลขบัตร/เลขผู้เสียภาษี 13 หลัก หรือ e-Wallet 15 หลัก")}</p>}
-              <p className="mt-2 hint">{"" + translateUi("หน้ารับชำระจะสร้าง QR ใส่ยอดของบิลให้ลูกค้าสแกน · ทดลองสแกน QR ตัวอย่าง (1 บาท) ด้วยแอปธนาคารเพื่อตรวจว่าชื่อบัญชีถูกต้อง ก่อนใช้จริง") + " "}</p>
+              <p className="mt-2 hint">{"" + translateUi("หน้ารับชำระจะสร้าง QR ใส่ยอดของบิลให้ลูกค้าสแกน / ทดลองสแกน QR ตัวอย่าง (1 บาท) ด้วยแอปธนาคารเพื่อตรวจว่าชื่อบัญชีถูกต้อง ก่อนใช้จริง") + " "}</p>
             </div>
             {ppValid && ppDigits && (
               <div className="w-48">
@@ -121,8 +121,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
               <input id="mr" className="input w-full" type="number" min={1} max={100000} value={numbers.loyalty_min_redeem} onChange={(e) => setNumbers({ ...numbers, loyalty_min_redeem: e.target.value })} />
             </div>
           </div>
-          <p className="mt-2 hint">{"" + translateUi("ตัวอย่าง: จ่าย 250 บาท ได้") + " "}{Math.floor(250 / f.loyalty_baht_per_point)}{" " + translateUi("แต้ม · สะสม") + " "}{f.loyalty_min_redeem}{" " + translateUi("แต้ม แลกส่วนลดได้") + ""}{' '}
-            {(f.loyalty_min_redeem * f.loyalty_point_value).toLocaleString('th-TH')}{" " + translateUi("บาท · แลกแต้มคิดหลังหักโปรแล้ว") + " "}</p>
+          <p className="mt-2 hint">{"" + translateUi("ตัวอย่าง: จ่าย 250 บาท ได้") + " "}{Math.floor(250 / f.loyalty_baht_per_point)}{" " + translateUi("แต้ม / สะสม") + " "}{f.loyalty_min_redeem}{" " + translateUi("แต้ม แลกส่วนลดได้") + ""}{' '}
+            {(f.loyalty_min_redeem * f.loyalty_point_value).toLocaleString('th-TH')}{" " + translateUi("บาท / แลกแต้มคิดหลังหักโปรแล้ว") + " "}</p>
         </section>
 
         <section className="card">
@@ -133,7 +133,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           <label className="label" htmlFor="lt">{"" + translateUi("LINE ID ผู้รับ (userId / groupId)") + " "}</label>
           <input id="lt" className="input w-full font-mono" placeholder={translateUi("Uxxxxxxxx... (33 ตัวอักษร)")} value={f.line_to ?? ''} onChange={(e) => set({ line_to: e.target.value.trim() })} />
           {!lineValid && <p className="mt-1 field-error">{translateUi("รูปแบบไม่ถูกต้อง: ขึ้นต้นด้วย U, C หรือ R ตามด้วยตัวอักษร 0-9 a-f อีก 32 ตัว")}</p>}
-          <p className="mt-2 hint">{"" + translateUi("ระบบส่งสรุปยอดทุกวันตอน 22:00 ผ่าน LINE Official Account ของร้าน (ต้องตั้ง LINE_CHANNEL_ACCESS_TOKEN ที่ backend ก่อน ดูวิธีใน docs/SETUP.md) · ไม่ตั้งก็ยังเปิดดูและกดแชร์รายงานเข้า LINE เองได้ที่หน้ารายงานรายวัน") + " "}</p>
+          <p className="mt-2 hint">{"" + translateUi("ระบบส่งสรุปยอดทุกวันตอน 22:00 ผ่าน LINE Official Account ของร้าน (ต้องตั้ง LINE_CHANNEL_ACCESS_TOKEN ที่ backend ก่อน ดูวิธีใน docs/SETUP.md) / ไม่ตั้งก็ยังเปิดดูและกดแชร์รายงานเข้า LINE เองได้ที่หน้ารายงานรายวัน") + " "}</p>
         </section>
 
         <button className="btn btn-primary btn-lg w-full" disabled={busy || !ppValid || !lineValid}>

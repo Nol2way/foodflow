@@ -9,7 +9,7 @@ import Icon from '../components/Icon'
 import type { KitchenOrder, OrderStatus } from '../lib/types'
 
 // พนักงานเสิร์ฟ: ออเดอร์ที่ครัวทำเสร็จ จัดกลุ่มตามที่ต้องไปส่ง (โต๊ะ / กลับบ้าน)
-// ติ๊กเสิร์ฟทีละเมนู แล้วกด "เสิร์ฟครบแล้ว" · ด้านล่างเป็นออเดอร์ที่เสิร์ฟแล้วรอชำระเงิน
+// ติ๊กเสิร์ฟทีละเมนู แล้วกด "เสิร์ฟครบแล้ว" / ด้านล่างเป็นออเดอร์ที่เสิร์ฟแล้วรอชำระเงิน
 const STATUSES: OrderStatus[] = ['ready', 'served']
 
 interface Destination {

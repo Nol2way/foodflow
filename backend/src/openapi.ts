@@ -60,16 +60,16 @@ export const openapi = {
     { name: 'ระบบ', description: 'สถานะและเอกสาร' },
     { name: 'บัญชีผู้ใช้', description: 'ล็อกอิน เปลี่ยนรหัสผ่าน โปรไฟล์ (ตาราง app_users)' },
     { name: 'นำเข้าข้อมูล', description: 'นำเข้ายอดขายย้อนหลังจาก CSV (เจ้าของร้าน, ผู้จัดการ)' },
-    { name: 'AI', description: 'สรุป/ถามตอบด้วย Gemini (เจ้าของร้าน, บัญชี) · แนะนำโปร (เจ้าของร้าน, ผู้จัดการ)' },
+    { name: 'AI', description: 'สรุป/ถามตอบด้วย Gemini (เจ้าของร้าน, บัญชี) / แนะนำโปร (เจ้าของร้าน, ผู้จัดการ)' },
     { name: 'รายงาน', description: 'รายงานสรุปรายวันทาง LINE (เจ้าของร้าน, ผู้จัดการ)' },
-    { name: 'พนักงาน', description: 'จัดการพนักงาน (เจ้าของร้าน ทุกบทบาท · ผู้จัดการ เฉพาะ staff / kitchen / accountant / stock)' },
+    { name: 'พนักงาน', description: 'จัดการพนักงาน (เจ้าของร้าน ทุกบทบาท / ผู้จัดการ เฉพาะ staff / kitchen / accountant / stock)' },
     accountingTag,
     taxTag,
     stockTag,
   ],
   paths: {
     ...operationsPaths,
-    '/api/readyz': { get: { operationId: 'readiness', security: [], description: 'Read-only PostgREST metadata check for the API-visible 0009–0011 contract; does not read business records or run migrations.', responses: {
+    '/api/readyz': { get: { operationId: 'readiness', security: [], description: 'Read-only PostgREST metadata check for the API-visible 0009-0011 contract; does not read business records or run migrations.', responses: {
       '200': { description: 'Schema contract available', content: json({ type: 'object', required: ['ok', 'ready', 'schema_version'], properties: { ok: { const: true }, ready: { const: true }, schema_version: { const: '0011' } } }) },
       '503': { description: 'Not ready; configuration, access, dependency and schema failures are distinct', content: json({ type: 'object', required: ['ok', 'ready', 'error'], properties: { ok: { const: false }, ready: { const: false }, error: { enum: ['database_not_configured', 'database_access_denied', 'database_unavailable', 'schema_metadata_unavailable', 'schema_not_ready'] }, required_schema: { const: '0011' } } }) },
     } } },
@@ -109,8 +109,8 @@ export const openapi = {
         summary: 'นำเข้ายอดขายย้อนหลังจาก CSV (เจ้าของ, ผู้จัดการ)',
         description: [
           'ไฟล์ไม่เกิน 3 MB / 20,000 แถว',
-          '- คอลัมน์บังคับ: `datetime` (หรือ `date` + `time`), `item`, `qty` · ไม่บังคับ: `ref` (เลขที่บิล), `price`',
-          '- รองรับหัวตารางไทย: วันที่, เวลา, เลขที่บิล, เมนู, จำนวน, ราคา · วันที่ `2026-09-01` หรือ `01/09/2569`',
+          '- คอลัมน์บังคับ: `datetime` (หรือ `date` + `time`), `item`, `qty` / ไม่บังคับ: `ref` (เลขที่บิล), `price`',
+          '- รองรับหัวตารางไทย: วันที่, เวลา, เลขที่บิล, เมนู, จำนวน, ราคา / วันที่ `2026-09-01` หรือ `01/09/2569`',
           '- แถวผิดรูปแบบ → 400 `invalid_rows` พร้อมเลขบรรทัด และ **ไม่นำเข้าเลยทั้งไฟล์**',
           '- ชื่อเมนูไม่ตรงในระบบ → `blocked: true` ไม่นำเข้า เว้นแต่ส่ง `skip_unknown: true`',
           '- ออเดอร์ที่นำเข้า: สถานะ paid, ไม่ตัดสต็อก, แถวที่ `ref` เดียวกันในวันเดียวกันรวมเป็น 1 ออเดอร์',
@@ -204,7 +204,7 @@ export const openapi = {
         description: [
           'อ่าน `promo_insights` (ยอดตามชั่วโมง ยอด/ต้นทุนต่อเมนู) แล้วคืนคำแนะนำ 2 แบบ',
           '- `rules`: กติกาในระบบ (ช่วงเวลาเงียบ, เมนูขายช้าที่ยังลดได้, ซื้อครบลด) ได้เสมอ ไม่ต้องมี AI',
-          '- `ai`: ส่ง `ai: true` และตั้ง GEMINI_API_KEY แล้ว ให้ Gemini เสนอเพิ่ม · ทุกข้อผ่านการตรวจ: ห้ามขาดทุน (ราคาหลังลด ≥ ต้นทุน × 1.3), percent ≤ 30, amount ≤ 500, เมนูต้องมีจริง',
+          '- `ai`: ส่ง `ai: true` และตั้ง GEMINI_API_KEY แล้ว ให้ Gemini เสนอเพิ่ม / ทุกข้อผ่านการตรวจ: ห้ามขาดทุน (ราคาหลังลด ≥ ต้นทุน × 1.3), percent ≤ 30, amount ≤ 500, เมนูต้องมีจริง',
           '- AI ล่ม = ยังได้ `rules` พร้อม `ai_error`',
           '- ไม่สร้างโปรให้เอง หน้าเว็บสร้างเป็นโปรที่ปิดไว้ก่อนเมื่อผู้ใช้กดเลือก',
         ].join('\n'),
@@ -620,7 +620,7 @@ export const openapi = {
           avg_bill_baht: { type: ['number', 'null'] },
           avg_kitchen_minutes: { type: ['number', 'null'] },
           first_order_at: { type: ['string', 'null'] },
-          peak_hours: { type: 'array', items: { type: 'string' }, examples: [['12:00–13:00', '18:00–20:00']] },
+          peak_hours: { type: 'array', items: { type: 'string' }, examples: [['12:00-13:00', '18:00-20:00']] },
           off_peak_hours: { type: 'array', items: { type: 'string' } },
           orders_by_hour: { type: 'object', additionalProperties: { type: 'number' } },
           orders_by_weekday: { type: 'object', additionalProperties: { type: 'number' } },

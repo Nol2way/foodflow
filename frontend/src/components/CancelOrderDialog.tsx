@@ -7,7 +7,7 @@ import Icon from './Icon'
 import type { KitchenOrder } from '../lib/types'
 
 // เลือกยกเลิกเฉพาะบางเมนู/บางจานในออเดอร์ที่ครัวยังไม่เริ่ม (cancel_order_items ใน 0033)
-// เลือกครบทุกเมนู = ยกเลิกทั้งออเดอร์ · ทุกการยกเลิกบันทึกเหตุผลและผู้ยกเลิกไว้ตรวจย้อนหลัง
+// เลือกครบทุกเมนู = ยกเลิกทั้งออเดอร์ / ทุกการยกเลิกบันทึกเหตุผลและผู้ยกเลิกไว้ตรวจย้อนหลัง
 const REASONS = ['ลูกค้าเปลี่ยนใจ', 'สั่งผิด', 'วัตถุดิบหมด', 'รอนานเกินไป']
 
 const ERRORS: Record<string, string> = {
@@ -68,7 +68,7 @@ export default function CancelOrderDialog({
       p_reason: reason.trim() || null,
     })
     if (err) return setError(cancelError(err.message))
-    onDone(data ? `ยกเลิกออเดอร์ ${orderLabel(order)} ทั้งใบแล้ว` : `ยกเลิก ${pickedUnits} รายการแล้ว · คืนยอด ${baht(refund)}`)
+    onDone(data ? `ยกเลิกออเดอร์ ${orderLabel(order)} ทั้งใบแล้ว` : `ยกเลิก ${pickedUnits} รายการแล้ว / คืนยอด ${baht(refund)}`)
     } catch (e) {
       setError(cancelError(e instanceof Error ? e.message : translateUi('ทำรายการไม่สำเร็จ')))
     } finally {
@@ -84,7 +84,7 @@ export default function CancelOrderDialog({
           <div>
             <h2 id="cancel-title" className="text-lg strong-text">{"" + translateUi("เลือกรายการที่จะยกเลิก") + " "}</h2>
             <p className="mt-0.5 text-sm text-gray-500">
-              {orderLabel(order)}{" " + translateUi("· สั่งเมื่อ") + ""}{' '}
+              {orderLabel(order)}{" " + translateUi("/ สั่งเมื่อ") + ""}{' '}
               {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
@@ -116,7 +116,7 @@ export default function CancelOrderDialog({
                       <span className={`block truncate font-medium ${on ? 'text-red-700' : 'text-gray-900'}`}>{name}</span>
                       <span className="block hint">
                         {it.weight_g ? kg(Number(it.weight_g)) : `${it.quantity} × ${baht(Number(it.unit_price))}`}
-                        {it.note && <span className="ml-1 text-amber-700">· {it.note}</span>}
+                        {it.note && <span className="ml-1 text-amber-700">/ {it.note}</span>}
                       </span>
                     </span>
                   </label>
@@ -184,7 +184,7 @@ export default function CancelOrderDialog({
           <div className="text-sm">
             {pickedUnits > 0 ? (
               <>
-                <span className="text-gray-500">{"" + translateUi("ยกเลิก") + " "}{pickedUnits}{" " + translateUi("รายการ ·") + " "}</span>
+                <span className="text-gray-500">{"" + translateUi("ยกเลิก") + " "}{pickedUnits}{" " + translateUi("รายการ /") + " "}</span>
                 <span className="font-semibold text-red-700 tabular-nums">−{baht(refund)}</span>
               </>
             ) : (

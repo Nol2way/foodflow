@@ -1,7 +1,7 @@
 import { translateUi } from "../../lib/uiText"
 // แดชบอร์ดบัญชี 3 โหมด จากข้อมูลชุดเดียวกัน (acct_dashboard)
 //   ง่าย: เงินเข้า / เงินออก / คงเหลือ (มุมมองเงินสด ซื้อของ = รายจ่ายวันนั้น)
-//   มาตรฐาน: ยอดขาย - ต้นทุนอาหารที่ใช้จริง - ค่าใช้จ่าย = กำไร · Food/Prime Cost · ส่วนต่างสต็อก · ต้นทุนต่อจาน
+//   มาตรฐาน: ยอดขาย - ต้นทุนอาหารที่ใช้จริง - ค่าใช้จ่าย = กำไร / Food/Prime Cost / ส่วนต่างสต็อก / ต้นทุนต่อจาน
 //   มืออาชีพ: งบกำไรขาดทุนย่อ + ตรวจ perpetual + กระทบยอดสต็อก (สมุดรายวัน/งบเต็มอยู่ที่แท็บรายงาน)
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -113,7 +113,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
               </div>
             </div>
             <p className="mt-3 text-center hint">
-              {s.bills}{" " + translateUi("บิล") + ""}{s.cancelled_bills > 0 && ` · ยกเลิก ${s.cancelled_bills}`}{" " + translateUi("· ส่วนลด") + " "}{baht(s.discounts)}{" " + translateUi("· เดือนนี้") + ""}{' '}
+              {s.bills}{" " + translateUi("บิล") + ""}{s.cancelled_bills > 0 && ` / ยกเลิก ${s.cancelled_bills}`}{" " + translateUi("/ ส่วนลด") + " "}{baht(s.discounts)}{" " + translateUi("/ เดือนนี้") + ""}{' '}
               <Change now={month.netProfit} before={prev.netProfit} label={translateUi("กำไรเทียบเดือนก่อน")} />
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
               />
             </div>
             <p className="mt-2 hint">
-              {vat.pct}{"" + translateUi("% ของเกณฑ์ · รายรับเกิน 1.8 ล้านบาทต่อปีต้องจดทะเบียนภาษีมูลค่าเพิ่ม (ปรึกษานักบัญชี)") + " "}</p>
+              {vat.pct}{"" + translateUi("% ของเกณฑ์ / รายรับเกิน 1.8 ล้านบาทต่อปีต้องจดทะเบียนภาษีมูลค่าเพิ่ม (ปรึกษานักบัญชี)") + " "}</p>
           </div>
         </Section>
       )}
@@ -202,7 +202,7 @@ export default function AcctDashboard({ restaurantId, dash, mode }: { restaurant
           <span className="font-semibold text-red-600">{"" + translateUi("มูลค่าในโมดูลสต็อก") + " "}{baht(dash.reconcile.stock_value)}{" " + translateUi("≠ บัญชีสต็อก") + " "}{baht(dash.reconcile.ledger_value)}
           </span>
         )}
-        {dash.last_close && ` · ปิดวันล่าสุด ${dash.last_close}`}
+        {dash.last_close && ` / ปิดวันล่าสุด ${dash.last_close}`}
       </p>
     </div>
   )
@@ -256,7 +256,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
           ]}
         />
         <p className="mt-2 hint">
-          Food Cost {m.foodCostPct ?? '–'}% · Prime Cost {m.primeCostPct ?? '–'}{"" + translateUi("% · ภาษีขาย") + " "}{baht(s.vat_output)}{" " + translateUi("· ภาษีซื้อ") + " "}{baht(s.vat_input)}
+          Food Cost {m.foodCostPct ?? '-'}% / Prime Cost {m.primeCostPct ?? '-'}{"" + translateUi("% / ภาษีขาย") + " "}{baht(s.vat_output)}{" " + translateUi("/ ภาษีซื้อ") + " "}{baht(s.vat_input)}
         </p>
       </div>
       <div>
@@ -282,7 +282,7 @@ function ProView({ dash, period }: { dash: Dashboard; period: PeriodKey }) {
             { label: 'ยอดปลายงวด', amount: s.cash_close, strong: true },
           ]}
         />
-        <p className="mt-2 hint">{"" + translateUi("สมุดรายวัน บัญชีแยกประเภท งบดุล และงบกระแสเงินสดฉบับเต็ม อยู่ที่แท็บ \"รายงาน\" ·") + " "}<Money value={dash.reconcile.ledger_value} className="font-medium" />{" " + translateUi("= ยอดบัญชีสต็อก") + " "}</p>
+        <p className="mt-2 hint">{"" + translateUi("สมุดรายวัน บัญชีแยกประเภท งบดุล และงบกระแสเงินสดฉบับเต็ม อยู่ที่แท็บ \"รายงาน\" /") + " "}<Money value={dash.reconcile.ledger_value} className="font-medium" />{" " + translateUi("= ยอดบัญชีสต็อก") + " "}</p>
       </div>
     </div>
   )

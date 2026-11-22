@@ -21,10 +21,10 @@ t('classifyHours: ไม่มีข้อมูลเลย', () => {
   assert.ok(classifyHours(Array(24).fill(0)).every((l) => l === 'none'))
 })
 t('toRanges: รวมชั่วโมงติดกัน', () => {
-  assert.deepEqual(toRanges([11, 12, 13, 18, 19, 20]), ['11:00–14:00', '18:00–21:00'])
-  assert.deepEqual(toRanges([5]), ['05:00–06:00'])
+  assert.deepEqual(toRanges([11, 12, 13, 18, 19, 20]), ['11:00-14:00', '18:00-21:00'])
+  assert.deepEqual(toRanges([5]), ['05:00-06:00'])
   assert.deepEqual(toRanges([]), [])
-  assert.deepEqual(toRanges([20, 11, 12]), ['11:00–13:00', '20:00–21:00'])
+  assert.deepEqual(toRanges([20, 11, 12]), ['11:00-13:00', '20:00-21:00'])
 })
 t('weekdayCounts: 28 วัน = วันละ 4 ครั้ง, 10 วันรวม 10', () => {
   const today = new Date(2026, 9, 22)
@@ -50,8 +50,8 @@ t('forecastForDay: เฉลี่ยต่อวันเดียวกัน'
 })
 t('buildInsights: ข้อความพีค ช่วงเงียบ วันคึกคัก', () => {
   const text = buildInsights({ rows }).join('\n')
-  assert.match(text, /ช่วงพีค 11:00–14:00, 18:00–21:00/)
-  assert.match(text, /ช่วงเงียบ 15:00–17:00/)
+  assert.match(text, /ช่วงพีค 11:00-14:00, 18:00-21:00/)
+  assert.match(text, /ช่วงเงียบ 15:00-17:00/)
   assert.match(text, /มากที่สุดคือวันเสาร์ และน้อยที่สุดคือวันจันทร์/)
   assert.deepEqual(buildInsights({ rows: [] }), [])
 })

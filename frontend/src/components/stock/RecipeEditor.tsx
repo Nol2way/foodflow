@@ -1,7 +1,7 @@
 import Modal from '../Modal'
 import { translateUi } from "../../lib/uiText"
-// แก้สูตร (สูตรเมนู + สูตรย่อย/สูตรซ้อน) · บันทึกทั้งสูตรในธุรกรรมเดียว (stock_save_recipe ใน 0029)
-// ปริมาณในสูตร = สุทธิที่ใช้จริง · ระบบตัดดิบ = สุทธิ ÷ (trim x cook) · ต้นทุน = ราคาซื้อล่าสุด ÷ (trim x cook)
+// แก้สูตร (สูตรเมนู + สูตรย่อย/สูตรซ้อน) / บันทึกทั้งสูตรในธุรกรรมเดียว (stock_save_recipe ใน 0029)
+// ปริมาณในสูตร = สุทธิที่ใช้จริง / ระบบตัดดิบ = สุทธิ ÷ (trim x cook) / ต้นทุน = ราคาซื้อล่าสุด ÷ (trim x cook)
 import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { baht } from '../../lib/format'
 import { errorText, stockApi, type Recipe, type StockIngredient, type StockMenu } from '../../lib/stockApi'
@@ -106,7 +106,7 @@ export default function RecipeEditor({
       <span className="min-w-48 flex-1">
         <span className="font-medium text-gray-900">{r.name}</span>
         {r.menu_item_id && menuName.get(r.menu_item_id)?.stock_disabled && <span className="badge badge-red ml-2">{translateUi("ระบบปิดเมนู: ของไม่พอ")}</span>}
-        <span className="block hint">{"" + translateUi("ได้") + " "}{fmtNum(Number(r.output_qty))} {r.output_unit} · {r.recipe_lines.length}{" " + translateUi("บรรทัด") + " "}{r.recipe_lines.some((l) => l.sub_recipe_id) && ' · มีสูตรย่อย'}
+        <span className="block hint">{"" + translateUi("ได้") + " "}{fmtNum(Number(r.output_qty))} {r.output_unit} / {r.recipe_lines.length}{" " + translateUi("บรรทัด") + " "}{r.recipe_lines.some((l) => l.sub_recipe_id) && ' / มีสูตรย่อย'}
         </span>
       </span>
       <span className="tabular-nums text-gray-700">{baht(Number(r.cost_per_output))} / {r.output_unit}</span>
@@ -168,7 +168,7 @@ export default function RecipeEditor({
                 <input className="input w-full" maxLength={20} required value={draft.output_unit} onChange={(e) => setDraft({ ...draft, output_unit: e.target.value })} />
               </label>
             </div>
-            {draft.menu_item_id && <p className="hint">{"" + translateUi("ผูกกับเมนู") + " "}{menuName.get(draft.menu_item_id)?.name}{" " + translateUi("· ขาย 1 ที่ = ใช้ 1") + " "}{draft.output_unit}</p>}
+            {draft.menu_item_id && <p className="hint">{"" + translateUi("ผูกกับเมนู") + " "}{menuName.get(draft.menu_item_id)?.name}{" " + translateUi("/ ขาย 1 ที่ = ใช้ 1") + " "}{draft.output_unit}</p>}
 
             <div className="space-y-2">
               <span className="label">{translateUi("ส่วนผสม (ปริมาณสุทธิที่ใช้จริง)")}</span>
@@ -202,7 +202,7 @@ export default function RecipeEditor({
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDraft({ ...draft, lines: [...draft.lines, { key: seq++, ref: '', qty: '' }] })}>{translateUi("+ เพิ่มส่วนผสม")}</button>
             </div>
             {preview && (
-              <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm">{"" + translateUi("ต้นทุนรวม") + " "}{baht(preview.total)}{" " + translateUi("· ต่อ 1") + " "}{draft.output_unit} <strong>{baht(preview.per)}</strong>
+              <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm">{"" + translateUi("ต้นทุนรวม") + " "}{baht(preview.total)}{" " + translateUi("/ ต่อ 1") + " "}{draft.output_unit} <strong>{baht(preview.per)}</strong>
                 <span className="block hint">{translateUi("คิดจากราคาซื้อล่าสุด ÷ (trim yield × cook yield) รวมสูตรย่อย")}</span>
               </p>
             )}

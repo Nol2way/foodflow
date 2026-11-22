@@ -81,7 +81,7 @@ export default function MemberBox({
     return (
       <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-sm">
         <div className="row-between">
-          <span className="strong-text">{"" + translateUi("สมาชิก") + " "}{member.name ? `${member.name} · ` : ''}
+          <span className="strong-text">{"" + translateUi("สมาชิก") + " "}{member.name ? `${member.name} / ` : ''}
             <span className="tabular-nums">{member.phone}</span>
           </span>
           <button
@@ -93,7 +93,7 @@ export default function MemberBox({
             }}
           >{"" + translateUi("เปลี่ยน") + " "}</button>
         </div>
-        <div className="mt-1 text-gray-600">{"" + translateUi("แต้มสะสม") + " "}<strong className="tabular-nums text-violet-700">{member.points.toLocaleString('th-TH')}</strong>{" " + translateUi("แต้ม · บิลนี้จะได้เพิ่ม") + ""}{' '}
+        <div className="mt-1 text-gray-600">{"" + translateUi("แต้มสะสม") + " "}<strong className="tabular-nums text-violet-700">{member.points.toLocaleString('th-TH')}</strong>{" " + translateUi("แต้ม / บิลนี้จะได้เพิ่ม") + ""}{' '}
           <strong className="tabular-nums">{pointsEarned(settings, after)}</strong>{" " + translateUi("แต้ม") + " "}</div>
         {max > 0 ? (
           <label className="mt-2 toolbar">
@@ -141,7 +141,7 @@ export default function MemberBox({
         />
         <button className="btn btn-secondary btn-sm" disabled={busy || !phone.trim()}>{"" + translateUi("ค้นหา") + " "}</button>
       </form>
-      {matches.length > 1 && <fieldset className="mt-3 space-y-2"><legend>{translateUi("พบหลายคน โปรดยืนยันสมาชิกก่อนเลือก")}</legend>{matches.map(candidate => <button key={candidate.id} type="button" className="btn btn-secondary block w-full" onClick={() => { onMember(candidate); setMatches([]); onRedeem(0) }}>{candidate.name ?? 'สมาชิก'} · {candidate.phone}</button>)}</fieldset>}
+      {matches.length > 1 && <fieldset className="mt-3 space-y-2"><legend>{translateUi("พบหลายคน โปรดยืนยันสมาชิกก่อนเลือก")}</legend>{matches.map(candidate => <button key={candidate.id} type="button" className="btn btn-secondary block w-full" onClick={() => { onMember(candidate); setMatches([]); onRedeem(0) }}>{candidate.name ?? 'สมาชิก'} / {candidate.phone}</button>)}</fieldset>}
       {notFound && (
         <div className="mt-2 toolbar">
           <span className="text-gray-600">{translateUi("ยังไม่เป็นสมาชิก")}</span>

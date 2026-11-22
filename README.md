@@ -2,7 +2,7 @@
 
 ระบบบริหารร้านอาหารสำหรับพนักงาน: รับออเดอร์ → ครัว → เสิร์ฟ → รับชำระ พร้อมบัญชีคู่ สต็อก สมาชิก โปรโมชัน และรายงาน
 
-[Fork สำหรับทำงาน](https://github.com/manatsawintho-ragoon/foodflow) · [ต้นฉบับ](https://github.com/Nol2way/foodflow) · [ติดตั้ง](docs/SETUP.md) · [สารบัญคู่มือ](docs/README.md)
+[Fork สำหรับทำงาน](https://github.com/manatsawintho-ragoon/foodflow) / [ต้นฉบับ](https://github.com/Nol2way/foodflow) / [ติดตั้ง](docs/SETUP.md) / [สารบัญคู่มือ](docs/README.md)
 
 ## เริ่มใช้งาน
 
@@ -17,7 +17,7 @@ Copy-Item backend/.dev.vars.example backend/.dev.vars
 
 กรอกค่าตาม [SETUP](docs/SETUP.md) แล้วเปิดสอง terminal รัน `npm run dev:backend` และ `npm run dev:frontend`
 
-หน้าเว็บ: <http://localhost:5173> · API: <http://localhost:8787/api/health> · Swagger: <http://localhost:8787/api/docs>
+หน้าเว็บ: <http://localhost:5173> / API: <http://localhost:8787/api/health> / Swagger: <http://localhost:8787/api/docs>
 
 เครื่องนี้ใช้ `D:/foodflow/app` เป็น repository และ `D:/foodflow/docs` เป็นเอกสารต้นทาง มี local config อยู่แล้ว ไม่ต้องคัดลอกทับ ดู [ผลตรวจความพร้อม](docs/project-readiness.md)
 
@@ -57,9 +57,9 @@ flowchart LR
 
 ## โครงสร้างและการตรวจงาน
 
-`frontend/` = React/UI/tests · `backend/` = Hono/auth/OpenAPI/tests · `database/` = migrations/seed/tests · `docs/` = คู่มือ/ใบงาน
+`frontend/` = React/UI/tests / `backend/` = Hono/auth/OpenAPI/tests / `database/` = migrations/seed/tests / `docs/` = คู่มือ/ใบงาน
 
-Migration ปัจจุบันคือ `0001–0011`; `archive/` เป็นประวัติ ห้ามรันซ้ำทั้งสองชุด ดู [migration guide](database/migrations/README.md)
+Migration ปัจจุบันคือ `0001-0011`; `archive/` เป็นประวัติ ห้ามรันซ้ำทั้งสองชุด ดู [migration guide](database/migrations/README.md)
 
 ```powershell
 npm --prefix backend run typecheck

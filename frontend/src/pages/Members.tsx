@@ -5,9 +5,10 @@ import { rolesFor } from '../lib/roles'
 import RequireRole from '../components/RequireRole'
 import type { Member } from '../lib/types'
 import MemberPrivacyActions from '../components/MemberPrivacyActions'
+import Pagination, { useLocalPagination } from '../components/Pagination'
 
 
-// สมาชิกสะสมแต้ม (เจ้าของ ผู้จัดการ · 0017): ค้นหา ดูประวัติแต้ม ปรับแต้มพร้อมเหตุผล
+// สมาชิกสะสมแต้ม (เจ้าของ ผู้จัดการ / 0017): ค้นหา ดูประวัติแต้ม ปรับแต้มพร้อมเหตุผล
 // สมัครสมาชิกทำที่หน้ารับชำระ (ใส่เบอร์ตอนจ่ายเงิน)
 
 interface LedgerRow {
@@ -33,18 +34,26 @@ function Board({ restaurantId, owner }: { restaurantId: string; owner: boolean }
   const [change, setChange] = useState('')
   const [note, setNote] = useState('')
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [more, setMore] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const ledgerPage = useLocalPagination(ledger, selected?.id ?? '', translateUi('ประวัติแต้ม'))
 
   const load = useCallback(async () => {
     const seq = ++searchSeq.current
+    setLoading(true)
     const digits = search.replace(/\D/g, '')
     let q = supabase.from('members').select('id,phone,name,points,created_at').eq('restaurant_id', restaurantId)
     if (/^[+\d\s()-]+$/.test(search) && digits) q = q.like('phone', `%${digits}%`)
     else if (search.trim()) q = q.ilike('name', `%${search.trim().replace(/[%_]/g, '')}%`)
-    const { data, error } = await q.order('points', { ascending: false }).limit(200)
+    const { data, error } = await q.order('points', { ascending: false }).order('id').range(page * pageSize, page * pageSize + pageSize)
     if (seq !== searchSeq.current) return
-    if (error) { setMembers([]); return setMessage({ ok: false, text: 'โหลดสมาชิกไม่ได้: ' + error.message }) }
-    setMembers(data as Member[])
-  }, [restaurantId, search])
+    setLoading(false)
+    if (error) { setMembers([]); setMore(false); return setMessage({ ok: false, text: 'โหลดสมาชิกไม่ได้: ' + error.message }) }
+    setMembers((data ?? []).slice(0, pageSize) as Member[])
+    setMore((data ?? []).length > pageSize)
+  }, [restaurantId, search, page, pageSize])
 
   useEffect(() => {
     void load()
@@ -97,8 +106,10 @@ function Board({ restaurantId, owner }: { restaurantId: string; owner: boolean }
       {message && <p className={message.ok ? 'alert-success' : 'alert-error'}>{message.text}</p>}
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
         <section>
-          <input className="input mb-3 w-full" placeholder={translateUi("ค้นหาเบอร์โทรหรือชื่อ")} value={search} onChange={(e) => setSearch(e.target.value)} />
-          <div className="table-wrap">
+          <input className="input mb-3 w-full" aria-label={translateUi("ค้นหาเบอร์โทรหรือชื่อ")} placeholder={translateUi("ค้นหาเบอร์โทรหรือชื่อ")} value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }} />
+          <Pagination label={translateUi('สมาชิก')} page={page} pageSize={pageSize} count={members.length} hasNext={more} loading={loading}
+            onPrevious={() => setPage(n => n - 1)} onNext={() => setPage(n => n + 1)} onPageSizeChange={n => { setPageSize(n); setPage(0) }} />
+          <div className="table-wrap history-scroll" aria-busy={loading}>
             <table className="w-full text-left text-sm [&_td]:px-3 [&_td]:py-2.5 [&_th]:px-3 [&_th]:py-2.5">
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
@@ -124,7 +135,7 @@ function Board({ restaurantId, owner }: { restaurantId: string; owner: boolean }
                 {members.length === 0 && (
                   <tr>
                     <td colSpan={4} className="empty-cell">
-                      {search ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก · สมัครได้ที่หน้ารับชำระ'}
+                      {search ? 'ไม่พบสมาชิก' : 'ยังไม่มีสมาชิก / สมัครได้ที่หน้ารับชำระ'}
                     </td>
                   </tr>
                 )}
@@ -140,7 +151,7 @@ function Board({ restaurantId, owner }: { restaurantId: string; owner: boolean }
             <>
               <h2 className="section-title mb-1">{selected.name ?? selected.phone}</h2>
               <p className="text-sm text-gray-500">
-                {selected.phone}{" " + translateUi("· คงเหลือ") + " "}<strong className="text-gray-900">{selected.points.toLocaleString('th-TH')}</strong>{" " + translateUi("แต้ม") + " "}</p>
+                {selected.phone}{" " + translateUi("/ คงเหลือ") + " "}<strong className="text-gray-900">{selected.points.toLocaleString('th-TH')}</strong>{" " + translateUi("แต้ม") + " "}</p>
               <form onSubmit={(e) => void adjust(e)} className="mt-4 grid gap-2">
                 <div className="grid grid-cols-[110px_1fr] gap-2">
                   <input className="input" type="number" step={1} placeholder="+50 / -20" value={change} onChange={(e) => setChange(e.target.value)} />
@@ -150,14 +161,15 @@ function Board({ restaurantId, owner }: { restaurantId: string; owner: boolean }
               </form>
               {owner && <MemberPrivacyActions key={selected.id} restaurantId={restaurantId} memberId={selected.id} onDeleted={() => { selectedId.current = null; ledgerSeq.current++; setSelected(null); setLedger([]); void load() }} />}
               <h3 className="mt-5 mb-2 text-sm strong-text">{translateUi("ประวัติล่าสุด")}</h3>
+              {ledgerPage.controls}
               <ul className="divide-y text-sm">
-                {ledger.map((l) => (
+                {ledgerPage.items.map((l) => (
                   <li key={l.id} className="flex items-start justify-between gap-2 py-2">
                     <span>
                       <span className="block text-gray-800">{translateUi(REASON[l.reason])}</span>
                       <span className="block hint">
                         {new Date(l.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
-                        {l.note ? ` · ${l.note}` : ''}
+                        {l.note ? ` / ${l.note}` : ''}
                       </span>
                     </span>
                     <span className={`font-semibold tabular-nums ${l.change > 0 ? 'text-emerald-700' : 'text-red-600'}`}>

@@ -25,8 +25,8 @@ import type { KitchenOrder, Member, OrderStatus, PaymentMethod, ShopSettings } f
 
 // หน้าร้าน: รวมบิลตามโต๊ะ (หลายออเดอร์ต่อโต๊ะได้) รับชำระเมื่อเสิร์ฟครบ และยกเลิกออเดอร์ที่ครัวยังไม่เริ่ม
 // โปรโมชันเลือกให้อัตโนมัติทั้งบิล (ใช้หลายโปรได้ถ้าไม่ชนกัน) ฐานข้อมูลคิดส่วนลดจริงตอนรับชำระ (counter_pay_bill)
-// 0017: เลือกวิธีชำระ (พร้อมเพย์แสดง QR ใส่ยอด) · สมาชิกสะสม/แลกแต้ม · จ่ายแล้วเปิดใบเสร็จพิมพ์ได้
-// 0031: กะแคชเชียร์ (บิลผูกกะอัตโนมัติ) · ร้านจด VAT + เครื่องมีเลขอนุมัติ = ออกใบอย่างย่อ (ABB) ให้ทันทีหลังรับชำระ
+// 0017: เลือกวิธีชำระ (พร้อมเพย์แสดง QR ใส่ยอด) / สมาชิกสะสม/แลกแต้ม / จ่ายแล้วเปิดใบเสร็จพิมพ์ได้
+// 0031: กะแคชเชียร์ (บิลผูกกะอัตโนมัติ) / ร้านจด VAT + เครื่องมีเลขอนุมัติ = ออกใบอย่างย่อ (ABB) ให้ทันทีหลังรับชำระ
 const METHODS: { key: PaymentMethod; label: string }[] = [
   { key: 'cash', label: 'เงินสด' },
   { key: 'promptpay', label: 'พร้อมเพย์' },
@@ -65,7 +65,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const tax = useTaxSetup(restaurantId)
   const current = useCurrentShift(restaurantId)
 
-  // ออกใบอย่างย่อทีละออเดอร์ (ม.86/6 ต่อธุรกรรม) · ไม่สำเร็จก็ยังพิมพ์ใบเสร็จธรรมดาได้ ออกย้อนหลังเป็นใบเต็มรูปได้
+  // ออกใบอย่างย่อทีละออเดอร์ (ม.86/6 ต่อธุรกรรม) / ไม่สำเร็จก็ยังพิมพ์ใบเสร็จธรรมดาได้ ออกย้อนหลังเป็นใบเต็มรูปได้
   async function afterPaid(ids: string[]) {
     setFeedbackKey(ids.join(','))
     if (tax.canIssueAbb && tax.terminal) {
@@ -80,10 +80,10 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const bills = useMemo(() => {
     const map = new Map<string, Bill>()
     for (const o of orders) {
-      // ทานที่ร้าน: รวมตามโต๊ะ · กลับบ้าน: แยกบิลต่อออเดอร์
+      // ทานที่ร้าน: รวมตามโต๊ะ / กลับบ้าน: แยกบิลต่อออเดอร์
       const group = !separate && o.order_type === 'dine_in' && o.table_id ? `t:${o.table_id}` : `o:${o.id}`
       const key = `${group}:${Math.floor([...map.values()].filter((x) => x.key.startsWith(group + ":")).reduce((n, x) => n + x.orders.length, 0) / 50)}`
-      const b = map.get(key) ?? { key, label: separate ? `${orderLabel(o)} · ${o.id.slice(0, 8)}` : orderLabel(o), orders: [], total: 0, allServed: true }
+      const b = map.get(key) ?? { key, label: separate ? `${orderLabel(o)} / ${o.id.slice(0, 8)}` : orderLabel(o), orders: [], total: 0, allServed: true }
       b.orders.push(o)
       b.total += Number(o.total)
       b.allServed &&= o.status === 'served'
@@ -119,7 +119,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
         </p>
       )}
       {current.loaded && !current.shift && (
-        <p className="alert-error">{translateUi("ยังไม่ได้เปิดกะ · บิลที่รับชำระตอนนี้จะไม่ถูกนับในยอดเงินสดของกะใด กด “เปิดกะ” ก่อนรับเงิน")}</p>
+        <p className="alert-error">{translateUi("ยังไม่ได้เปิดกะ / บิลที่รับชำระตอนนี้จะไม่ถูกนับในยอดเงินสดของกะใด กด เปิดกะ ก่อนรับเงิน")}</p>
       )}
       {tax.vatRegistered && tax.loaded && !tax.canIssueAbb && (
         <p className="alert-error">{"" + translateUi("ร้านจด VAT แต่ยังออกใบกำกับภาษีอย่างย่อไม่ได้:") + " "}{!tax.seller ? 'ยังไม่ได้กรอกข้อมูลผู้ประกอบการ' : !tax.terminal ? 'ยังไม่ได้เลือกเครื่อง POS (เลือกในหน้าต่างเปิดกะ)' : 'เครื่อง POS นี้ยังไม่มีเลขอนุมัติจากกรมสรรพากร'}</p>
@@ -252,7 +252,7 @@ function BillCard({
           <div className="min-w-0">
             <strong className="block truncate text-lg text-gray-900">{b.label}</strong>
             <span className="hint">
-              {b.orders.length}{" " + translateUi("ออเดอร์ ·") + " "}{translateUi(b.allServed ? 'พร้อมชำระ' : 'กำลังดำเนินการ')}
+              {b.orders.length}{" " + translateUi("ออเดอร์ /") + " "}{translateUi(b.allServed ? 'พร้อมชำระ' : 'กำลังดำเนินการ')}
             </span>
           </div>
         </div>
@@ -350,12 +350,12 @@ function BillCard({
       <button className="btn btn-success mt-3 w-full py-3" disabled={!b.allServed || paying || !settings || !promotions.ready} onClick={start}>
         {paying ? translateUi('กำลังบันทึก...') : !b.allServed ? translateUi('รอเสิร์ฟให้ครบก่อนชำระ') : `${translateUi(method === 'promptpay' ? 'แสดง QR' : 'รับชำระ')} ${baht(net)}`}
       </button>
-      <details className="mt-3 text-sm"><summary className="cursor-pointer">{translateUi("คำนวณหารเท่ากัน")}</summary><label className="label mt-2">{translateUi("จำนวนคน")}<input className="input ml-2 w-20" type="number" min={1} max={50} step={1} value={guests} onChange={(e) => setGuests(e.target.value)} /></label>{Number.isInteger(Number(guests)) && Number(guests) >= 2 && Number(guests) <= 50 && <><p role="status">{Array.from({ length: Number(guests) }, (_, i) => { const cents = Math.round(net * 100); return `${i + 1}: ${baht((Math.floor(cents / Number(guests)) + (i < cents % Number(guests) ? 1 : 0)) / 100)}` }).join(' · ')}</p><p className="hint">{translateUi("รวบรวมเงินจากทุกคนให้ครบก่อนยืนยันชำระทั้งบิล ระบบยังไม่บันทึกการรับเงินบางส่วน")}</p></>}</details>
+      <details className="mt-3 text-sm"><summary className="cursor-pointer">{translateUi("คำนวณหารเท่ากัน")}</summary><label className="label mt-2">{translateUi("จำนวนคน")}<input className="input ml-2 w-20" type="number" min={1} max={50} step={1} value={guests} onChange={(e) => setGuests(e.target.value)} /></label>{Number.isInteger(Number(guests)) && Number(guests) >= 2 && Number(guests) <= 50 && <><p role="status">{Array.from({ length: Number(guests) }, (_, i) => { const cents = Math.round(net * 100); return `${i + 1}: ${baht((Math.floor(cents / Number(guests)) + (i < cents % Number(guests) ? 1 : 0)) / 100)}` }).join(' / ')}</p><p className="hint">{translateUi("รวบรวมเงินจากทุกคนให้ครบก่อนยืนยันชำระทั้งบิล ระบบยังไม่บันทึกการรับเงินบางส่วน")}</p></>}</details>
 
       {showQR && quote && (
         <Modal label={translateUi("QR พร้อมเพย์")} onClose={() => { if (!paying) setShowQR(false) }}>
           <div className="w-full max-w-xs rounded-2xl bg-white p-4 shadow-2xl">
-            <div className="mb-3 text-center strong-text">{b.label}{" " + translateUi("· สแกนจ่ายด้วยแอปธนาคาร") + ""}</div>
+            <div className="mb-3 text-center strong-text">{b.label}{" " + translateUi("/ สแกนจ่ายด้วยแอปธนาคาร") + ""}</div>
             <PromptPayQR id={quote.promptpayId} amount={quote.total} />
             <p role="status" className="hint">{"" + translateUi("ชำระเฉพาะ") + " "}{quote.ids.length}{" " + translateUi("ออเดอร์ที่ยืนยันใน QR นี้ รายการใหม่ชำระแยก") + ""}</p>
             <p className="mt-3 text-center hint">{translateUi("ตรวจยอดเงินเข้าในแอปธนาคารของร้านก่อนกดยืนยัน")}</p>

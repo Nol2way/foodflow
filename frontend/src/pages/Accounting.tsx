@@ -14,7 +14,7 @@ import { Disclaimer } from '../components/accounting/ui'
 import { useCachedState } from '../lib/useCachedState'
 
 // บัญชี (0026): บัญชีคู่ลงอัตโนมัติข้างหลัง แสดงผลได้ 3 โหมดจากข้อมูลชุดเดียวกัน
-// เจ้าของ: ทุกอย่าง · ผู้จัดการ: ดูได้ + ปิดวัน · พนักงานบัญชี: รายจ่าย รายงาน ส่งออก (ฐานข้อมูลบังคับซ้ำ)
+// เจ้าของ: ทุกอย่าง / ผู้จัดการ: ดูได้ + ปิดวัน / พนักงานบัญชี: รายจ่าย รายงาน ส่งออก (ฐานข้อมูลบังคับซ้ำ)
 
 type Tab = 'dashboard' | 'expenses' | 'close' | 'reports' | 'settings'
 const TABS: { key: Tab; label: string }[] = [
@@ -93,7 +93,7 @@ function Onboarding({ restaurantId, onDone }: { restaurantId: string; onDone: ()
       )}
       {mode && (
         <p className="mt-3 text-sm">{"" + translateUi("แนะนำโหมด") + " "}<b>{MODE_LABEL[mode]}</b>
-          {mode === 'pro' ? ' (สมุดรายวัน งบการเงิน ภาษีขาย/ซื้อ)' : mode === 'standard' ? ' (กำไร Food Cost Prime Cost)' : ' (เงินเข้า เงินออก คงเหลือ)'}{" " + translateUi("· เปลี่ยนได้ตลอด") + " "}</p>
+          {mode === 'pro' ? ' (สมุดรายวัน งบการเงิน ภาษีขาย/ซื้อ)' : mode === 'standard' ? ' (กำไร Food Cost Prime Cost)' : ' (เงินเข้า เงินออก คงเหลือ)'}{" " + translateUi("/ เปลี่ยนได้ตลอด") + " "}</p>
       )}
       <button className="btn btn-primary mt-3" disabled={!mode} onClick={() => void save()}>{"" + translateUi("เริ่มใช้งาน") + " "}</button>
     </div>

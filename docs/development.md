@@ -1,6 +1,6 @@
 # กระบวนการพัฒนา FoodFlow
 
-การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) · การปล่อยและทดสอบ: [operations](operations.md) · [ผล verification](audits/2026-11-22-remediation-results.md)
+การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) / การปล่อยและทดสอบ: [operations](operations.md) / [ผล verification](audits/2026-11-22-remediation-results.md)
 
 
 ## โครงสร้างปัจจุบัน
@@ -11,7 +11,7 @@ React/TypeScript/Vite/Tailwind + Hono บน Cloudflare + Supabase PostgreSQL/RL
 
 ## แผนและเจ้าของงาน
 
-ใช้ [ใบงานสองคน](tasks/2-people/README.md): คนที่ 1 หน้าร้าน/ครัว/ออเดอร์ คนที่ 2 สมาชิก/โปร/รายงาน/ระบบกลาง ทั้งคู่ทำ frontend/backend/SQL เริ่มบั๊กก่อนฟีเจอร์ แผน 4 คนเดิมถูกแทนแล้ว จอง migration `0009–0019` และ `0020–0029` ตามลำดับ ต้องทดสอบ dependency บนฐานสะอาด
+ใช้ [ใบงานสองคน](tasks/2-people/README.md): คนที่ 1 หน้าร้าน/ครัว/ออเดอร์ คนที่ 2 สมาชิก/โปร/รายงาน/ระบบกลาง ทั้งคู่ทำ frontend/backend/SQL เริ่มบั๊กก่อนฟีเจอร์ แผน 4 คนเดิมถูกแทนแล้ว จอง migration `0009-0019` และ `0020-0029` ตามลำดับ ต้องทดสอบ dependency บนฐานสะอาด
 
 ## Git
 

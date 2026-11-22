@@ -21,7 +21,7 @@ export interface MenuItem {
   weight_ingredient_id?: string | null
 }
 
-// สื่อบนจอแสดงผล (ตาราง display_media ใน 0014) · menu_item_id ว่าง = สไลด์โฆษณาร้าน
+// สื่อบนจอแสดงผล (ตาราง display_media ใน 0014) / menu_item_id ว่าง = สไลด์โฆษณาร้าน
 export interface DisplayMediaRow {
   id: string
   restaurant_id: string

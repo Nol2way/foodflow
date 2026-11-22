@@ -79,7 +79,7 @@ async function rolesOf(db: Db, userId: string, restaurantId: string): Promise<Ro
   return rows.map((r) => r.role)
 }
 
-// รับ roles (array) หรือ role (ค่าเดียว แบบเดิม) · ตัดซ้ำ ต้องมีอย่างน้อย 1 บทบาทและเป็นบทบาทที่รู้จัก
+// รับ roles (array) หรือ role (ค่าเดียว แบบเดิม) / ตัดซ้ำ ต้องมีอย่างน้อย 1 บทบาทและเป็นบทบาทที่รู้จัก
 function parseRoles(b: Record<string, unknown>): Role[] | null {
   const raw = Array.isArray(b.roles) ? b.roles : b.role === undefined ? [] : [b.role]
   const roles = [...new Set(raw.map((r) => String(r)))] as Role[]
@@ -132,12 +132,12 @@ export function createApp() {
       if (msg === 'idempotency_conflict') return fail(c, 409, 'idempotency_conflict')
       if (msg === 'last_owner') return fail(c, 409, 'last_owner', { message: 'ร้านต้องมีเจ้าของอย่างน้อย 1 คน' })
       if (msg === 'weak_password') return fail(c, 400, 'weak_password', { message: `รหัสผ่านต้องยาว ${MIN_PASSWORD}-72 ตัวอักษร` })
-      // สต็อก (0027-0029): ข้อความไทยจากรหัสข้อผิดพลาด (เช่น "insufficient_stock: กุ้ง") · สถานะชนกันตอบ 409
+      // สต็อก (0027-0029): ข้อความไทยจากรหัสข้อผิดพลาด (เช่น "insufficient_stock: กุ้ง") / สถานะชนกันตอบ 409
       const stock = stockErrorCode(msg)
       if (stock && c.req.path.startsWith('/api/stock') && (err.code === 'P0001' || err.code === '')) {
         return fail(c, STOCK_CONFLICTS.has(stock) ? 409 : 400, stock, { message: stockError(msg) })
       }
-      // บัญชี (0026): ข้อความไทยจากรหัสข้อผิดพลาดของฐานข้อมูล · สถานะชนกันตอบ 409
+      // บัญชี (0026): ข้อความไทยจากรหัสข้อผิดพลาดของฐานข้อมูล / สถานะชนกันตอบ 409
       const acct = accountingErrorCode(msg)
       if (acct && (err.code === 'P0001' || err.code === '')) {
         const conflict = ['day_closed', 'already_closed', 'already_reversed', 'expense_posted_use_void', 'order_posted_use_cancel', 'journal_immutable', 'tax_doc_confirmed_use_cn']
@@ -346,7 +346,7 @@ export function createApp() {
   })
 
   // ----- แนะนำโปรจากยอดขาย (เจ้าของ, ผู้จัดการ) -----
-  // กติกาในระบบคิดให้เสมอ · มี GEMINI_API_KEY = ให้ AI เสนอเพิ่ม (ผ่านการตรวจความปลอดภัยทุกข้อ)
+  // กติกาในระบบคิดให้เสมอ / มี GEMINI_API_KEY = ให้ AI เสนอเพิ่ม (ผ่านการตรวจความปลอดภัยทุกข้อ)
   app.post('/ai/promo-suggestions', auth, async (c) => {
     const b = await body(c)
     const rid = await requireRole(c, b.restaurant_id, ['owner', 'manager'])
@@ -462,7 +462,7 @@ export function createApp() {
   })
 
   // รีเซ็ตรหัสผ่านพนักงาน (ลืมรหัส): ได้รหัสชั่วคราวใหม่ พนักงานต้องเปลี่ยนหลังล็อกอิน
-  // ผู้จัดการรีเซ็ตได้เฉพาะพนักงานที่ไม่มีบทบาทเจ้าของ/ผู้จัดการ · รีเซ็ตของตัวเองไม่ได้ (ใช้เปลี่ยนรหัสแทน)
+  // ผู้จัดการรีเซ็ตได้เฉพาะพนักงานที่ไม่มีบทบาทเจ้าของ/ผู้จัดการ / รีเซ็ตของตัวเองไม่ได้ (ใช้เปลี่ยนรหัสแทน)
   app.post('/staff/:userId/reset-password', auth, async (c) => {
     const b = await body(c)
     const rid = await requireRole(c, b.restaurant_id, ['owner', 'manager'])
@@ -498,7 +498,7 @@ export function createApp() {
   // ----- สต็อกวัตถุดิบ (0027-0030) -----
   registerStock(app, { auth, requireRole, fail, body })
 
-  // ----- เอกสารภาษีกรมสรรพากร (0031-0032) · รายงานภาษีและกะอยู่ใน registerAccounting -----
+  // ----- เอกสารภาษีกรมสรรพากร (0031-0032) / รายงานภาษีและกะอยู่ใน registerAccounting -----
   registerTax(app, { auth, requireRole, fail, body })
   registerOperations(app, { auth, requireRole, fail, body })
 

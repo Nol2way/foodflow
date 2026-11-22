@@ -16,7 +16,7 @@ export const DEFAULT_SHOP = (restaurantId: string): ShopSettings => ({
   line_to: null,
 })
 
-// ตั้งค่าร้าน (0017) · ยังไม่ได้รัน migration = null (หน้ารับชำระทำงานแบบเดิม)
+// ตั้งค่าร้าน (0017) / ยังไม่ได้รัน migration = null (หน้ารับชำระทำงานแบบเดิม)
 // จำไว้ข้ามหน้า: หน้ารับชำระ/ตั้งค่า เปิดแล้วใช้ได้ทันที (โหลดใหม่เบื้องหลัง)
 export function useShopSettings(restaurantId: string) {
   const key = `shop:${restaurantId}`

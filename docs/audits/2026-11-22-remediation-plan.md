@@ -1,6 +1,6 @@
 # FoodFlow comprehensive remediation implementation plan
 
-**Goal:** แก้ข้อค้นพบ audit และส่งมอบ P1-F1–F5/P2-F1–F5 ตามใบงาน ก่อน commit/push/PR ภาษาไทย
+**Goal:** แก้ข้อค้นพบ audit และส่งมอบ P1-F1-F5/P2-F1-F5 ตามใบงาน ก่อน commit/push/PR ภาษาไทย
 
 **Architecture:** ต่อเติม React/Vite, Hono Worker และ PostgreSQL/RLS เดิม ใช้ migration เพิ่มแทนแก้ประวัติข้อมูล ผูกธุรกรรมเงินกับ snapshot และ idempotency ที่ฐานข้อมูล ส่วน UI ต้องแสดงข้อมูลตรง request/session และกู้คืนข้อผิดพลาดได้
 
@@ -19,7 +19,7 @@
 
 - [ ] SQL invariants: session revocation, shared identity, payment allocation, points ledger, promotion transaction, tenant helpers/last owner, import replay; regression บน migration ล่าสุด
 - [ ] API: validation, distributed throttling, pagination, postcommit outcome, timeout/error sanitization, cron dispatch/date; unit/API regression
-- [ ] UI: audit FE-01–13 และ P1/P2 bugs; browser mocks ครอบคลุม races/payment/ABB/import
+- [ ] UI: audit FE-01-13 และ P1/P2 bugs; browser mocks ครอบคลุม races/payment/ABB/import
 - [ ] CI/bootstrap: pinned toolchain, Windows/Linux, database discovery, dependency updates, static/API headers และ remote E2E opt-in
 - [ ] P1-F1/F2: priced options + media, table map/move/merge/bill request; tenant/price snapshots และ UI verification
 - [ ] P1-F3/F4: edit/split/bills/service/tip, kitchen tickets/audio/configured late status; financial regression และ print preview

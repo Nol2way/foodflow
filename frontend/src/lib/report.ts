@@ -44,13 +44,13 @@ export function reportText(r: DailyReport): string {
   if (ch !== null) lines.push(`   ${ch >= 0 ? '📈' : '📉'} เทียบวันเดียวกันสัปดาห์ก่อน ${ch >= 0 ? '+' : ''}${ch}%`)
   if (Number(r.discount) > 0) lines.push(`🏷️ ส่วนลดรวม ${money(Number(r.discount))}`)
   const pays = Object.entries(r.payments ?? {}).filter(([, v]) => Number(v) > 0)
-  if (pays.length) lines.push(`💳 ${pays.map(([k, v]) => `${PAY_LABEL[k] ?? k} ${money(Number(v))}`).join(' · ')}`)
+  if (pays.length) lines.push(`💳 ${pays.map(([k, v]) => `${PAY_LABEL[k] ?? k} ${money(Number(v))}`).join(' / ')}`)
   if (r.top_items.length) {
     lines.push('', '🔥 ขายดี')
     r.top_items.forEach((t, i) => lines.push(`${i + 1}. ${t.name} ${int(t.quantity)} ที่`))
   }
   if (r.peak_hour !== null && r.peak_hour !== undefined) {
-    lines.push('', `⏰ ช่วงคนเยอะสุด ${String(r.peak_hour).padStart(2, '0')}:00–${String((r.peak_hour + 1) % 24).padStart(2, '0')}:00`)
+    lines.push('', `⏰ ช่วงคนเยอะสุด ${String(r.peak_hour).padStart(2, '0')}:00-${String((r.peak_hour + 1) % 24).padStart(2, '0')}:00`)
   }
   if (r.waste.length) {
     const total = r.waste.reduce((s, w) => s + Number(w.cost), 0)
@@ -59,7 +59,7 @@ export function reportText(r: DailyReport): string {
   }
   if (Number(r.expenses) > 0) lines.push('', `🧾 รายจ่ายวันนี้ ${money(Number(r.expenses))}`)
   if (r.new_members || r.points_earned || r.points_redeemed) {
-    lines.push('', `⭐ สมาชิกใหม่ ${int(r.new_members)} คน · แจกแต้ม ${int(r.points_earned)} · ถูกแลก ${int(r.points_redeemed)}`)
+    lines.push('', `⭐ สมาชิกใหม่ ${int(r.new_members)} คน / แจกแต้ม ${int(r.points_earned)} / ถูกแลก ${int(r.points_redeemed)}`)
   }
   if (r.cancelled > 0) lines.push(`❌ ยกเลิก ${int(r.cancelled)} บิล`)
   if (r.orders === 0) lines.push('', 'วันนี้ยังไม่มีบิลที่ชำระแล้ว')

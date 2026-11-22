@@ -1,11 +1,11 @@
-# ใบงานคนที่ 2 — สมาชิก, โปรโมชัน, รายงาน และระบบกลาง
+# ใบงานคนที่ 2 - สมาชิก, โปรโมชัน, รายงาน และระบบกลาง
 
-> ข้อความด้านล่างเป็นสเปกและเหตุผลก่อนแก้ รายการปิดงาน/หลักฐานหลังแก้ดู [remediation results](../../audits/2026-11-22-remediation-results.md) และ [คู่มือฟีเจอร์](../../features.md) อย่าใช้ข้อความ “ปัจจุบัน” ในสเปกเก่าแทนสถานะ release
+> ข้อความด้านล่างเป็นสเปกและเหตุผลก่อนแก้ รายการปิดงาน/หลักฐานหลังแก้ดู [remediation results](../../audits/2026-11-22-remediation-results.md) และ [คู่มือฟีเจอร์](../../features.md) อย่าใช้ข้อความ ปัจจุบัน ในสเปกเก่าแทนสถานะ release
 
 
-รับผิดชอบ Frontend, Backend และ SQL ในโดเมนนี้ ใช้ migration ช่วง `0020–0029` ตาม [แผนส่งมอบ](README.md) งานรอบนี้ไม่รวม AI วิเคราะห์ สถานะด้านล่างอ้างอิงซอร์สปัจจุบัน
+รับผิดชอบ Frontend, Backend และ SQL ในโดเมนนี้ ใช้ migration ช่วง `0020-0029` ตาม [แผนส่งมอบ](README.md) งานรอบนี้ไม่รวม AI วิเคราะห์ สถานะด้านล่างอ้างอิงซอร์สปัจจุบัน
 
-## บั๊ก 6 งาน · เฟส 1
+## บั๊ก 6 งาน / เฟส 1
 
 ### P0
 
@@ -46,29 +46,29 @@
   - หน้า Import ล้างผล preview แล้ว แต่เก็บเนื้อหาและชื่อไฟล์เดิมเมื่อเลือกไฟล์เกิน 3 MB หรือไม่มีไฟล์ ให้ล้างทั้งสองค่าเมื่อเลือกไฟล์ไม่ได้หรือยกเลิก และป้องกันผลอ่านเก่าเขียนทับเมื่อเปลี่ยนไฟล์
   - ซอร์ส `backend/src/csv.ts`, `frontend/src/pages/Import.tsx`
 
-## ฟีเจอร์ 5 งาน · เฟส 1–3
+## ฟีเจอร์ 5 งาน / เฟส 1-3
 
-- [ ] **`P2-F1` คูปอง กติกาซ้อนโปร และรายงานผลโปรโมชัน** · เฟส 2
+- [ ] **`P2-F1` คูปอง กติกาซ้อนโปร และรายงานผลโปรโมชัน** / เฟส 2
   - POS/Counter ใช้โปรหลายรายการที่ไม่ชนกันได้แล้ว และหน้า Promotions แสดงจำนวนครั้งที่ใช้ เพิ่ม `promotions.coupon_code` แบบ unique ต่อร้าน, `stackable`, `coupon_lookup()` และ `promo_report()`
   - อัปเดต `apply_promotions()`, ช่องกรอกโค้ดใน PromoPicker, ฟอร์มและแท็บผลลัพธ์ใน Promotions และการคำนวณตัวอย่างใน `discount.ts` ตรวจร่วมกับ Add-ons ของ `P1-F1` หากต้องเปลี่ยน `counter_pay_bill` ให้ทำจุดเชื่อมในเฟส 3 ตาม [แผนส่งมอบ](README.md)
   - ซอร์ส `database/migrations/0001_core.sql`, `frontend/src/components/PromoPicker.tsx`, `frontend/src/pages/Promotions.tsx`, `frontend/src/lib/discount.ts`
 
-- [ ] **`P2-F2` ค้นสมาชิกด้วยเลขท้าย 4 ตัว, PDPA (`/privacy`) และความพึงพอใจ 1–5 ดาว** · เฟส 2
+- [ ] **`P2-F2` ค้นสมาชิกด้วยเลขท้าย 4 ตัว, PDPA (`/privacy`) และความพึงพอใจ 1-5 ดาว** / เฟส 2
   - MemberBox ค้นด้วยเบอร์เต็มและสมัครใหม่ในกล่องเดียวได้แล้ว เพิ่ม `member_find` สำหรับเลขท้าย 4 ตัว และจัดการกรณีพบหลายคน
-  - เพิ่ม `member_export`, `member_delete` สำหรับเจ้าของ และตาราง `feedback` สำหรับคะแนน 1–5 โดยไม่เก็บชื่อ/เบอร์ ต่อหน้า Privacy, ปุ่ม export/delete ใน Members, แบบให้ดาวหลังชำระใน Counter และสรุปใน Report
+  - เพิ่ม `member_export`, `member_delete` สำหรับเจ้าของ และตาราง `feedback` สำหรับคะแนน 1-5 โดยไม่เก็บชื่อ/เบอร์ ต่อหน้า Privacy, ปุ่ม export/delete ใน Members, แบบให้ดาวหลังชำระใน Counter และสรุปใน Report
   - ซอร์ส `database/migrations/0002_display_payment_reports.sql`, `frontend/src/components/MemberBox.tsx`, `frontend/src/pages/Members.tsx`, `frontend/src/pages/Counter.tsx`, `frontend/src/pages/Report.tsx`
 
-- [ ] **`P2-F3` สรุปยอดตอนเช้าทาง LINE เตือนสต็อก และนำเข้า `.xlsx`** · เฟส 3
+- [ ] **`P2-F3` สรุปยอดตอนเช้าทาง LINE เตือนสต็อก และนำเข้า `.xlsx`** / เฟส 3
   - มีรายงาน LINE รายวัน, Cron สำหรับ Worker, ข้อเสนอการสั่งซื้อตาม Par และนำเข้า CSV แล้ว เพิ่ม `morning_report_enabled` / `morning_report_hour`, `morning_report_targets()` และ `sendMorningDigest()` พร้อมตั้งเวลาใน Settings ดึงสรุปยอดเมื่อวาน เมนูขายดี สต็อกต่ำกว่า Par และล็อตใกล้หมดอายุ
   - รองรับ `.xlsx` ใน `/api/import/sales` และ Import โดยใช้ validation กับตัวอย่างก่อนนำเข้าแบบเดียวกับ CSV
   - ซอร์ส `backend/src/reports.ts`, `backend/src/app.ts`, `backend/src/stock.ts`, `database/migrations/0005_stock.sql`, `frontend/src/pages/Settings.tsx`, `frontend/src/pages/Import.tsx`
 
-- [ ] **`P2-F4` โหมดมืดและสลับภาษา TH/EN** · เฟส 2
+- [ ] **`P2-F4` โหมดมืดและสลับภาษา TH/EN** / เฟส 2
   - มีธีม Tailwind และข้อความไทยในแต่ละหน้า เพิ่ม `@custom-variant dark` ใน CSS ตัวเลือกธีมที่จำใน localStorage และตัวเลือกภาษาใน Settings
   - ตรวจทุกหน้าหลักหลังเปลี่ยนภาษาและธีม ให้ใบเสร็จตอนพิมพ์เป็นสีสว่างเสมอ
   - ซอร์ส `frontend/src/index.css`, `frontend/src/pages/Settings.tsx`, `frontend/src/components/Receipt.tsx`
 
-- [ ] **`P2-F5` CI และ API/UI ภาษี กะ สต็อก และพนักงาน** · CI เฟส 1, API/UI เฟส 3
+- [ ] **`P2-F5` CI และ API/UI ภาษี กะ สต็อก และพนักงาน** / CI เฟส 1, API/UI เฟส 3
   - เพิ่ม `.github/workflows/ci.yml` สำหรับ frontend build/test, backend typecheck/test และ database tests ใช้คำสั่งเดิมใน `package.json`
   - ภาษีมี RPC แก้/ยกเลิกร่างที่เรียกจาก TaxDocModal และหน้า AcctSettings จัดการการตั้งค่าภาษีและเครื่อง POS ผ่าน Supabase แล้ว เพิ่ม HTTP endpoint สำหรับแก้/ยกเลิกร่างและจัดการ `tax_settings` / `pos_terminals` ใน `tax.ts` แล้วต่อส่วน UI ที่ยังขาด
   - กะมีเปิด/ปิดกะและบันทึกเงินสดผ่าน API, Z-Report ตอนปิด และพิมพ์ X/Z ผ่าน RPC ใน ShiftModal แล้ว เพิ่ม `GET /shifts` และ X-Report ผ่าน HTTP

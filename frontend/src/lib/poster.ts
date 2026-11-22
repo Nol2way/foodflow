@@ -101,8 +101,8 @@ function wrap(ctx: Ctx, text: string, maxWidth: number, maxLines: number): strin
   if (lines.length > maxLines) {
     const kept = lines.slice(0, maxLines)
     let last = kept[maxLines - 1]
-    while (last && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1)
-    kept[maxLines - 1] = last + '…'
+    while (last && ctx.measureText(last + '...').width > maxWidth) last = last.slice(0, -1)
+    kept[maxLines - 1] = last + '...'
     return kept
   }
   return lines

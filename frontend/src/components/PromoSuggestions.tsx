@@ -80,9 +80,9 @@ export default function PromoSuggestions({
     const p = s.promo
     const parts = [p.discount_type === 'percent' ? `ลด ${p.value}%` : `ลด ${baht(p.value)}`]
     if (p.min_subtotal > 0) parts.push(`ซื้อครบ ${baht(p.min_subtotal)}`)
-    if (p.start_time) parts.push(`${p.start_time}–${p.end_time}`)
+    if (p.start_time) parts.push(`${p.start_time}-${p.end_time}`)
     parts.push(p.item_ids.length ? p.item_ids.map(menuName).join(', ') : 'ทั้งบิล')
-    return parts.join(' · ')
+    return parts.join(' / ')
   }
 
   return (

@@ -214,7 +214,7 @@ export default function ShiftModal({
                 <div className="mt-2 border-t pt-2 hint">
                   {Object.entries(report.sales_by_method)
                     .map(([m, v]) => `${m} ${v.bills} บิล ${money(v.total)}`)
-                    .join(' · ')}
+                    .join(' / ')}
                 </div>
               )}
               <button type="button" className="link-muted mt-2 text-xs" onClick={() => onPrint(shift.id)}>{"" + translateUi("พิมพ์ X-Report (ยอดระหว่างกะ)") + " "}</button>
@@ -266,7 +266,7 @@ export default function ShiftModal({
                       {report.drawer_logs.map((l, i) => (
                         <li key={i} className="flex justify-between py-1">
                           <span>
-                            {new Date(l.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} · {l.reason}
+                            {new Date(l.at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} / {l.reason}
                           </span>
                           <span className={`tabular-nums ${l.type === 'cash_in' ? 'text-emerald-700' : 'text-red-600'}`}>
                             {l.type === 'cash_in' ? '+' : '−'}

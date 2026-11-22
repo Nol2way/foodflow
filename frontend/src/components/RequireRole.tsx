@@ -123,7 +123,7 @@ export default function RequireRole({
         </span>
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-white">{session.user.display_name ?? session.user.email}</div>
-          <div className="truncate text-xs text-white/75">{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}</div>
+          <div className="truncate text-xs text-white/75">{roleLabels(mine).split(' / ').map(translateUi).join(' / ')}</div>
         </div>
       </div>
       <Link
@@ -157,7 +157,7 @@ export default function RequireRole({
           <Icon name="bars" />
         </button>
         <span className="strong-text">{translateUi(current?.title ?? 'Plato')}</span>
-        <span className="badge badge-gray ml-auto max-w-[45%] truncate">{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}</span>
+        <span className="badge badge-gray ml-auto max-w-[45%] truncate">{roleLabels(mine).split(' / ').map(translateUi).join(' / ')}</span>
       </header>
 
       {drawer && (
@@ -185,7 +185,7 @@ export default function RequireRole({
           children({ restaurantId, roles: mine })
         ) : (
           <div className="page">
-            <div className="alert-error">{translateUi("บทบาท \"")}{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}{translateUi("\" ไม่มีสิทธิ์เข้าหน้านี้")}</div>
+            <div className="alert-error">{translateUi("บทบาท \"")}{roleLabels(mine).split(' / ').map(translateUi).join(' / ')}{translateUi("\" ไม่มีสิทธิ์เข้าหน้านี้")}</div>
           </div>
         )}
       </main>

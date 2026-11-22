@@ -6,7 +6,7 @@ import { parseMediaLink, youtubeId } from '../lib/display'
 import type { DisplayMediaRow } from '../lib/types'
 
 // จัดการรูป/วิดีโอบนจอแสดงผล (0014): ของเมนูหนึ่ง หรือสไลด์โฆษณาร้าน (menuItemId = null)
-// อัปโหลดไฟล์ หรือวางลิงก์ (YouTube / ไฟล์ .mp4 .jpg ...) · หลายชิ้นต่อเมนู วนเปลี่ยนทุกรอบ
+// อัปโหลดไฟล์ หรือวางลิงก์ (YouTube / ไฟล์ .mp4 .jpg ...) / หลายชิ้นต่อเมนู วนเปลี่ยนทุกรอบ
 
 type Notify = (m: { ok: boolean; text: string }) => void
 
@@ -123,7 +123,7 @@ export default function MediaManager({
     e.preventDefault()
     const sec = draft.duration ? Number(draft.duration) : null
     if (sec !== null && !(Number.isInteger(sec) && sec >= 5 && sec <= 120))
-      return notify({ ok: false, text: 'เวลาแสดงต้องเป็น 5–120 วินาที หรือเว้นว่าง' })
+      return notify({ ok: false, text: 'เวลาแสดงต้องเป็น 5-120 วินาที หรือเว้นว่าง' })
     const { error } = await supabase
       .from('display_media')
       .update({ title: draft.title.trim() || null, caption: draft.caption.trim() || null, credit: draft.credit.trim() || null, duration_sec: sec })
@@ -143,10 +143,10 @@ export default function MediaManager({
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`badge ${m.kind === 'image' ? 'badge-gray' : m.kind === 'video' ? 'badge-blue' : 'badge-red'}`}>{KIND_LABEL[m.kind]}</span>
                     <span className="hint">{m.poster ? 'โปสเตอร์' : m.storage_path ? 'อัปโหลด' : 'ลิงก์'}</span>
-                    {m.duration_sec && <span className="hint">· {m.duration_sec}{" " + translateUi("วิ") + ""}</span>}
+                    {m.duration_sec && <span className="hint">/ {m.duration_sec}{" " + translateUi("วิ") + ""}</span>}
                     {!m.is_active && <span className="badge badge-amber">{translateUi("ซ่อนอยู่")}</span>}
                   </div>
-                  {(m.title || m.caption) && <div className="truncate text-gray-800">{[m.title, m.caption].filter(Boolean).join(' — ')}</div>}
+                  {(m.title || m.caption) && <div className="truncate text-gray-800">{[m.title, m.caption].filter(Boolean).join(' - ')}</div>}
                   {m.credit && <div className="truncate text-xs text-gray-400">{m.credit}</div>}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm">
@@ -166,7 +166,7 @@ export default function MediaManager({
                     <input className="input" placeholder={translateUi("หัวข้อบนสไลด์")} maxLength={80} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
                   )}
                   <input className="input" placeholder={translateUi("คำบรรยาย (ไม่บังคับ)")} maxLength={200} value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
-                  <input className="input" placeholder={translateUi("เครดิต เช่น ภาพ: ชื่อเจ้าของ · CC BY")} maxLength={120} value={draft.credit} onChange={(e) => setDraft({ ...draft, credit: e.target.value })} />
+                  <input className="input" placeholder={translateUi("เครดิต เช่น ภาพ: ชื่อเจ้าของ / CC BY")} maxLength={120} value={draft.credit} onChange={(e) => setDraft({ ...draft, credit: e.target.value })} />
                   <input className="input" type="number" min={5} max={120} placeholder={translateUi("เวลาแสดง (วินาที) ว่าง = อัตโนมัติ")} value={draft.duration} onChange={(e) => setDraft({ ...draft, duration: e.target.value })} />
                   <div className="flex gap-2 sm:col-span-2">
                     <button className="btn btn-primary btn-sm">{translateUi("บันทึก")}</button>
@@ -207,7 +207,7 @@ export default function MediaManager({
           <button className="btn btn-secondary btn-sm" disabled={!link.trim()}>{translateUi("เพิ่มลิงก์")}</button>
         </form>
       </div>
-      <p className="mt-1.5 hint">{"" + translateUi("ไฟล์ไม่เกิน") + " "}{MEDIA_MAX_MB}{" " + translateUi("MB · แนวนอนดูดีที่สุด · วิดีโอเล่นแบบไม่มีเสียง ·") + " "}{isAd ? 'สไลด์โฆษณาแทรกระหว่างเมนู' : 'มีหลายชิ้นจะเปลี่ยนชิ้นทุกรอบที่จอเล่นครบ'}{" " + translateUi("· ใช้ภาพของคนอื่นให้ใส่เครดิต") + " "}</p>
+      <p className="mt-1.5 hint">{"" + translateUi("ไฟล์ไม่เกิน") + " "}{MEDIA_MAX_MB}{" " + translateUi("MB / แนวนอนดูดีที่สุด / วิดีโอเล่นแบบไม่มีเสียง /") + " "}{isAd ? 'สไลด์โฆษณาแทรกระหว่างเมนู' : 'มีหลายชิ้นจะเปลี่ยนชิ้นทุกรอบที่จอเล่นครบ'}{" " + translateUi("/ ใช้ภาพของคนอื่นให้ใส่เครดิต") + " "}</p>
     </div>
   )
 }

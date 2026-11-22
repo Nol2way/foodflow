@@ -8,7 +8,7 @@ import { rolesFor, type Role } from '../lib/roles'
 import { stockApi, shortDate, useLoad, dateTime, type StockIngredient } from '../lib/stockApi'
 import { COUNT_TYPES, displayQty, fmtNum } from '../lib/stockMath'
 
-// สต็อกทั้งหมด: ทุกวัตถุดิบที่เปิดใช้ จัดกลุ่มตามที่เก็บ (เรียงตามชั้นเหมือนใบนับ) · สถานะหมด/ใกล้หมดใช้ชุดเดียวกับ stock_overview
+// สต็อกทั้งหมด: ทุกวัตถุดิบที่เปิดใช้ จัดกลุ่มตามที่เก็บ (เรียงตามชั้นเหมือนใบนับ) / สถานะหมด/ใกล้หมดใช้ชุดเดียวกับ stock_overview
 function AllStock({ items, outIds, lowIds }: { items: StockIngredient[]; outIds: Set<string>; lowIds: Set<string> }) {
   const [q, setQ] = useState('')
   const groups = useMemo(() => {
@@ -71,7 +71,7 @@ function AllStock({ items, outIds, lowIds }: { items: StockIngredient[]; outIds:
   )
 }
 
-// ภาพรวมสต็อก: ใกล้หมด · หมด · ใกล้หมดอายุ · มูลค่าสต็อก · แนะนำสั่งวันนี้ (stock_overview ใน 0029) · สต็อกทั้งหมด
+// ภาพรวมสต็อก: ใกล้หมด / หมด / ใกล้หมดอายุ / มูลค่าสต็อก / แนะนำสั่งวันนี้ (stock_overview ใน 0029) / สต็อกทั้งหมด
 function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] }) {
   const { data: o, error, loading } = useLoad(() => stockApi.overview(restaurantId), [restaurantId], 'stock.overview')
   const all = useLoad(() => stockApi.ingredients(restaurantId), [restaurantId], 'stock.ingredients')
@@ -122,13 +122,13 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
 
           {o.recipe_alerts.length > 0 && (
             <div className="alert-warn mt-4">
-              <strong>{translateUi("สูตรหรือ yield อาจไม่ตรง:")}</strong>{" " + translateUi("นับแล้วติดลบต่อเนื่อง 3 รอบขึ้นไป —") + ""}{' '}
-              {o.recipe_alerts.map((a) => `${a.name} (${a.streak} รอบ)`).join(' · ')}
+              <strong>{translateUi("สูตรหรือ yield อาจไม่ตรง:")}</strong>{" " + translateUi("นับแล้วติดลบต่อเนื่อง 3 รอบขึ้นไป -") + ""}{' '}
+              {o.recipe_alerts.map((a) => `${a.name} (${a.streak} รอบ)`).join(' / ')}
               <div className="mt-1 text-xs">{"" + translateUi("ตรวจปริมาณที่ตักจริงเทียบสูตร หรือทำ") + " "}<Link className="link" to="/stock-yield">yield test</Link>{" " + translateUi("ใหม่") + ""}</div>
             </div>
           )}
           {o.stock_disabled_menus.length > 0 && (
-            <div className="alert-error mt-4">{"" + translateUi("ระบบปิดเมนูเพราะวัตถุดิบไม่พอ:") + " "}{o.stock_disabled_menus.map((m) => m.name).join(' · ')}
+            <div className="alert-error mt-4">{"" + translateUi("ระบบปิดเมนูเพราะวัตถุดิบไม่พอ:") + " "}{o.stock_disabled_menus.map((m) => m.name).join(' / ')}
               <span className="block text-xs">{translateUi("รับของเข้าหรือนับสต็อก แล้วเมนูจะเปิดให้อัตโนมัติ")}</span>
             </div>
           )}
@@ -212,7 +212,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                     <li key={x.lot_id} className="row-between px-4 py-2.5">
                       <span>
                         {x.name}
-                        <span className="block hint">{fmtNum(Number(x.qty))} {x.unit} · {baht(Number(x.value))}</span>
+                        <span className="block hint">{fmtNum(Number(x.qty))} {x.unit} / {baht(Number(x.value))}</span>
                       </span>
                       <span className={`badge ${x.days_left <= 0 ? 'badge-red' : 'badge-amber'}`}>
                         {x.days_left < 0 ? `หมดอายุแล้ว ${-x.days_left} วัน` : x.days_left === 0 ? 'หมดอายุวันนี้' : `อีก ${x.days_left} วัน`}
@@ -234,7 +234,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
             <h2 className="section-title">{translateUi("นับล่าสุด")}</h2>
             {o.last_count ? (
               <div className="card flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                <span>{dateTime(o.last_count.created_at)} · {COUNT_TYPES[o.last_count.count_type]} · {o.last_count.counted_by_name ?? '-'}</span>
+                <span>{dateTime(o.last_count.created_at)} / {COUNT_TYPES[o.last_count.count_type]} / {o.last_count.counted_by_name ?? '-'}</span>
                 <span className={Number(o.last_count.diff_value) < 0 ? 'text-red-700' : 'text-gray-700'}>{"" + translateUi("ส่วนต่างรวม") + " "}{baht(Number(o.last_count.diff_value))}</span>
                 {o.last_count.verified_at ? <span className="badge badge-green">{translateUi("รับรองแล้ว")}</span> : <span className="badge badge-gray">{translateUi("รอผู้ตรวจรับรอง")}</span>}
                 <Link className="link ml-auto" to={`/stock-variance?count=${o.last_count.id}`}>{translateUi("ดูรายงานส่วนต่าง")}</Link>

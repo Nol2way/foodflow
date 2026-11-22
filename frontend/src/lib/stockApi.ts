@@ -246,7 +246,7 @@ export const stockApi = {
 export const errorText = (e: unknown) =>
   e instanceof ApiError ? (e.data.message ? String(e.data.message) : stockError(e.code || e.message)) : String((e as Error)?.message ?? e)
 
-// โหลดข้อมูลแบบมีสถานะ (ใช้ซ้ำทุกหน้า) · reload() หลังบันทึก
+// โหลดข้อมูลแบบมีสถานะ (ใช้ซ้ำทุกหน้า) / reload() หลังบันทึก
 // ส่ง cacheKey = จำผลไว้ข้ามหน้า: กลับมาหน้าเดิมเห็นข้อมูลทันที แล้วโหลดใหม่เงียบ ๆ เบื้องหลัง
 // (cacheKey ต้องไม่ซ้ำกับคำขออื่น และ deps ทั้งหมดจะถูกต่อท้ายให้เอง)
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[], cacheKey?: string) {

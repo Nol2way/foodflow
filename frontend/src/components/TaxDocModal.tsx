@@ -411,7 +411,7 @@ export default function TaxDocModal({
                 <li key={d.id}>
                   <button type="button" className="flex w-full justify-between gap-2 text-left text-amber-900 hover:underline" onClick={() => void openDraft(d)}>
                     <span>
-                      {DOC_TITLE[d.doc_type]} · {d.buyer_name ?? 'ไม่ระบุผู้ซื้อ'}
+                      {DOC_TITLE[d.doc_type]} / {d.buyer_name ?? 'ไม่ระบุผู้ซื้อ'}
                     </span>
                     <span className="tabular-nums">{money(d.total_amount)}</span>
                   </button>
@@ -451,8 +451,8 @@ export default function TaxDocModal({
                         <span className="font-medium">{o.label}</span>
                         <span className="block hint">
                           {thaiDateTime(o.paid_at)}
-                          {o.abb ? ` · ${o.abb.doc_number}` : ''}
-                          {o.hasTax ? ' · มีใบกำกับเต็มรูปแล้ว' : ''}
+                          {o.abb ? ` / ${o.abb.doc_number}` : ''}
+                          {o.hasTax ? ' / มีใบกำกับเต็มรูปแล้ว' : ''}
                         </span>
                       </span>
                       <span className="tabular-nums">{money(o.total)}</span>
@@ -465,8 +465,8 @@ export default function TaxDocModal({
           ) : draft || ref ? (
             ref && (
               <SelectedBox
-                title={`${ref.doc.doc_number} · ${DOC_TITLE[ref.doc.doc_type]}`}
-                subtitle={`ลดหนี้ไปแล้ว ${money(ref.credited)} · ลดได้อีก ${money(remaining)}`}
+                title={`${ref.doc.doc_number} / ${DOC_TITLE[ref.doc.doc_type]}`}
+                subtitle={`ลดหนี้ไปแล้ว ${money(ref.credited)} / ลดได้อีก ${money(remaining)}`}
                 amount={ref.doc.total_amount}
                 onClear={draft ? undefined : () => setRef(null)}
               />
@@ -479,7 +479,7 @@ export default function TaxDocModal({
                     <span>
                       <span className="font-medium">{d.doc_number}</span>
                       <span className="block hint">
-                        {thaiDateTime(d.confirmed_at)} · {d.buyer_name ?? 'ลูกค้าทั่วไป'}
+                        {thaiDateTime(d.confirmed_at)} / {d.buyer_name ?? 'ลูกค้าทั่วไป'}
                       </span>
                     </span>
                     <span className="tabular-nums">{money(d.total_amount)}</span>
@@ -571,7 +571,7 @@ export default function TaxDocModal({
               <input className="input w-full" maxLength={200} value={buyer.name} onChange={(e) => edit('name', e.target.value)} />
             </label>
             <div>
-              <span className="hint">{translateUi("สาขา (5 หลัก · 00000 = สำนักงานใหญ่)")}</span>
+              <span className="hint">{translateUi("สาขา (5 หลัก / 00000 = สำนักงานใหญ่)")}</span>
               <div className="flex gap-1.5">
                 <input
                   className="input w-full tabular-nums"
@@ -622,7 +622,7 @@ export default function TaxDocModal({
         {draft && !dirty && (
           <label className="mb-3 flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-            <span>{translateUi("ตรวจสอบข้อมูลแล้ว · เอกสารที่ยืนยันจะได้เลขที่ถาวรและแก้ไขไม่ได้ (แก้ได้ด้วยใบลดหนี้เท่านั้น)")}</span>
+            <span>{translateUi("ตรวจสอบข้อมูลแล้ว / เอกสารที่ยืนยันจะได้เลขที่ถาวรและแก้ไขไม่ได้ (แก้ได้ด้วยใบลดหนี้เท่านั้น)")}</span>
           </label>
         )}
 

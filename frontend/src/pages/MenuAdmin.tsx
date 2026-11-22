@@ -1,4 +1,5 @@
 import { translateUi } from "../lib/uiText"
+import { useLocalPagination } from '../components/Pagination'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor, type Role } from '../lib/roles'
@@ -10,7 +11,7 @@ import DisplaySettingsPanel from '../components/DisplaySettingsPanel'
 import type { DisplayMediaRow, MenuCategory, MenuItem } from '../lib/types'
 import { useCachedState } from '../lib/useCachedState'
 
-// จัดการเมนูและหมวด (เจ้าของ, ผู้จัดการ) · โต๊ะ (เจ้าของเท่านั้น)
+// จัดการเมนูและหมวด (เจ้าของ, ผู้จัดการ) / โต๊ะ (เจ้าของเท่านั้น)
 // สิทธิ์จริงบังคับที่ฐานข้อมูล: menu_items_owner / menu_categories_owner / tables_owner
 
 interface DiningTable {
@@ -220,6 +221,8 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   const recommendedCount = items.filter((i) => i.is_recommended && i.is_available).length
   const firstMedia = (itemId: string) => media.find((m) => m.menu_item_id === itemId && m.is_active)
   const ads = media.filter((m) => m.menu_item_id === null)
+  const [search, setSearch] = useState('')
+  const pagination = useLocalPagination(items.filter(item => item.name.toLowerCase().includes(search.toLowerCase())), restaurantId + search, translateUi('เมนู'))
 
   return (
     <div className="page">
@@ -259,7 +262,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
                 </select>
               )}
               {soldByWeight && (
-                <p className="hint sm:col-span-2">{"" + translateUi("ราคาที่กรอก = ราคาต่อ 1 กก. · หน้ารับออเดอร์จะให้กรอกน้ำหนักที่ชั่ง ระบบคิดราคาและตัดสต็อกตามน้ำหนักจริง · น้ำจิ้ม/เครื่องเคียงใส่ในสูตรอาหารได้ตามปกติ") + " "}</p>
+                <p className="hint sm:col-span-2">{"" + translateUi("ราคาที่กรอก = ราคาต่อ 1 กก. / หน้ารับออเดอร์จะให้กรอกน้ำหนักที่ชั่ง ระบบคิดราคาและตัดสต็อกตามน้ำหนักจริง / น้ำจิ้ม/เครื่องเคียงใส่ในสูตรอาหารได้ตามปกติ") + " "}</p>
               )}
             </div>
           )}
@@ -294,7 +297,9 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
 
       <section className="mb-6">
         <h2 className="section-title">{translateUi("เมนูทั้งหมด (")}{items.length})</h2>
-        <div className="table-wrap">
+        <input className="input mt-4 w-full" aria-label={translateUi('ค้นหาเมนู')} placeholder={translateUi('ค้นหาเมนู')} value={search} onChange={e => setSearch(e.target.value)} />
+        {pagination.controls}
+        <div className="table-wrap history-scroll">
           <table className="w-full text-left text-sm [&_td]:px-3 [&_td]:py-2.5 [&_th]:px-3 [&_th]:py-2.5 [&_tbody_tr:hover]:bg-gray-50">
             <thead className="bg-gray-50 text-gray-500">
               <tr>
@@ -307,7 +312,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
               </tr>
             </thead>
             <tbody>
-              {items.map((it) => (
+              {pagination.items.map((it) => (
                 <tr key={it.id} className="border-t">
                   <td className="p-2">
                     <span className="flex items-center gap-2">
@@ -351,7 +356,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
             </tbody>
           </table>
         </div>
-        <p className="mt-1 hint">{translateUi("เมนูที่เคยขายแล้วลบไม่ได้ (เพื่อเก็บประวัติบัญชี) ให้ตั้งเป็น \"หมด\" แทน · สูตรอาหารแก้ที่หน้าสต็อก")}</p>
+        <p className="mt-1 hint">{translateUi("เมนูที่เคยขายแล้วลบไม่ได้ (เพื่อเก็บประวัติบัญชี) ให้ตั้งเป็น \"หมด\" แทน / สูตรอาหารแก้ที่หน้าสต็อก")}</p>
       </section>
 
       {hasDisplay && (
@@ -359,7 +364,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="section-title mb-1">{translateUi("จอแสดงผล iPad (แมกกาซีนเมนูแนะนำ)")}</h2>
-              <p className="text-sm text-gray-500">{translateUi("เปิดลิงก์นี้บน iPad ได้เลยไม่ต้องล็อกอิน · แสดงเมนู \"ร้านแนะนำ\" ที่ยังไม่หมด (")}{recommendedCount}{" " + translateUi("เมนู) และโปรที่ใช้ได้ตอนนี้ · อัปเดตเองทุกนาที") + " "}</p>
+              <p className="text-sm text-gray-500">{translateUi("เปิดลิงก์นี้บน iPad ได้เลยไม่ต้องล็อกอิน / แสดงเมนู \"ร้านแนะนำ\" ที่ยังไม่หมด (")}{recommendedCount}{" " + translateUi("เมนู) และโปรที่ใช้ได้ตอนนี้ / อัปเดตเองทุกนาที") + " "}</p>
             </div>
             <div className="flex gap-2">
               <button className="btn btn-primary btn-sm" onClick={() => void rotateDisplay()}>
@@ -382,7 +387,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
           )}
           <div className="mt-5 border-t pt-4">
             <h3 className="text-sm strong-text">{translateUi("สไลด์โฆษณาร้าน (")}{ads.filter((a) => a.is_active).length})</h3>
-            <p className="mb-2 hint">{translateUi("คลิปบรรยากาศร้าน วิดีโอแนะนำ หรือภาพโปสเตอร์ ที่ไม่ผูกกับเมนูใด · กด \"แก้ไข\" เพื่อใส่หัวข้อ/คำบรรยาย")}</p>
+            <p className="mb-2 hint">{translateUi("คลิปบรรยากาศร้าน วิดีโอแนะนำ หรือภาพโปสเตอร์ ที่ไม่ผูกกับเมนูใด / กด \"แก้ไข\" เพื่อใส่หัวข้อ/คำบรรยาย")}</p>
             <MediaManager
               restaurantId={restaurantId}
               menuItemId={null}

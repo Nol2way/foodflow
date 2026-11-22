@@ -1,4 +1,4 @@
-// สูตรของโมดูลสต็อก: ส่วนต่าง (AvT) · สี · ติดลบต่อเนื่อง · FEFO / FIFO · yield · par · หน่วย
+// สูตรของโมดูลสต็อก: ส่วนต่าง (AvT) / สี / ติดลบต่อเนื่อง / FEFO / FIFO / yield / par / หน่วย
 // ฐานข้อมูลใช้สูตรเดียวกัน (ทดสอบซ้ำที่ database/tests/test_stock.py)
 import assert from 'node:assert/strict'
 import {
@@ -43,7 +43,7 @@ t('ส่วนต่าง = นับจริง − ควรเหลือ
   })
 })
 
-t('สี: เขียว < 2% · เหลือง 2-5% (รวมขอบ) · แดง > 5% · ทั้งขาดและเกิน', () => {
+t('สี: เขียว < 2% / เหลือง 2-5% (รวมขอบ) / แดง > 5% / ทั้งขาดและเกิน', () => {
   assert.equal(varianceColor(100, -1.99), 'green')
   assert.equal(varianceColor(100, -2), 'yellow')
   assert.equal(varianceColor(100, 5), 'yellow')
@@ -71,7 +71,7 @@ const lots: Lot[] = [
   { id: 'L3', qty: 500, unitCost: 0.3, expiry: null, receivedAt: '2026-10-19T08:00:00Z' }, // ไม่มีวันหมดอายุ
 ]
 
-t('FEFO: หยิบล็อตที่หมดอายุก่อน · ไม่มีวันหมดอายุไปท้ายสุด', () => {
+t('FEFO: หยิบล็อตที่หมดอายุก่อน / ไม่มีวันหมดอายุไปท้ายสุด', () => {
   assert.deepEqual(pickFefo(lots, 300), [{ lotId: 'L2', qty: 300 }])
   assert.deepEqual(pickFefo(lots, 2200), [{ lotId: 'L2', qty: 1000 }, { lotId: 'L1', qty: 1000 }, { lotId: 'L3', qty: 200 }])
 })
@@ -106,14 +106,14 @@ t('yield test: ค่าเฉลี่ยของ (หลัง ÷ ก่อ�
   assert.deepEqual(r, { avg: 75, each: [70, 75, 80] })
 })
 
-t('yield test: ต้อง 3 ครั้ง · ตัดแต่งแล้วหนักขึ้นไม่ได้ · หุงสุกเกิน 100% ได้', () => {
+t('yield test: ต้อง 3 ครั้ง / ตัดแต่งแล้วหนักขึ้นไม่ได้ / หุงสุกเกิน 100% ได้', () => {
   assert.throws(() => yieldAverage([{ before: 1, after: 1 }], 'trim'), /three_trials_required/)
   assert.throws(() => yieldAverage([{ before: 100, after: 120 }, { before: 1, after: 1 }, { before: 1, after: 1 }], 'trim'), /invalid_trial/)
   assert.throws(() => yieldAverage([{ before: 0, after: 1 }, { before: 1, after: 1 }, { before: 1, after: 1 }], 'cook'), /invalid_trial/)
   assert.equal(yieldAverage([{ before: 1000, after: 2500 }, { before: 1000, after: 2400 }, { before: 1000, after: 2600 }], 'cook').avg, 250)
 })
 
-t('ต้นทุนต่อหน่วย = ราคาซื้อ ÷ (trim × cook) · ดิบ = สุทธิ ÷ (trim × cook)', () => {
+t('ต้นทุนต่อหน่วย = ราคาซื้อ ÷ (trim × cook) / ดิบ = สุทธิ ÷ (trim × cook)', () => {
   assert.equal(yieldUnitCost(0.4, 60, 100).toFixed(4), '0.6667')
   assert.equal(yieldUnitCost(0.04, 100, 250), 0.016) // ข้าวสารต่อกรัมข้าวสุก
   assert.equal(rawQty(150, 60), 250)
