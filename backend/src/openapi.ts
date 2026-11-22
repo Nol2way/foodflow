@@ -4,6 +4,7 @@
 // ส่งออกเป็นไฟล์: npm run openapi -> docs/openapi.json
 import { accountingPaths, accountingSchemas, accountingTag, taxTag } from './openapi-accounting.ts'
 import { stockPaths, stockSchemas, stockTag } from './openapi-stock.ts'
+import { operationsPaths } from './openapi-operations.ts'
 
 const uuid = { type: 'string', format: 'uuid' } as const
 const role = { type: 'string', enum: ['owner', 'manager', 'staff', 'kitchen', 'accountant', 'stock'] } as const
@@ -67,6 +68,12 @@ export const openapi = {
     stockTag,
   ],
   paths: {
+    ...operationsPaths,
+    '/api/readyz': { get: { operationId: 'readiness', security: [], responses: { '200': { description: 'Database ready' }, '503': { description: 'Database unavailable' } } } },
+    '/api/auth/logout': { post: { operationId: 'logout', security: [{ bearerAuth: [] }], responses: { '200': { description: 'All sessions revoked' }, ...authErrors } } },
+    '/api/shifts': { get: { operationId: 'listShifts', security: [{ bearerAuth: [] }], parameters: [restaurantQuery], responses: { '200': { description: 'Shift history' }, ...authErrors } } },
+    '/api/shifts/{id}': { get: { operationId: 'getShift', security: [{ bearerAuth: [] }], parameters: [restaurantQuery, { name: 'id', in: 'path', required: true, schema: uuid }], responses: { '200': { description: 'Shift and recoverable Z report' }, ...authErrors } } },
+    '/api/tax/documents/{id}': { ...operationsPaths['/api/tax/documents/{id}'], get: { operationId: 'getTaxDocument', security: [{ bearerAuth: [] }], parameters: [restaurantQuery, { name: 'id', in: 'path', required: true, schema: uuid }], responses: { '200': { description: 'Draft or confirmed document' }, ...authErrors } } },
     '/api/health': {
       get: {
         tags: ['ระบบ'],
@@ -104,7 +111,7 @@ export const openapi = {
           '- แถวผิดรูปแบบ → 400 `invalid_rows` พร้อมเลขบรรทัด และ **ไม่นำเข้าเลยทั้งไฟล์**',
           '- ชื่อเมนูไม่ตรงในระบบ → `blocked: true` ไม่นำเข้า เว้นแต่ส่ง `skip_unknown: true`',
           '- ออเดอร์ที่นำเข้า: สถานะ paid, ไม่ตัดสต็อก, แถวที่ `ref` เดียวกันในวันเดียวกันรวมเป็น 1 ออเดอร์',
-          '- แนะนำให้เรียกด้วย `dry_run: true` ก่อนเพื่อดูผล',
+          '- ต้องเรียก dry_run:true และส่ง preview_token เดิมตอนยืนยัน; CSV หรือ XLSX 1 worksheet ไม่มีสูตร',
         ].join('\n'),
         operationId: 'importSales',
         security: [{ bearerAuth: [] }],
@@ -113,10 +120,13 @@ export const openapi = {
           content: json(
             {
               type: 'object',
-              required: ['restaurant_id', 'csv'],
+              required: ['restaurant_id'],
+              oneOf: [{ required: ['csv'] }, { required: ['xlsx_base64'] }],
               properties: {
                 restaurant_id: uuid,
                 csv: { type: 'string', description: 'เนื้อไฟล์ CSV ทั้งไฟล์', maxLength: 3000000 },
+                xlsx_base64: { type: 'string', maxLength: 4000000, description: 'Base64 XLSX; single sheet, no formulas, up to 20,000 rows' },
+                preview_token: { type: 'string', description: 'Token from the reviewed dry run; required on commit' },
                 dry_run: { type: 'boolean', default: false, description: 'ตรวจอย่างเดียว ไม่บันทึก' },
                 skip_unknown: { type: 'boolean', default: false, description: 'ข้ามแถวที่ชื่อเมนูไม่ตรงกับในระบบ' },
               },
@@ -412,7 +422,7 @@ export const openapi = {
           '200': { description: 'รหัสชั่วคราว (แสดงครั้งเดียว)', content: json({ type: 'object', properties: { user_id: uuid, temp_password: { type: 'string' } } }) },
           '400': err('ข้อมูลไม่ถูกต้อง หรือรีเซ็ตรหัสตัวเอง', ['invalid_user_id', 'invalid_restaurant_id', 'use_change_password']),
           '401': authErrors['401'],
-          '403': err('บทบาทไม่พอ หรือผู้จัดการรีเซ็ตเจ้าของ/ผู้จัดการ', ['forbidden']),
+          '403': err('บทบาทไม่พอ หรือบัญชีร่วมหลายร้านต้องกู้คืนระดับบัญชี', ['forbidden', 'identity_management_required']),
           '404': err('ไม่พบพนักงานในร้านนี้', ['not_found']),
         },
       },
@@ -582,6 +592,8 @@ export const openapi = {
         properties: {
           batch_id: { type: ['string', 'null'], format: 'uuid', description: 'ใช้ย้อนการนำเข้า (null เมื่อ dry_run หรือ blocked)' },
           dry_run: { type: 'boolean' },
+          preview_token: { type: 'string' },
+          duplicate: { type: 'boolean' },
           blocked: { type: 'boolean', description: 'true = มีชื่อเมนูที่ไม่รู้จักและไม่ได้ส่ง skip_unknown จึงไม่นำเข้าอะไรเลย' },
           orders: { type: 'integer' },
           lines: { type: 'integer' },
@@ -593,7 +605,7 @@ export const openapi = {
       StaffMember: {
         type: 'object',
         required: ['user_id', 'email', 'roles'],
-        properties: { user_id: uuid, email: { type: 'string' }, display_name: { type: ['string', 'null'] }, roles },
+        properties: { user_id: uuid, email: { type: 'string' }, display_name: { type: ['string', 'null'] }, is_active: { type: 'boolean' }, roles },
       },
       Facts: {
         type: 'object',

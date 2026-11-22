@@ -1,4 +1,20 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@media screen {
+  html.dark { color-scheme: dark; --color-surface: #171923; --color-gray-50: #242735; --color-gray-100: #2b3040; --color-gray-200: #41475a; --color-gray-300: #586078; --color-gray-400: #9aa5bc; --color-gray-500: #aab3c5; --color-gray-600: #bcc4d5; --color-gray-700: #d1d8e6; --color-gray-800: #e3e8f2; --color-gray-900: #f4f6fb; }
+  html.dark body { background: #171923; color: #e3e8f2; }
+  html.dark :is(.card, .input, .bg-white, input, select, textarea) { background-color: #242735; color: #e3e8f2; }
+  html.dark .bg-gray-900 { background-color: #3a4055; }
+  html.dark :is(.bg-brand-50, .bg-emerald-50, .bg-amber-50, .bg-red-50, .bg-sage-50) { background-color: #303545; }
+  html.dark :is(.text-brand-700, .text-emerald-700, .text-amber-900, .text-red-700) { color: #f0c6a6; }
+}
+@media print {
+  dialog[open] { margin: 0 !important; position: static !important; max-height: none !important; overflow: visible !important; width: 80mm !important; box-shadow: none !important; }
+  dialog::backdrop { display: none !important; }
+  html.dark { color-scheme: light; }
+  html.dark body, html.dark .receipt, html.dark .print-area { background: white !important; color: black !important; }
+}
 
 /* ===== Plato design tokens ===== */
 @theme {

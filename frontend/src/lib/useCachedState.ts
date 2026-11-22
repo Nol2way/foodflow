@@ -1,28 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { has, peek, put } from './cache'
-
-// ใช้แทน useState สำหรับ "ข้อมูลที่โหลดมาจากฐานข้อมูล" ของหน้า
-// ค่าถูกจำไว้ในแคชกลาง: ออกจากหน้าแล้วกลับมา เห็นข้อมูลล่าสุดทันที (ไม่ว่างเปล่ารอโหลด)
-// หน้ายังโหลดใหม่ตามปกติ แล้วค่าใหม่จะแทนที่เอง · key ต้องไม่ซ้ำกัน (ใส่ restaurantId ด้วย)
 export function useCachedState<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>, boolean] {
-  const [value, setValue] = useState<T>(() => (has(key) ? (peek<T>(key) as T) : initial))
-  const keyRef = useRef(key)
-  const initialRef = useRef(initial)
-
-  // key เปลี่ยน (เช่น เปลี่ยนวันที่ในรายงาน): ใช้ค่าที่จำไว้ของ key ใหม่ ถ้าไม่มีใช้ค่าเริ่มต้น
-  useEffect(() => {
-    if (keyRef.current === key) return
-    keyRef.current = key
-    setValue(has(key) ? (peek<T>(key) as T) : initialRef.current)
-  }, [key])
-
-  const set = useCallback<Dispatch<SetStateAction<T>>>((v) => {
-    setValue((prev) => {
-      const next = typeof v === 'function' ? (v as (p: T) => T)(prev) : v
-      put(keyRef.current, next)
-      return next
+  const [snapshot, setSnapshot] = useState(() => ({ key, value: has(key) ? peek<T>(key)! : initial }))
+  const current = useRef(key)
+  current.current = key
+  const set = useCallback<Dispatch<SetStateAction<T>>>((value) => {
+    if (current.current !== key) return
+    setSnapshot((previous) => {
+      if (current.current !== key) return previous
+      const base = previous.key === key ? previous.value : (peek<T>(key) ?? initial)
+      const next = typeof value === 'function' ? (value as (p: T) => T)(base) : value
+      put(key, next)
+      return { key, value: next }
     })
-  }, [])
-
-  return [value, set, has(key)]
+  }, [key])
+  return [snapshot.key === key ? snapshot.value : (peek<T>(key) ?? initial), set, has(key)]
 }

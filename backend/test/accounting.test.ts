@@ -20,7 +20,7 @@ const SECRET = 'jwt-test-secret'
 const now = () => Math.floor(Date.now() / 1000)
 const JWT: Record<string, string> = {}
 for (const [r, id] of Object.entries(USERS)) {
-  JWT[r] = await signJwt({ sub: id, email: `${r}@x.com`, role: 'authenticated', aud: 'authenticated', iat: now(), exp: now() + 3600 }, SECRET)
+  JWT[r] = await signJwt({ sub: id, email: `${r}@x.com`, credential_version: 0, role: 'authenticated', aud: 'authenticated', iat: now(), exp: now() + 3600 }, SECRET)
 }
 
 const env: Env = {
@@ -43,7 +43,9 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 
 function defaults(c: Call): Response {
   const u = new URL(c.url)
-  if (u.pathname === '/rest/v1/rpc/app_user_active') return json(true)
+  if (u.pathname === '/rest/v1/rpc/app_session_valid') return json(true)
+  if (u.pathname === '/rest/v1/rpc/day_close_dispatch_claim') return json(RID)
+  if (u.pathname === '/rest/v1/rpc/day_close_dispatch_finish') return json(null)
   if (u.pathname === '/rest/v1/staff_members' && c.method === 'GET') {
     const uid = u.searchParams.get('user_id')?.replace('eq.', '') ?? ''
     return json(ROLE[uid] ? [{ role: ROLE[uid] }] : [])
@@ -57,6 +59,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => 
   let body: unknown = init.body
   if (typeof body === 'string') body = JSON.parse(body)
   const call: Call = { url: String(input), method: init.method ?? 'GET', headers, body }
+  if (Number(new URL(call.url).searchParams.get('offset')) > 0) return json([])
   calls.push(call)
   for (const h of handlers) {
     const r = h(call)
@@ -198,7 +201,7 @@ test('ปิดวัน: ผู้จัดการปิดได้ พน�
   const r = await req('/api/accounting/day-close', { as: 'manager', body: { restaurant_id: RID, date: '2026-10-26', counted_cash: 580 } })
   assert.equal(r.status, 201)
   assert.equal((await body(r)).line, 'not_configured')
-  assert.deepEqual(callsTo('/rpc/acct_close_day')[0].body, { p_restaurant_id: RID, p_date: '2026-10-26', p_counted_cash: 580, p_note: null })
+  assert.deepEqual(callsTo('/rpc/acct_close_day')[0].body, { p_restaurant_id: RID, p_date: '2026-10-26', p_counted_cash: 580, p_note: null, p_notify: false })
 })
 
 test('ปิดวัน: ส่งสรุปเข้า LINE ของร้าน · LINE ล่มก็ยังปิดวันสำเร็จ', async () => {
@@ -224,7 +227,7 @@ test('ปิดวันซ้ำ -> 409 already_closed', async () => {
 })
 
 test('ส่งออก CSV: UTF-8 BOM หัวตารางไทย เป็นไฟล์แนบ', async () => {
-  on('/rpc/acct_journal_rows', () =>
+  on('/rpc/acct_journal_export', () =>
     json([{ entry_no: 1, entry_date: '2026-10-26', source_type: 'bill', memo: 'ขาย โต๊ะ 1', reason: null, created_by_name: 'a',
       account_code: '1010', account_name: 'เงินสด', debit: '150', credit: '0', line_memo: null }]))
   const r = await req(`/api/accounting/export?restaurant_id=${RID}&from=2026-10-01&to=2026-10-26&report=journal&format=csv`, { as: 'accountant' })
@@ -343,27 +346,22 @@ test('POST /accounting/expenses: ใบกำกับภาษีซื้อ�
 })
 
 test('GET /accounting/expenses: อ่านช่องผู้ขาย ใบกำกับ และหัก ณ ที่จ่าย · ครัว 403', async () => {
-  on('/rest/v1/expenses', () => json([{ id: 'e1', wht_type: 'pnd53', wht_amount: '30.00' }]))
+  on('/rpc/acct_expense_export', () => json([{ id: 'e1', wht_type: 'pnd53', wht_amount: '30.00' }]))
   const r = await req(`/api/accounting/expenses?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'manager' })
   assert.equal(r.status, 200)
-  const url = decodeURIComponent(callsTo('/rest/v1/expenses')[0].url)
-  for (const col of ['supplier_name', 'supplier_tax_id', 'supplier_branch_code', 'tax_invoice_no', 'tax_invoice_date', 'wht_rate', 'wht_amount', 'wht_type']) {
-    assert.ok(url.includes(col), col)
-  }
+  assert.deepEqual(callsTo('/rpc/acct_expense_export')[0].body, { p_restaurant_id: RID, p_from: '2026-11-01', p_to: '2026-11-30' })
   assert.equal((await body(r)).expenses[0].wht_type, 'pnd53')
   assert.equal((await req(`/api/accounting/expenses?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'kitchen' })).status, 403)
 })
 
 test('GET /tax/documents: แท็บเอกสารภาษีดึงร่างทั้งหมด + เอกสารตามวันที่ออก · สถานะผิด 400', async () => {
-  on('/rest/v1/tax_documents', () => json([{ id: 'd1', doc_type: 'TAX', status: 'draft', total_amount: '1070.00' }]))
+  on('/rpc/tax_documents_list', () => json([{ id: 'd1', doc_type: 'TAX', status: 'draft', total_amount: '1070.00' }]))
   const drafts = await req(`/api/tax/documents?restaurant_id=${RID}&status=draft`, { as: 'accountant' })
   assert.equal(drafts.status, 200)
-  assert.match(callsTo('/rest/v1/tax_documents')[0].url, /status=eq\.draft/)
+  assert.equal((callsTo('/rpc/tax_documents_list')[0].body as { p_status: string }).p_status, 'draft')
   assert.equal((await body(drafts)).documents[0].status, 'draft')
   await req(`/api/tax/documents?restaurant_id=${RID}&from=2026-11-01&to=2026-11-30`, { as: 'owner' })
-  assert.match(callsTo('/rest/v1/tax_documents')[1].url, /issue_date=gte\.2026-11-01&issue_date=lte\.2026-11-30/)
-  // รายการไม่ส่ง xml_payload (ดาวน์โหลดแยกที่ /xml)
-  assert.doesNotMatch(callsTo('/rest/v1/tax_documents')[1].url, /xml_payload/)
+  assert.deepEqual(callsTo('/rpc/tax_documents_list')[1].body, { p_restaurant_id: RID, p_from: '2026-11-01', p_to: '2026-11-30', p_doc_type: null, p_status: null, p_order_id: null })
   assert.equal((await req(`/api/tax/documents?restaurant_id=${RID}&status=archived`, { as: 'owner' })).status, 400)
   assert.equal((await req(`/api/tax/documents?restaurant_id=${RID}&from=2026-13-01`, { as: 'owner' })).status, 400)
 })
@@ -390,8 +388,9 @@ test('POST /tax/documents/:id/confirm + GET xml: ยืนยันร่าง�
 
 test('รายงาน กรมสรรพากร: JSON ที่หน้า RD Tax ใช้ + ชื่อไฟล์ CSV ตรงกับหน้าเว็บ', async () => {
   on('/rest/v1/tax_settings', () => json([{ company_name: 'บจก. ร้านอาหาร', tax_id: COMPANY_TAX_ID, branch_code: '00000', registered_address: 'กรุงเทพฯ' }]))
-  on('tax_invoice_no=not.is.null', () =>
-    json([{ tax_invoice_date: '2026-11-04', tax_invoice_no: 'IV-1', supplier_name: 'บจก. ซัพพลาย', supplier_tax_id: COMPANY_TAX_ID, supplier_branch_code: '00000', amount: '1070', vat_amount: '70', spent_on: '2026-11-05' }]),
+  on('/rpc/acct_expense_export', () =>
+    json([{ tax_invoice_date: '2026-11-04', tax_invoice_no: 'IV-1', supplier_name: 'บจก. ซัพพลาย', supplier_tax_id: COMPANY_TAX_ID, supplier_branch_code: '00000', amount: '1070', vat_amount: '70', spent_on: '2026-11-05', wht_rate: '3', wht_amount: '30', wht_type: 'pnd53', note: null, accounts: { name: 'ค่าบริการ' } },
+    { spent_on: '2026-11-06', supplier_name: 'นายช่าง', supplier_tax_id: PERSON_TAX_ID, supplier_branch_code: null, amount: '5000', vat_amount: '0', wht_rate: '3', wht_amount: '150', wht_type: 'pnd3', note: 'ซ่อมแอร์', accounts: null }]),
   )
   on('tax_invoice_no=is.null', () => json([]))
   on('wht_type=', () =>

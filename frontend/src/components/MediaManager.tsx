@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { MEDIA_BUCKET, MEDIA_MAX_MB, mediaSrc, mediaTypeOf } from '../lib/media'
@@ -142,34 +143,34 @@ export default function MediaManager({
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`badge ${m.kind === 'image' ? 'badge-gray' : m.kind === 'video' ? 'badge-blue' : 'badge-red'}`}>{KIND_LABEL[m.kind]}</span>
                     <span className="hint">{m.poster ? 'โปสเตอร์' : m.storage_path ? 'อัปโหลด' : 'ลิงก์'}</span>
-                    {m.duration_sec && <span className="hint">· {m.duration_sec} วิ</span>}
-                    {!m.is_active && <span className="badge badge-amber">ซ่อนอยู่</span>}
+                    {m.duration_sec && <span className="hint">· {m.duration_sec}{" " + translateUi("วิ") + ""}</span>}
+                    {!m.is_active && <span className="badge badge-amber">{translateUi("ซ่อนอยู่")}</span>}
                   </div>
                   {(m.title || m.caption) && <div className="truncate text-gray-800">{[m.title, m.caption].filter(Boolean).join(' — ')}</div>}
                   {m.credit && <div className="truncate text-xs text-gray-400">{m.credit}</div>}
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm">
-                  <button type="button" className="link-muted disabled:opacity-30" disabled={i === 0} onClick={() => void move(i, -1)} aria-label="เลื่อนขึ้น">↑</button>
-                  <button type="button" className="link-muted disabled:opacity-30" disabled={i === media.length - 1} onClick={() => void move(i, 1)} aria-label="เลื่อนลง">↓</button>
+                  <button type="button" className="link-muted disabled:opacity-30" disabled={i === 0} onClick={() => void move(i, -1)} aria-label={translateUi("เลื่อนขึ้น")}>↑</button>
+                  <button type="button" className="link-muted disabled:opacity-30" disabled={i === media.length - 1} onClick={() => void move(i, 1)} aria-label={translateUi("เลื่อนลง")}>↓</button>
                   {Boolean(m.poster) && onPoster && (
-                    <button type="button" className="link" onClick={() => onPoster(m)}>แก้โปสเตอร์</button>
+                    <button type="button" className="link" onClick={() => onPoster(m)}>{translateUi("แก้โปสเตอร์")}</button>
                   )}
-                  <button type="button" className="link" onClick={() => (editId === m.id ? setEditId(null) : startEdit(m))}>แก้ไข</button>
+                  <button type="button" className="link" onClick={() => (editId === m.id ? setEditId(null) : startEdit(m))}>{translateUi("แก้ไข")}</button>
                   <button type="button" className="link" onClick={() => void toggle(m)}>{m.is_active ? 'ซ่อน' : 'แสดง'}</button>
-                  <button type="button" className="link-danger" onClick={() => void remove(m)}>ลบ</button>
+                  <button type="button" className="link-danger" onClick={() => void remove(m)}>{translateUi("ลบ")}</button>
                 </div>
               </div>
               {editId === m.id && (
                 <form onSubmit={(e) => void saveEdit(e, m)} className="mt-2 grid gap-2 border-t pt-2 sm:grid-cols-2">
                   {isAd && (
-                    <input className="input" placeholder="หัวข้อบนสไลด์" maxLength={80} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+                    <input className="input" placeholder={translateUi("หัวข้อบนสไลด์")} maxLength={80} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
                   )}
-                  <input className="input" placeholder="คำบรรยาย (ไม่บังคับ)" maxLength={200} value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
-                  <input className="input" placeholder="เครดิต เช่น ภาพ: ชื่อเจ้าของ · CC BY" maxLength={120} value={draft.credit} onChange={(e) => setDraft({ ...draft, credit: e.target.value })} />
-                  <input className="input" type="number" min={5} max={120} placeholder="เวลาแสดง (วินาที) ว่าง = อัตโนมัติ" value={draft.duration} onChange={(e) => setDraft({ ...draft, duration: e.target.value })} />
+                  <input className="input" placeholder={translateUi("คำบรรยาย (ไม่บังคับ)")} maxLength={200} value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
+                  <input className="input" placeholder={translateUi("เครดิต เช่น ภาพ: ชื่อเจ้าของ · CC BY")} maxLength={120} value={draft.credit} onChange={(e) => setDraft({ ...draft, credit: e.target.value })} />
+                  <input className="input" type="number" min={5} max={120} placeholder={translateUi("เวลาแสดง (วินาที) ว่าง = อัตโนมัติ")} value={draft.duration} onChange={(e) => setDraft({ ...draft, duration: e.target.value })} />
                   <div className="flex gap-2 sm:col-span-2">
-                    <button className="btn btn-primary btn-sm">บันทึก</button>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>ยกเลิก</button>
+                    <button className="btn btn-primary btn-sm">{translateUi("บันทึก")}</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>{translateUi("ยกเลิก")}</button>
                   </div>
                 </form>
               )}
@@ -194,23 +195,19 @@ export default function MediaManager({
           />
         </label>
         {onPoster && (
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPoster(null)}>
-            สร้างโปสเตอร์
-          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPoster(null)}>{"" + translateUi("สร้างโปสเตอร์") + " "}</button>
         )}
         <form onSubmit={(e) => void addLink(e)} className="flex min-w-64 flex-1 gap-2">
           <input
             className="input flex-1"
-            placeholder="หรือวางลิงก์ YouTube / ไฟล์ .mp4 .jpg (https://)"
+            placeholder={translateUi("หรือวางลิงก์ YouTube / ไฟล์ .mp4 .jpg (https://)")}
             value={link}
             onChange={(e) => setLink(e.target.value)}
           />
-          <button className="btn btn-secondary btn-sm" disabled={!link.trim()}>เพิ่มลิงก์</button>
+          <button className="btn btn-secondary btn-sm" disabled={!link.trim()}>{translateUi("เพิ่มลิงก์")}</button>
         </form>
       </div>
-      <p className="mt-1.5 hint">
-        ไฟล์ไม่เกิน {MEDIA_MAX_MB} MB · แนวนอนดูดีที่สุด · วิดีโอเล่นแบบไม่มีเสียง · {isAd ? 'สไลด์โฆษณาแทรกระหว่างเมนู' : 'มีหลายชิ้นจะเปลี่ยนชิ้นทุกรอบที่จอเล่นครบ'} · ใช้ภาพของคนอื่นให้ใส่เครดิต
-      </p>
+      <p className="mt-1.5 hint">{"" + translateUi("ไฟล์ไม่เกิน") + " "}{MEDIA_MAX_MB}{" " + translateUi("MB · แนวนอนดูดีที่สุด · วิดีโอเล่นแบบไม่มีเสียง ·") + " "}{isAd ? 'สไลด์โฆษณาแทรกระหว่างเมนู' : 'มีหลายชิ้นจะเปลี่ยนชิ้นทุกรอบที่จอเล่นครบ'}{" " + translateUi("· ใช้ภาพของคนอื่นให้ใส่เครดิต") + " "}</p>
     </div>
   )
 }

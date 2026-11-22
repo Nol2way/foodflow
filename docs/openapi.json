@@ -54,6 +54,1844 @@
     }
   ],
   "paths": {
+    "/api/staff/{userId}/active": {
+      "post": {
+        "operationId": "setStaffActive",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "is_active"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/members/find": {
+      "get": {
+        "operationId": "findMembers",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:[0-9]{4}|0[0-9]{8,9})$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/members/{id}/export": {
+      "get": {
+        "operationId": "exportMember",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/members/{id}": {
+      "delete": {
+        "operationId": "deleteMember",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/feedback": {
+      "post": {
+        "operationId": "submitFeedback",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "rating",
+                  "client_ref"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "client_ref": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback/report": {
+      "get": {
+        "operationId": "feedbackReport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/promotions/coupon": {
+      "get": {
+        "operationId": "couponLookup",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/promotions/report": {
+      "get": {
+        "operationId": "promotionReport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/stock/supplier-report": {
+      "get": {
+        "operationId": "supplierReceivingReport",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/stock/receipts/{id}/claim": {
+      "post": {
+        "operationId": "setReceiptClaim",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "ingredient_id",
+                  "status"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "ingredient_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "credited",
+                      "accepted"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/documents/{id}": {
+      "patch": {
+        "operationId": "updateTaxDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "buyer_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 200
+                  },
+                  "buyer_tax_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 13
+                  },
+                  "buyer_branch_code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 5
+                  },
+                  "buyer_address": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  },
+                  "exempt_amount": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "amount": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "credit_note_reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getTaxDocument",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft or confirmed document"
+          },
+          "400": {
+            "description": "restaurant_id ไม่ใช่ UUID หรือข้อมูลไม่ถูกต้อง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_restaurant_id": {
+                    "value": {
+                      "error": "invalid_restaurant_id"
+                    }
+                  },
+                  "invalid_request": {
+                    "value": {
+                      "error": "invalid_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทในร้านนี้ไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "forbidden": {
+                    "value": {
+                      "error": "forbidden"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/documents/{id}/void": {
+      "post": {
+        "operationId": "voidTaxDraft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "reason"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/settings": {
+      "get": {
+        "operationId": "getTaxSettings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveTaxSettings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "tax_id",
+                  "company_name",
+                  "registered_address"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "tax_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 13
+                  },
+                  "company_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 200
+                  },
+                  "branch_code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 5
+                  },
+                  "branch_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 100
+                  },
+                  "registered_address": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 500
+                  },
+                  "postcode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 5
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/terminals": {
+      "get": {
+        "operationId": "listTaxTerminals",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createTaxTerminal",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "terminal_code",
+                  "name"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "terminal_code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 10
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  },
+                  "pos_reg_no": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 30
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tax/terminals/{id}": {
+      "patch": {
+        "operationId": "updateTaxTerminal",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "terminal_code": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 10
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  },
+                  "pos_reg_no": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 30
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTaxTerminal",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Session invalid"
+          },
+          "403": {
+            "description": "Not authorized"
+          },
+          "404": {
+            "description": "Tenant object not found"
+          },
+          "409": {
+            "description": "State conflict"
+          },
+          "502": {
+            "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/api/readyz": {
+      "get": {
+        "operationId": "readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Database ready"
+          },
+          "503": {
+            "description": "Database unavailable"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All sessions revoked"
+          },
+          "400": {
+            "description": "restaurant_id ไม่ใช่ UUID หรือข้อมูลไม่ถูกต้อง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_restaurant_id": {
+                    "value": {
+                      "error": "invalid_restaurant_id"
+                    }
+                  },
+                  "invalid_request": {
+                    "value": {
+                      "error": "invalid_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทในร้านนี้ไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "forbidden": {
+                    "value": {
+                      "error": "forbidden"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shifts": {
+      "get": {
+        "operationId": "listShifts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shift history"
+          },
+          "400": {
+            "description": "restaurant_id ไม่ใช่ UUID หรือข้อมูลไม่ถูกต้อง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_restaurant_id": {
+                    "value": {
+                      "error": "invalid_restaurant_id"
+                    }
+                  },
+                  "invalid_request": {
+                    "value": {
+                      "error": "invalid_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทในร้านนี้ไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "forbidden": {
+                    "value": {
+                      "error": "forbidden"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shifts/{id}": {
+      "get": {
+        "operationId": "getShift",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ร้านที่ทำรายการ"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shift and recoverable Z report"
+          },
+          "400": {
+            "description": "restaurant_id ไม่ใช่ UUID หรือข้อมูลไม่ถูกต้อง",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_restaurant_id": {
+                    "value": {
+                      "error": "invalid_restaurant_id"
+                    }
+                  },
+                  "invalid_request": {
+                    "value": {
+                      "error": "invalid_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "ไม่มี token หรือ token หมดอายุ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "unauthorized": {
+                    "value": {
+                      "error": "unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "บทบาทในร้านนี้ไม่พอ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "forbidden": {
+                    "value": {
+                      "error": "forbidden"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -105,7 +1943,7 @@
           "นำเข้าข้อมูล"
         ],
         "summary": "นำเข้ายอดขายย้อนหลังจาก CSV (เจ้าของ, ผู้จัดการ)",
-        "description": "ไฟล์ไม่เกิน 3 MB / 20,000 แถว\n- คอลัมน์บังคับ: `datetime` (หรือ `date` + `time`), `item`, `qty` · ไม่บังคับ: `ref` (เลขที่บิล), `price`\n- รองรับหัวตารางไทย: วันที่, เวลา, เลขที่บิล, เมนู, จำนวน, ราคา · วันที่ `2026-09-01` หรือ `01/09/2569`\n- แถวผิดรูปแบบ → 400 `invalid_rows` พร้อมเลขบรรทัด และ **ไม่นำเข้าเลยทั้งไฟล์**\n- ชื่อเมนูไม่ตรงในระบบ → `blocked: true` ไม่นำเข้า เว้นแต่ส่ง `skip_unknown: true`\n- ออเดอร์ที่นำเข้า: สถานะ paid, ไม่ตัดสต็อก, แถวที่ `ref` เดียวกันในวันเดียวกันรวมเป็น 1 ออเดอร์\n- แนะนำให้เรียกด้วย `dry_run: true` ก่อนเพื่อดูผล",
+        "description": "ไฟล์ไม่เกิน 3 MB / 20,000 แถว\n- คอลัมน์บังคับ: `datetime` (หรือ `date` + `time`), `item`, `qty` · ไม่บังคับ: `ref` (เลขที่บิล), `price`\n- รองรับหัวตารางไทย: วันที่, เวลา, เลขที่บิล, เมนู, จำนวน, ราคา · วันที่ `2026-09-01` หรือ `01/09/2569`\n- แถวผิดรูปแบบ → 400 `invalid_rows` พร้อมเลขบรรทัด และ **ไม่นำเข้าเลยทั้งไฟล์**\n- ชื่อเมนูไม่ตรงในระบบ → `blocked: true` ไม่นำเข้า เว้นแต่ส่ง `skip_unknown: true`\n- ออเดอร์ที่นำเข้า: สถานะ paid, ไม่ตัดสต็อก, แถวที่ `ref` เดียวกันในวันเดียวกันรวมเป็น 1 ออเดอร์\n- ต้องเรียก dry_run:true และส่ง preview_token เดิมตอนยืนยัน; CSV หรือ XLSX 1 worksheet ไม่มีสูตร",
         "operationId": "importSales",
         "security": [
           {
@@ -119,8 +1957,19 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "restaurant_id",
-                  "csv"
+                  "restaurant_id"
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "csv"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "xlsx_base64"
+                    ]
+                  }
                 ],
                 "properties": {
                   "restaurant_id": {
@@ -131,6 +1980,15 @@
                     "type": "string",
                     "description": "เนื้อไฟล์ CSV ทั้งไฟล์",
                     "maxLength": 3000000
+                  },
+                  "xlsx_base64": {
+                    "type": "string",
+                    "maxLength": 4000000,
+                    "description": "Base64 XLSX; single sheet, no formulas, up to 20,000 rows"
+                  },
+                  "preview_token": {
+                    "type": "string",
+                    "description": "Token from the reviewed dry run; required on commit"
                   },
                   "dry_run": {
                     "type": "boolean",
@@ -1385,7 +3243,7 @@
             }
           },
           "403": {
-            "description": "บทบาทไม่พอ หรือผู้จัดการรีเซ็ตเจ้าของ/ผู้จัดการ",
+            "description": "บทบาทไม่พอ หรือบัญชีร่วมหลายร้านต้องกู้คืนระดับบัญชี",
             "content": {
               "application/json": {
                 "schema": {
@@ -1395,6 +3253,11 @@
                   "forbidden": {
                     "value": {
                       "error": "forbidden"
+                    }
+                  },
+                  "identity_management_required": {
+                    "value": {
+                      "error": "identity_management_required"
                     }
                   }
                 }
@@ -5127,6 +6990,11 @@
                     "type": "string",
                     "maxLength": 300
                   },
+                  "client_ref": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Stable UUID for retries of this creation action; do not reuse for another draft"
+                  },
                   "confirm": {
                     "type": "boolean",
                     "default": false
@@ -5155,6 +7023,9 @@
                 }
               }
             }
+          },
+          "202": {
+            "description": "Document created but follow-up outcome unknown; response includes document_id and recovery_url"
           },
           "400": {
             "description": "ข้อมูลไม่ถูกต้อง (เช่น invalid_range, invalid_date, reason_required)",
@@ -9921,6 +11792,12 @@
           "dry_run": {
             "type": "boolean"
           },
+          "preview_token": {
+            "type": "string"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
           "blocked": {
             "type": "boolean",
             "description": "true = มีชื่อเมนูที่ไม่รู้จักและไม่ได้ส่ง skip_unknown จึงไม่นำเข้าอะไรเลย"
@@ -9971,6 +11848,9 @@
               "string",
               "null"
             ]
+          },
+          "is_active": {
+            "type": "boolean"
           },
           "roles": {
             "type": "array",

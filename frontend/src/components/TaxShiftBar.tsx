@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useState } from 'react'
 import type { TaxSetup } from '../lib/tax'
 import ShiftModal, { type CurrentShift } from './ShiftModal'
@@ -24,9 +25,7 @@ export default function TaxShiftBar({ restaurantId, setup, current }: { restaura
           {open && <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />}
         </button>
         <button className="btn btn-secondary" onClick={() => setModal('tax')} disabled={!setup.loaded}>
-          <Icon name="report" className="h-4 w-4" />
-          ใบกำกับภาษี / ใบลดหนี้
-        </button>
+          <Icon name="report" className="h-4 w-4" />{"" + translateUi("ใบกำกับภาษี / ใบลดหนี้") + " "}</button>
       </div>
 
       {modal === 'shift' && (

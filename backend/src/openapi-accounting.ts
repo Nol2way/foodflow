@@ -487,11 +487,13 @@ export const accountingPaths = {
           exempt_amount: { ...money, default: 0, description: 'ยอดที่ได้รับยกเว้น VAT (ABB/TAX จากออเดอร์)' },
           amount: { ...money, description: 'CN: ยอดลดหนี้รวม VAT (รวมทุกใบไม่เกินยอดเอกสารต้นทาง)' },
           credit_note_reason: { type: 'string', maxLength: 300 },
+          client_ref: { ...uuid, description: 'Stable UUID for retries of this creation action; do not reuse for another draft' },
           confirm: { type: 'boolean', default: false }, terminal_code: { type: 'string', pattern: '^[A-Za-z0-9]{1,10}$' },
         },
       }),
       responses: {
         ...ok('สร้างแล้ว', { type: 'object', properties: { document: { $ref: '#/components/schemas/TaxDocument' } } }, '201'),
+        '202': { description: 'Document created but follow-up outcome unknown; response includes document_id and recovery_url' },
         ...errors({ '409': 'มีเอกสารแล้ว (document_exists, tax_invoice_exists) / ยอดลดหนี้เกิน / ยืนยันไม่ผ่าน (มี document_id)' }),
       },
     }, taxTag.name),

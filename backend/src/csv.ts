@@ -25,6 +25,7 @@ export function parseCsv(text: string): string[][] {
   let row: string[] = []
   let field = ''
   let quoted = false
+  let closed = false
   const s = text.replace(/^﻿/, '')
   for (let i = 0; i < s.length; i++) {
     const ch = s[i]
@@ -33,20 +34,29 @@ export function parseCsv(text: string): string[][] {
         if (s[i + 1] === '"') {
           field += '"'
           i++
-        } else quoted = false
+        } else { quoted = false; closed = true }
       } else field += ch
-    } else if (ch === '"') quoted = true
+    } else if (ch === '"') {
+      if (field !== '' || closed) throw new Error('invalid_csv_quotes')
+      quoted = true
+    }
     else if (ch === ',') {
       row.push(field)
       field = ''
+      closed = false
     } else if (ch === '\n' || ch === '\r') {
       if (ch === '\r' && s[i + 1] === '\n') i++
       row.push(field)
       rows.push(row)
       row = []
       field = ''
-    } else field += ch
+      closed = false
+    } else {
+      if (closed) throw new Error('invalid_csv_quotes')
+      field += ch
+    }
   }
+  if (quoted) throw new Error('invalid_csv_quotes')
   if (field !== '' || row.length > 0) {
     row.push(field)
     rows.push(row)
@@ -100,7 +110,8 @@ export function parseTime(v: string): string | null {
 }
 
 export function parseSales(text: string): { rows: SaleRow[]; errors: RowError[] } {
-  const table = parseCsv(text)
+  let table: string[][]
+  try { table = parseCsv(text) } catch { return { rows: [], errors: [{ line: 1, message: 'invalid_csv_quotes' }] } }
   const errors: RowError[] = []
   if (table.length < 2) return { rows: [], errors: [{ line: 1, message: 'ไฟล์ไม่มีข้อมูล (ต้องมีหัวตารางและอย่างน้อย 1 แถว)' }] }
 
@@ -131,9 +142,13 @@ export function parseSales(text: string): { rows: SaleRow[]; errors: RowError[] 
     const item = cell('item')
     const qtyText = cell('qty')
     const qty = Number(qtyText)
-    const price = cell('price').replace(/,/g, '')
+    const rawPrice = cell('price')
+    const price = /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(rawPrice) ? rawPrice.replace(/,/g, '') : rawPrice
 
     const problems: string[] = []
+    if (cell('ref').length > 100) problems.push('reference_too_long')
+    if (r.length !== table[0].length) problems.push('invalid_column_count')
+    if (price && Number(price) > 100_000_000) problems.push('price_too_large')
     if (!date) problems.push('วันที่ไม่ถูกต้อง (ใช้ YYYY-MM-DD หรือ DD/MM/YYYY)')
     if (!time) problems.push('เวลาไม่ถูกต้อง (ใช้ HH:MM)')
     if (!item) problems.push('ไม่มีชื่อเมนู')
@@ -144,7 +159,7 @@ export function parseSales(text: string): { rows: SaleRow[]; errors: RowError[] 
       errors.push({ line, message: problems.join(', ') })
       continue
     }
-    rows.push({ line, ref: cell('ref').slice(0, 100), at: `${date} ${time}`, item, qty, price })
+    rows.push({ line, ref: cell('ref'), at: `${date} ${time}`, item, qty, price })
   }
 
   if (rows.length + errors.length === 0) errors.push({ line: 2, message: 'ไม่มีแถวข้อมูล' })

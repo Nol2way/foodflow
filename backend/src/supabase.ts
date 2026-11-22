@@ -24,7 +24,8 @@ export interface Db {
 function client(env: Env, apikey: string, bearer: string): Db {
   const base = env.SUPABASE_URL.replace(/\/+$/, '') + '/rest/v1/'
   async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(base + path, {
+    let res: Response
+    try { res = await fetch(base + path, {
       method,
       headers: {
         apikey,
@@ -33,9 +34,16 @@ function client(env: Env, apikey: string, bearer: string): Db {
         Prefer: 'return=representation',
       },
       body: body === undefined ? undefined : JSON.stringify(body),
-    })
-    const text = await res.text()
-    const data = text ? JSON.parse(text) : null
+      signal: AbortSignal.timeout(15_000),
+    }) } catch (e) {
+      throw new DbError(e instanceof Error && ['TimeoutError', 'AbortError'].includes(e.name) ? 504 : 502, 'upstream_unavailable', 'upstream_unavailable')
+    }
+    let text: string
+    try { text = await res.text() } catch (e) {
+      throw new DbError(e instanceof Error && ['TimeoutError', 'AbortError'].includes(e.name) ? 504 : 502, 'upstream_unavailable', 'upstream_unavailable')
+    }
+    let data
+    try { data = text ? JSON.parse(text) : null } catch { throw new DbError(502, 'invalid_upstream_response', 'invalid_upstream_response') }
     if (!res.ok) {
       throw new DbError(res.status, data?.code ?? '', data?.message ?? `supabase ${res.status}`)
     }

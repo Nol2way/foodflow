@@ -6,7 +6,7 @@
 
 ## เริ่มใช้งาน
 
-ต้องมี Node.js 22.18+ และ npm รันจากราก repository:
+ใช้ Node.js ตาม `.nvmrc` (22.20.0) และ npm รันจากราก repository:
 
 ```powershell
 npm --prefix frontend ci
@@ -23,16 +23,16 @@ Copy-Item backend/.dev.vars.example backend/.dev.vars
 
 ## สถานะและขอบเขต
 
-การมีโค้ดไม่เท่ากับผ่านการใช้งานจริงครบทุกกรณี ผลตรวจแยกไว้ใน [testing](docs/testing.md) และ [project-readiness](docs/project-readiness.md)
+ผลหลังแก้ audit ดู [remediation results](docs/audits/2026-11-22-remediation-results.md), [คู่มือฟีเจอร์](docs/features.md) และ [operations](docs/operations.md) ส่วน project-readiness เป็นหลักฐานรอบเตรียมก่อนแก้
 
 | ส่วน | มีในโค้ดปัจจุบัน | งานที่ยังต้องทำ |
 |---|---|---|
-| หน้าร้าน/ครัว | POS ทานที่ร้าน/กลับบ้าน Realtime เสิร์ฟ รวมบิล พร้อมเพย์ ใบเสร็จ | บั๊ก person-1, add-ons, ผังโต๊ะ, แก้/แยกบิล, Audit/PWA |
-| บัญชี/ภาษี/กะ | บัญชีคู่ รายจ่าย กลับรายการ ปิดวัน รายงาน ร่างภาษีและกะบางส่วน | API/UI ที่ขาดตาม P2-F5 และทดสอบครบวงจร |
-| สต็อก | Ledger, FEFO/FIFO, สูตรซ้อน รับเข้า นับ blind, AvT, yield, par | LINE และเชื่อม API/UI เคลม/รายงานผู้ขาย |
-| สมาชิก/โปร | แต้ม โปรตามเงื่อนไข รายงานรายวัน | บั๊ก person-2, คูปอง, PDPA/feedback |
-| นำเข้า | CSV ตรวจข้อมูล/ย้อน batch | `.xlsx` โดยตรง |
-| ระบบกลาง | หลายบทบาท custom JWT, Swagger | CI, dark mode, TH/EN |
+| หน้าร้าน/ครัว | Add-ons, ผังโต๊ะ, แก้/แยกบิล, ค่าบริการ/ทิป, ticket 80 มม., PWA/คิว retry | UAT และเครื่องพิมพ์จริง; หารเท่ากันต้องเก็บครบก่อนปิดบิล |
+| บัญชี/ภาษี/กะ | บัญชีคู่ เอกสารตาม order, exports/recovery และ HTTP API เพิ่ม | XML บน PostgreSQL ที่รองรับ และการยื่นเอกสารจริง |
+| สต็อก | Ledger, FEFO/FIFO, สูตรซ้อน, blind count, AvT/yield/par, claim API | Restore drill และ LINE delivery จริง |
+| สมาชิก/โปร | แต้ม/ledger, coupon/stack rules, export/delete/feedback | นโยบายเก็บข้อมูลและช่องทางติดต่อของร้านจริง |
+| นำเข้า | CSV/XLSX, strict preview binding และ batch idempotency | ทดสอบกับไฟล์ร้านจริงก่อนย้ายประวัติ |
+| ระบบกลาง | Session revocation/RLS, Swagger, CI, Dark/TH-EN และ audit log | หมุน secret, deploy migration และ production smoke test |
 | AI | โค้ด Gemini และสถิติเดิม | ไม่อยู่ในรอบสองคน; router ไม่มี `/analytics` |
 
 แผนหลักคือ [person-1](docs/tasks/2-people/person-1-pos-kitchen.md) และ [person-2](docs/tasks/2-people/person-2-crm-ops.md): คนละ 6 บั๊ก + 5 ฟีเจอร์ ส่วน [10 ระบบที่เสนอเพิ่ม](docs/tasks/2-people/proposed-systems.md) เป็นงานอนาคต
@@ -59,7 +59,7 @@ flowchart LR
 
 `frontend/` = React/UI/tests · `backend/` = Hono/auth/OpenAPI/tests · `database/` = migrations/seed/tests · `docs/` = คู่มือ/ใบงาน
 
-Migration ปัจจุบันคือ `0001–0008`; `archive/` เป็นประวัติ ห้ามรันซ้ำทั้งสองชุด ดู [migration guide](database/migrations/README.md)
+Migration ปัจจุบันคือ `0001–0011`; `archive/` เป็นประวัติ ห้ามรันซ้ำทั้งสองชุด ดู [migration guide](database/migrations/README.md)
 
 ```powershell
 npm --prefix backend run typecheck

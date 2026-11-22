@@ -1,7 +1,8 @@
+import { translateUi } from "../../lib/uiText"
 // รายงาน: กำไรต่อเมนู · งบกำไรขาดทุน · เหมา 60% vs ตามจริง · ส่งออก (ทุกโหมด)
 //         สมุดรายวัน · บัญชีแยกประเภท · งบดุล · งบกระแสเงินสด · ภาษีขาย/ซื้อ (โหมดมืออาชีพ)
 //         เอกสารภาษี & e-Tax · รายงานภาษี ภ.พ.30 / ภ.ง.ด. (ทุกโหมด เมื่อจด VAT หรือมีหัก ณ ที่จ่าย)
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { apiDownload, apiMessage } from '../../lib/api'
 import {
@@ -35,6 +36,7 @@ const VIEWS: { key: View; label: string; pro?: boolean }[] = [
 ]
 
 interface JournalRow {
+  account_id: string
   entry_id: string
   entry_no: number
   entry_date: string
@@ -69,6 +71,7 @@ const EXPORTS = [
 ]
 
 export default function AcctReports({ restaurantId, today, mode }: { restaurantId: string; today: string; mode: AccountingMode }) {
+  const request = useRef(0)
   const [from, setFrom] = useState(monthStart(today))
   const [to, setTo] = useState(today)
   const [view, setView] = useState<View>('pnl')
@@ -88,13 +91,17 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
   }, [pro, view])
 
   const load = useCallback(async () => {
+    const sequence = ++request.current
+    setSummary(null); setTrial([]); setMenu([])
     const args = { p_restaurant_id: restaurantId, p_from: from, p_to: to }
     const [s, t, mp] = await Promise.all([
       supabase.rpc('acct_summary', args),
-      supabase.rpc('acct_trial_balance', args),
-      supabase.rpc('acct_menu_profit', args),
+      supabase.rpc('acct_trial_balance_export', args),
+      supabase.rpc('acct_menu_profit_export', args),
     ])
-    if (s.error || t.error || mp.error) return setError('โหลดรายงานไม่สำเร็จ (ต้องรัน migration 0026)')
+    if (sequence !== request.current) return
+    const failure = s.error ?? t.error ?? mp.error
+    if (failure) return setError(failure.message.includes('export_too_large') ? 'ข้อมูลมากเกินไป กรุณาเลือกช่วงวันที่ให้แคบลง' : 'โหลดรายงานไม่สำเร็จ: ' + failure.message)
     setError(null)
     setSummary(normalizeSummary(s.data as Record<string, unknown>))
     setTrial(((t.data ?? []) as TrialRow[]).map((r) => ({ ...r, opening: Number(r.opening), debit: Number(r.debit), credit: Number(r.credit), closing: Number(r.closing) })))
@@ -103,17 +110,22 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
 
   useEffect(() => {
     void load()
+    return () => { request.current++ }
   }, [load])
 
   useEffect(() => {
     if (view !== 'journal' && view !== 'ledger') return
     if (view === 'ledger' && !ledgerAccount) return setJournal([])
+    let alive = true
+    setJournal([])
     void supabase
-      .rpc('acct_journal_rows', { p_restaurant_id: restaurantId, p_from: from, p_to: to, p_account_id: view === 'ledger' ? ledgerAccount : null, p_limit: 5000 })
+      .rpc('acct_journal_export', { p_restaurant_id: restaurantId, p_from: from, p_to: to })
       .then(({ data, error: err }) => {
-        if (err) return setError('โหลดสมุดรายวันไม่สำเร็จ')
-        setJournal(((data ?? []) as JournalRow[]).map((r) => ({ ...r, debit: Number(r.debit), credit: Number(r.credit) })))
+        if (!alive) return
+        if (err) return setError(err.message.includes('export_too_large') ? 'ข้อมูลมากเกินไป กรุณาเลือกช่วงวันที่ให้แคบลง' : 'โหลดสมุดรายวันไม่สำเร็จ: ' + err.message)
+        setJournal(((data ?? []) as JournalRow[]).filter((r) => view !== 'ledger' || r.account_id === ledgerAccount).map((r) => ({ ...r, debit: Number(r.debit), credit: Number(r.credit) })))
       })
+    return () => { alive = false }
   }, [view, ledgerAccount, restaurantId, from, to])
 
   async function download(report: string, format: 'csv' | 'xls') {
@@ -136,26 +148,26 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
 
   return (
     <div>
-      {error && <p className="alert-error">{error}</p>}
+      {error && <p className="alert-error">{translateUi(error)}</p>}
       <div className={`mb-4 flex flex-wrap items-center gap-2 ${view === 'rdtax' ? 'hidden' : ''}`}>
         {presets.map((p) => (
           <button
-            key={p.label}
+            key={translateUi(p.label)}
             className={`rounded-full border px-3 py-1 text-sm ${from === p.from && to === p.to ? 'border-gray-900 bg-gray-900 text-white' : 'bg-white text-gray-600'}`}
             onClick={() => {
               setFrom(p.from)
               setTo(p.to)
             }}
           >
-            {p.label}
+            {translateUi(p.label)}
           </button>
         ))}
-        <input className="input" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label="ตั้งแต่" />
-        <span className="text-sm">ถึง</span>
-        <input className="input" type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} aria-label="ถึง" />
+        <input className="input" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} aria-label={translateUi("ตั้งแต่")} />
+        <span className="text-sm">{translateUi("ถึง")}</span>
+        <input className="input" type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} aria-label={translateUi("ถึง")} />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1 border-b" role="tablist" aria-label="รายงาน">
+      <div className="mb-4 flex flex-wrap gap-1 border-b" role="tablist" aria-label={translateUi("รายงาน")}>
         {views.map((v) => (
           <button
             key={v.key}
@@ -164,11 +176,11 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
             onClick={() => setView(v.key)}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${view === v.key ? 'border-brand-500 font-semibold text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
           >
-            {v.label}
+            {translateUi(v.label)}
           </button>
         ))}
       </div>
-      {!pro && <p className="mb-4 hint">สมุดรายวัน บัญชีแยกประเภท งบดุล งบกระแสเงินสด และภาษีขาย/ซื้อ ดูได้ในโหมดมืออาชีพ</p>}
+      {!pro && <p className="mb-4 hint">{translateUi("สมุดรายวัน บัญชีแยกประเภท งบดุล งบกระแสเงินสด และภาษีขาย/ซื้อ ดูได้ในโหมดมืออาชีพ")}</p>}
 
       {summary && view === 'pnl' && <ProfitLoss s={summary} />}
       {view === 'menu' && <MenuTable rows={menu} />}
@@ -176,8 +188,8 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
       {view === 'journal' && <JournalTable rows={journal} />}
       {view === 'ledger' && (
         <>
-          <select className="input mb-3" value={ledgerAccount} onChange={(e) => setLedgerAccount(e.target.value)} aria-label="บัญชี">
-            <option value="">— เลือกบัญชี —</option>
+          <select className="input mb-3" value={ledgerAccount} onChange={(e) => setLedgerAccount(e.target.value)} aria-label={translateUi("บัญชี")}>
+            <option value="">{translateUi("— เลือกบัญชี —")}</option>
             {trial.map((r) => (
               <option key={r.account_id} value={r.account_id}>
                 {r.code} {r.name}
@@ -201,7 +213,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
       {view === 'taxdocs' && <TaxDocsView restaurantId={restaurantId} from={from} to={to} />}
       {view === 'rdtax' && <RdTaxView restaurantId={restaurantId} today={today} />}
 
-      <Section title="ส่งออกให้นักบัญชี">
+      <Section title={translateUi("ส่งออกให้นักบัญชี")}>
         <div className="card-flush divide-y">
           {EXPORTS.map((x) => (
             <div key={x.report} className="toolbar justify-between px-3 py-2 text-sm">
@@ -217,7 +229,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
             </div>
           ))}
         </div>
-        <p className="mt-2 hint">ช่วงวันที่ {from} ถึง {to} · CSV เปิดใน Excel ได้ภาษาไทยถูกต้อง</p>
+        <p className="mt-2 hint">{"" + translateUi("ช่วงวันที่") + " "}{from}{" " + translateUi("ถึง") + " "}{to}{" " + translateUi("· CSV เปิดใน Excel ได้ภาษาไทยถูกต้อง") + ""}</p>
       </Section>
     </div>
   )
@@ -242,7 +254,7 @@ function ProfitLoss({ s }: { s: Summary }) {
         ]}
       />
       <p className="mt-2 hint">
-        Prime Cost {m.primeCostPct ?? '–'}% · ต้นทุนขายจริง {baht(k.cogsActual)} = ต้นงวด {baht(k.opening)} + รับเข้า {baht(k.purchases)} − ปลายงวด {baht(k.closing)}
+        Prime Cost {m.primeCostPct ?? '–'}{"" + translateUi("% · ต้นทุนขายจริง") + " "}{baht(k.cogsActual)}{" " + translateUi("= ต้นงวด") + " "}{baht(k.opening)}{" " + translateUi("+ รับเข้า") + " "}{baht(k.purchases)}{" " + translateUi("− ปลายงวด") + " "}{baht(k.closing)}
         {k.matches ? ' ✓' : ' (ไม่ตรง ให้ตรวจ)'}
       </p>
     </>
@@ -255,11 +267,11 @@ function MenuTable({ rows }: { rows: MenuProfit[] }) {
       <table className="tbl">
         <thead>
           <tr>
-            <th className="text-left">เมนู</th>
-            <th className="text-right">จำนวน</th>
-            <th className="text-right">ยอดขาย</th>
-            <th className="text-right">ต้นทุน</th>
-            <th className="text-right">กำไรขั้นต้น</th>
+            <th className="text-left">{translateUi("เมนู")}</th>
+            <th className="text-right">{translateUi("จำนวน")}</th>
+            <th className="text-right">{translateUi("ยอดขาย")}</th>
+            <th className="text-right">{translateUi("ต้นทุน")}</th>
+            <th className="text-right">{translateUi("กำไรขั้นต้น")}</th>
             <th className="text-right">%</th>
           </tr>
         </thead>
@@ -268,7 +280,7 @@ function MenuTable({ rows }: { rows: MenuProfit[] }) {
             <tr key={r.menu_item_id} className="border-t">
               <td>
                 {r.name}
-                {!r.has_recipe && <span className="badge badge-amber ml-2">ไม่มีสูตร</span>}
+                {!r.has_recipe && <span className="badge badge-amber ml-2">{translateUi("ไม่มีสูตร")}</span>}
               </td>
               <td className="num">{r.quantity.toLocaleString('th-TH')}</td>
               <td className="num">{baht(r.revenue)}</td>
@@ -281,14 +293,12 @@ function MenuTable({ rows }: { rows: MenuProfit[] }) {
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="empty-cell">
-                ยังไม่มียอดขายในช่วงนี้
-              </td>
+              <td colSpan={6} className="empty-cell">{"" + translateUi("ยังไม่มียอดขายในช่วงนี้") + " "}</td>
             </tr>
           )}
         </tbody>
       </table>
-      <p className="px-3 py-2 hint">ยอดขายก่อนหักส่วนลดท้ายบิล · ต้นทุนตามสูตรปัจจุบัน</p>
+      <p className="px-3 py-2 hint">{translateUi("ยอดขายก่อนหักส่วนลดท้ายบิล · ต้นทุนตามสูตรปัจจุบัน")}</p>
     </div>
   )
 }
@@ -299,18 +309,15 @@ function Tax60({ s }: { s: Summary }) {
     <>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="card">
-          <h3 className="font-semibold">หักค่าใช้จ่ายแบบเหมา 60%</h3>
+          <h3 className="font-semibold">{translateUi("หักค่าใช้จ่ายแบบเหมา 60%")}</h3>
           <AmountTable rows={[{ label: 'เงินได้', amount: c.income }, { label: 'หักเหมา 60%', amount: -c.flatExpense }, { label: 'เงินได้หลังหักค่าใช้จ่าย', amount: c.flatNet, strong: true }]} />
         </div>
         <div className="card">
-          <h3 className="font-semibold">หักตามจริง (จากบัญชี)</h3>
+          <h3 className="font-semibold">{translateUi("หักตามจริง (จากบัญชี)")}</h3>
           <AmountTable rows={[{ label: 'เงินได้', amount: c.income }, { label: 'ค่าใช้จ่ายจริง', amount: -c.actualExpense }, { label: 'เงินได้หลังหักค่าใช้จ่าย', amount: c.actualNet, strong: true }]} />
         </div>
       </div>
-      <p className="note mt-3">
-        ข้อมูลประกอบเท่านั้น ไม่ใช่คำแนะนำภาษี · ในช่วงนี้ {c.lowerNet === 'same' ? 'สองแบบเท่ากัน' : `แบบ${c.lowerNet === 'flat' ? 'เหมา 60%' : 'ตามจริง'}ทำให้เงินได้หลังหักค่าใช้จ่ายต่ำกว่า`} ·
-        หักตามจริงต้องมีหลักฐานรายจ่ายครบ · ภาษีจริงขึ้นกับค่าลดหย่อนและเงินได้อื่น ควรปรึกษานักบัญชี
-      </p>
+      <p className="note mt-3">{"" + translateUi("ข้อมูลประกอบเท่านั้น ไม่ใช่คำแนะนำภาษี · ในช่วงนี้") + " "}{c.lowerNet === 'same' ? 'สองแบบเท่ากัน' : `แบบ${c.lowerNet === 'flat' ? 'เหมา 60%' : 'ตามจริง'}ทำให้เงินได้หลังหักค่าใช้จ่ายต่ำกว่า`}{" " + translateUi("· หักตามจริงต้องมีหลักฐานรายจ่ายครบ · ภาษีจริงขึ้นกับค่าลดหย่อนและเงินได้อื่น ควรปรึกษานักบัญชี") + " "}</p>
     </>
   )
 }
@@ -326,10 +333,10 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
       <table className="tbl-tight">
         <thead>
           <tr>
-            <th className="text-left">วันที่ / เลขที่</th>
-            <th className="text-left">บัญชี</th>
-            <th className="text-right">เดบิต</th>
-            <th className="text-right">เครดิต</th>
+            <th className="text-left">{translateUi("วันที่ / เลขที่")}</th>
+            <th className="text-left">{translateUi("บัญชี")}</th>
+            <th className="text-right">{translateUi("เดบิต")}</th>
+            <th className="text-right">{translateUi("เครดิต")}</th>
           </tr>
         </thead>
         {groups.map((g) => (
@@ -337,7 +344,7 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
             <tr className="bg-gray-50">
               <td colSpan={4} className="text-xs text-gray-600">
                 {g[0].entry_date} · #{g[0].entry_no} · <span className="badge badge-gray">{SOURCE_LABEL[g[0].source_type] ?? g[0].source_type}</span> {g[0].memo}
-                {g[0].reason && <span className="text-red-600"> · เหตุผล: {g[0].reason}</span>}
+                {g[0].reason && <span className="text-red-600">{" " + translateUi("· เหตุผล:") + " "}{g[0].reason}</span>}
                 {g[0].created_by_name && <span> · {g[0].created_by_name}</span>}
               </td>
             </tr>
@@ -356,9 +363,7 @@ function JournalTable({ rows }: { rows: JournalRow[] }) {
         {groups.length === 0 && (
           <tbody>
             <tr>
-              <td colSpan={4} className="empty-cell">
-                ไม่มีรายการในช่วงนี้
-              </td>
+              <td colSpan={4} className="empty-cell">{"" + translateUi("ไม่มีรายการในช่วงนี้") + " "}</td>
             </tr>
           </tbody>
         )}
@@ -374,16 +379,16 @@ function Ledger({ rows, account }: { rows: JournalRow[]; account: TrialRow }) {
       <table className="tbl-tight">
         <thead>
           <tr>
-            <th className="text-left">วันที่</th>
-            <th className="text-left">รายการ</th>
-            <th className="text-right">เดบิต</th>
-            <th className="text-right">เครดิต</th>
-            <th className="text-right">คงเหลือ (เดบิต+)</th>
+            <th className="text-left">{translateUi("วันที่")}</th>
+            <th className="text-left">{translateUi("รายการ")}</th>
+            <th className="text-right">{translateUi("เดบิต")}</th>
+            <th className="text-right">{translateUi("เครดิต")}</th>
+            <th className="text-right">{translateUi("คงเหลือ (เดบิต+)")}</th>
           </tr>
         </thead>
         <tbody>
           <tr className="bg-gray-50">
-            <td colSpan={4}>ยอดยกมา</td>
+            <td colSpan={4}>{translateUi("ยอดยกมา")}</td>
             <td className="num">{baht(account.opening)}</td>
           </tr>
           {rows.map((r, i) => {
@@ -412,11 +417,11 @@ function Balance({ rows, to }: { rows: TrialRow[]; to: string }) {
     <>
       <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <h3 className="section-title">สินทรัพย์ ณ {to}</h3>
+          <h3 className="section-title">{"" + translateUi("สินทรัพย์ ณ") + " "}{to}</h3>
           <AmountTable rows={[...b.assets.map((a) => ({ label: `${a.code} ${a.name}`, amount: a.amount })), { label: 'รวมสินทรัพย์', amount: b.totalAssets, strong: true }]} />
         </div>
         <div>
-          <h3 className="section-title">หนี้สินและส่วนของเจ้าของ</h3>
+          <h3 className="section-title">{translateUi("หนี้สินและส่วนของเจ้าของ")}</h3>
           <AmountTable
             rows={[
               ...b.liabilities.map((a) => ({ label: `${a.code} ${a.name}`, amount: a.amount })),

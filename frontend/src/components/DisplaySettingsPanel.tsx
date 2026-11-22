@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { DEFAULT_SETTINGS, DISPLAY_FONTS, PREVIEW_MESSAGE, normalizeSettings, type DisplayFont, type DisplaySettings } from '../lib/display'
@@ -87,21 +88,21 @@ export default function DisplaySettingsPanel({
             <iframe
               ref={frameRef}
               src={`/display/${token}?preview=1`}
-              title="พรีวิวจอ iPad"
+              title={translateUi("พรีวิวจอ iPad")}
               onLoad={post}
               className="absolute top-0 left-0 origin-top-left border-0"
               style={{ width: IPAD_W, height: IPAD_H, transform: `scale(${scale})` }}
             />
           </div>
         ) : (
-          <div className="empty">สร้างลิงก์จอก่อน จึงจะเห็นพรีวิว</div>
+          <div className="empty">{translateUi("สร้างลิงก์จอก่อน จึงจะเห็นพรีวิว")}</div>
         )}
-        <p className="mt-2 hint">พรีวิวเป็นจอจริงขนาด iPad แนวนอน เปลี่ยนตามค่าที่แก้ทันที (ยังไม่บันทึกจนกว่าจะกดบันทึก)</p>
+        <p className="mt-2 hint">{translateUi("พรีวิวเป็นจอจริงขนาด iPad แนวนอน เปลี่ยนตามค่าที่แก้ทันที (ยังไม่บันทึกจนกว่าจะกดบันทึก)")}</p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <span className="label">สีหลัก</span>
+          <span className="label">{translateUi("สีหลัก")}</span>
           <div className="toolbar">
             {ACCENTS.map((c) => (
               <button
@@ -113,28 +114,28 @@ export default function DisplaySettingsPanel({
                 style={{ background: c }}
               />
             ))}
-            <input type="color" className="h-8 w-10 cursor-pointer rounded-lg border p-0.5" value={s.accent} onChange={(e) => set({ accent: e.target.value })} aria-label="เลือกสีเอง" />
+            <input type="color" className="h-8 w-10 cursor-pointer rounded-lg border p-0.5" value={s.accent} onChange={(e) => set({ accent: e.target.value })} aria-label={translateUi("เลือกสีเอง")} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <span className="label">พื้นหน้านิตยสาร</span>
+            <span className="label">{translateUi("พื้นหน้านิตยสาร")}</span>
             <select className="input w-full" value={s.theme} onChange={(e) => set({ theme: e.target.value as DisplaySettings['theme'] })}>
-              <option value="light">กระดาษครีม</option>
-              <option value="dark">ดำ</option>
+              <option value="light">{translateUi("กระดาษครีม")}</option>
+              <option value="dark">{translateUi("ดำ")}</option>
             </select>
           </div>
           <div>
-            <span className="label">เปลี่ยนสไลด์แบบ</span>
+            <span className="label">{translateUi("เปลี่ยนสไลด์แบบ")}</span>
             <select className="input w-full" value={s.transition} onChange={(e) => set({ transition: e.target.value as DisplaySettings['transition'] })}>
-              <option value="fade">ค่อยๆ จาง</option>
-              <option value="slide">เลื่อนเข้า</option>
-              <option value="zoom">ซูมเข้า</option>
+              <option value="fade">{translateUi("ค่อยๆ จาง")}</option>
+              <option value="slide">{translateUi("เลื่อนเข้า")}</option>
+              <option value="zoom">{translateUi("ซูมเข้า")}</option>
             </select>
           </div>
         </div>
         <div>
-          <span className="label">ฟอนต์</span>
+          <span className="label">{translateUi("ฟอนต์")}</span>
           <select className="input w-full" value={s.font} onChange={(e) => set({ font: e.target.value as DisplayFont })}>
             {(Object.keys(DISPLAY_FONTS) as DisplayFont[]).map((f) => (
               <option key={f} value={f}>
@@ -145,21 +146,21 @@ export default function DisplaySettingsPanel({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <span className="label">วินาที/สไลด์เมนู</span>
+            <span className="label">{translateUi("วินาที/สไลด์เมนู")}</span>
             <input className="input w-full" type="number" min={3} max={60} value={s.imageSeconds} onChange={(e) => set({ imageSeconds: Math.min(60, Math.max(3, Math.round(Number(e.target.value) || 3))) })} />
           </div>
           <div>
-            <span className="label">วินาที/สไลด์โปร</span>
+            <span className="label">{translateUi("วินาที/สไลด์โปร")}</span>
             <input className="input w-full" type="number" min={3} max={60} value={s.promoSeconds} onChange={(e) => set({ promoSeconds: Math.min(60, Math.max(3, Math.round(Number(e.target.value) || 3))) })} />
           </div>
         </div>
         <div>
-          <span className="label">ป้ายบนสไลด์เมนู</span>
-          <input className="input w-full" maxLength={20} placeholder="ว่าง = ไม่แสดงป้าย" value={s.badgeText} onChange={(e) => set({ badgeText: e.target.value })} />
+          <span className="label">{translateUi("ป้ายบนสไลด์เมนู")}</span>
+          <input className="input w-full" maxLength={20} placeholder={translateUi("ว่าง = ไม่แสดงป้าย")} value={s.badgeText} onChange={(e) => set({ badgeText: e.target.value })} />
         </div>
         <div>
-          <span className="label">ข้อความหน้าปก</span>
-          <input className="input w-full" maxLength={80} placeholder="ว่าง = บอกจำนวนเมนูแนะนำ/โปรให้อัตโนมัติ" value={s.tagline} onChange={(e) => set({ tagline: e.target.value })} />
+          <span className="label">{translateUi("ข้อความหน้าปก")}</span>
+          <input className="input w-full" maxLength={80} placeholder={translateUi("ว่าง = บอกจำนวนเมนูแนะนำ/โปรให้อัตโนมัติ")} value={s.tagline} onChange={(e) => set({ tagline: e.target.value })} />
         </div>
         <div className="grid grid-cols-2 gap-2">
           {toggle('showCover', 'หน้าปก')}
@@ -171,12 +172,8 @@ export default function DisplaySettingsPanel({
           <button className="btn btn-primary flex-1" onClick={() => void save()} disabled={busy || !dirty}>
             {busy ? 'กำลังบันทึก...' : dirty ? 'บันทึกการตั้งค่า' : 'บันทึกแล้ว'}
           </button>
-          <button className="btn btn-secondary" onClick={() => setS(saved)} disabled={!dirty}>
-            ย้อนกลับ
-          </button>
-          <button className="btn btn-ghost" onClick={() => setS(DEFAULT_SETTINGS)} title="ใช้ค่าเริ่มต้น (ยังไม่บันทึก)">
-            ค่าเริ่มต้น
-          </button>
+          <button className="btn btn-secondary" onClick={() => setS(saved)} disabled={!dirty}>{"" + translateUi("ย้อนกลับ") + " "}</button>
+          <button className="btn btn-ghost" onClick={() => setS(DEFAULT_SETTINGS)} title={translateUi("ใช้ค่าเริ่มต้น (ยังไม่บันทึก)")}>{"" + translateUi("ค่าเริ่มต้น") + " "}</button>
         </div>
       </div>
     </div>

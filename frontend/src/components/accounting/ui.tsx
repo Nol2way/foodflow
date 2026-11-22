@@ -1,3 +1,4 @@
+import { translateUi } from "../../lib/uiText"
 // ชิ้นส่วนที่ใช้ร่วมกันในหน้าบัญชี
 import type { ReactNode } from 'react'
 import { baht } from '../../lib/format'
@@ -47,7 +48,7 @@ export function CostBar({ label, value, min, max }: { label: string; value: numb
     <div className="card">
       <div className="flex items-baseline justify-between gap-2">
         <span className="stat-label">{label}</span>
-        <span className="hint">เป้า {min}–{max}%</span>
+        <span className="hint">{"" + translateUi("เป้า") + " "}{min}–{max}%</span>
       </div>
       <div className="mt-1 flex items-baseline gap-2">
         <span className="stat-value">{value === null ? '–' : `${value.toFixed(1)}%`}</span>
@@ -105,8 +106,6 @@ export const prevMonthRange = (s: string) => {
 
 export function Disclaimer() {
   return (
-    <p className="mt-8 text-xs text-gray-400">
-      ตัวเลขภาษีและงบในหน้านี้เป็นข้อมูลประกอบการบริหาร ระบบนี้ไม่ใช่เครื่องมือยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจก่อนยื่น
-    </p>
+    <p className="mt-8 text-xs text-gray-400">{"" + translateUi("ตัวเลขภาษีและงบในหน้านี้เป็นข้อมูลประกอบการบริหาร ระบบนี้ไม่ใช่เครื่องมือยื่นภาษีอย่างเป็นทางการ ควรให้นักบัญชีตรวจก่อนยื่น") + " "}</p>
   )
 }

@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getSession } from '../lib/session'
@@ -136,11 +137,11 @@ export default function ShiftModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-label="จัดการกะ">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 p-4" role="dialog" aria-modal="true" aria-label={translateUi("จัดการกะ")}>
       <div className="card mx-auto w-full max-w-lg p-5">
         <div className="mb-4 row-between">
           <h2 className="title-lg">{shift ? 'กะที่เปิดอยู่' : 'เปิดกะ'}</h2>
-          <button className="grid h-8 w-8 place-items-center rounded-full hover:bg-gray-100" onClick={onClose} aria-label="ปิด">
+          <button className="grid h-8 w-8 place-items-center rounded-full hover:bg-gray-100" onClick={onClose} aria-label={translateUi("ปิด")}>
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
@@ -158,7 +159,7 @@ export default function ShiftModal({
           >
             <TerminalPicker setup={setup} />
             <label className="block">
-              <span className="label">เงินทอนตั้งต้นในลิ้นชัก (บาท)</span>
+              <span className="label">{translateUi("เงินทอนตั้งต้นในลิ้นชัก (บาท)")}</span>
               <input
                 className="input w-full py-3 num text-2xl font-semibold"
                 type="number"
@@ -179,13 +180,13 @@ export default function ShiftModal({
             <div className="rounded-xl bg-gray-50 p-3 text-sm">
               <div className="flex justify-between text-gray-500">
                 <span>{shift.cashier_name}</span>
-                <span>เปิดเมื่อ {thaiDateTime(shift.opened_at)}</span>
+                <span>{"" + translateUi("เปิดเมื่อ") + " "}{thaiDateTime(shift.opened_at)}</span>
               </div>
-              <Line label="เงินทอนตั้งต้น" value={money(shift.starting_cash)} />
-              <Line label="ขายเงินสด" value={money(report?.cash_sales ?? 0)} />
-              <Line label="นำเงินเข้า" value={`+${money(report?.cash_in_total ?? 0)}`} />
-              <Line label="นำเงินออก" value={`−${money(report?.cash_out_total ?? 0)}`} />
-              <Line label="เงินที่ควรมีในลิ้นชัก" value={money(expected)} strong />
+              <Line label={translateUi("เงินทอนตั้งต้น")} value={money(shift.starting_cash)} />
+              <Line label={translateUi("ขายเงินสด")} value={money(report?.cash_sales ?? 0)} />
+              <Line label={translateUi("นำเงินเข้า")} value={`+${money(report?.cash_in_total ?? 0)}`} />
+              <Line label={translateUi("นำเงินออก")} value={`−${money(report?.cash_out_total ?? 0)}`} />
+              <Line label={translateUi("เงินที่ควรมีในลิ้นชัก")} value={money(expected)} strong />
               {report && Object.keys(report.sales_by_method).length > 0 && (
                 <div className="mt-2 border-t pt-2 hint">
                   {Object.entries(report.sales_by_method)
@@ -193,15 +194,13 @@ export default function ShiftModal({
                     .join(' · ')}
                 </div>
               )}
-              <button className="link-muted mt-2 text-xs" onClick={() => onPrint(shift.id)}>
-                พิมพ์ X-Report (ยอดระหว่างกะ)
-              </button>
+              <button className="link-muted mt-2 text-xs" onClick={() => onPrint(shift.id)}>{"" + translateUi("พิมพ์ X-Report (ยอดระหว่างกะ)") + " "}</button>
             </div>
 
             {!closing ? (
               <>
                 <section>
-                  <h3 className="label">บันทึกเงินเข้า/ออกลิ้นชัก</h3>
+                  <h3 className="label">{translateUi("บันทึกเงินเข้า/ออกลิ้นชัก")}</h3>
                   <div className="mb-2 inline-flex rounded-xl border bg-white p-1">
                     {(['cash_in', 'cash_out'] as const).map((t) => (
                       <button
@@ -232,9 +231,7 @@ export default function ShiftModal({
                       value={logReason}
                       onChange={(e) => setLogReason(e.target.value)}
                     />
-                    <button className="btn btn-secondary" disabled={busy} onClick={() => void logCash()}>
-                      บันทึก
-                    </button>
+                    <button className="btn btn-secondary" disabled={busy} onClick={() => void logCash()}>{"" + translateUi("บันทึก") + " "}</button>
                   </div>
                   {report && report.drawer_logs.length > 0 && (
                     <ul className="mt-2 divide-y text-xs text-gray-600">
@@ -252,13 +249,11 @@ export default function ShiftModal({
                     </ul>
                   )}
                 </section>
-                <button className="btn btn-danger w-full" onClick={() => setClosing(true)}>
-                  ปิดกะ
-                </button>
+                <button className="btn btn-danger w-full" onClick={() => setClosing(true)}>{"" + translateUi("ปิดกะ") + " "}</button>
               </>
             ) : (
               <section className="space-y-3">
-                <h3 className="label">นับเงินในลิ้นชัก</h3>
+                <h3 className="label">{translateUi("นับเงินในลิ้นชัก")}</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {DENOMS.map((d) => (
                     <label key={d} className="flex items-center gap-1.5 text-sm">
@@ -276,7 +271,7 @@ export default function ShiftModal({
                   ))}
                 </div>
                 <label className="block">
-                  <span className="hint">หรือกรอกยอดรวมที่นับได้</span>
+                  <span className="hint">{translateUi("หรือกรอกยอดรวมที่นับได้")}</span>
                   <input
                     className="input w-full py-2.5 num text-xl font-semibold"
                     type="number"
@@ -289,8 +284,8 @@ export default function ShiftModal({
                   />
                 </label>
                 <div className="rounded-xl bg-gray-50 p-3 text-sm">
-                  <Line label="เงินที่ควรมี" value={money(expected)} />
-                  <Line label="นับได้จริง" value={hasActual ? money(actual) : '-'} />
+                  <Line label={translateUi("เงินที่ควรมี")} value={money(expected)} />
+                  <Line label={translateUi("นับได้จริง")} value={hasActual ? money(actual) : '-'} />
                   <Line
                     label={!hasActual || variance === 0 ? 'ส่วนต่าง' : variance > 0 ? 'เงินเกิน' : 'เงินขาด'}
                     value={hasActual ? `${variance > 0 ? '+' : ''}${money(variance)}` : '-'}
@@ -306,9 +301,7 @@ export default function ShiftModal({
                   onChange={(e) => setNote(e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <button className="btn btn-secondary" disabled={busy} onClick={() => setClosing(false)}>
-                    ย้อนกลับ
-                  </button>
+                  <button className="btn btn-secondary" disabled={busy} onClick={() => setClosing(false)}>{"" + translateUi("ย้อนกลับ") + " "}</button>
                   <button className="btn btn-danger flex-1" disabled={busy || !hasActual} onClick={() => void close()}>
                     <Icon name="print" className="h-4 w-4" />
                     {busy ? 'กำลังปิดกะ...' : 'ยืนยันปิดกะ + พิมพ์ Z-Report'}

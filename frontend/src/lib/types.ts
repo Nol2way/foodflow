@@ -7,6 +7,7 @@ export interface MenuCategory {
 }
 
 export interface MenuItem {
+  option_choices?: { id: string; name: string; price: number }[]
   id: string
   category_id: string | null
   name: string
@@ -38,6 +39,7 @@ export interface DisplayMediaRow {
 }
 
 export interface CartLine {
+  selected_option_ids?: string[]
   item: MenuItem
   quantity: number
   note: string
@@ -47,6 +49,10 @@ export interface CartLine {
 export type OrderType = 'dine_in' | 'takeaway'
 
 export interface KitchenOrder {
+  is_split?: boolean
+  service_charge?: number
+  tip?: number
+  bill_requested_at?: string | null
   id: string
   status: OrderStatus
   total: number
@@ -63,6 +69,7 @@ export interface KitchenOrder {
   order_promotions: { promotion_id: string; discount: number; promotions: { name: string } | null }[]
   dining_tables: { label: string } | null
   order_items: {
+    options_snapshot?: { id: string; name: string; price: number }[]
     id: string
     menu_item_id: string
     unit_price: number
@@ -89,11 +96,16 @@ export interface ShopSettings {
   promptpay_id: string | null
   receipt_header: string | null
   receipt_footer: string | null
+  kitchen_warn_minutes?: number
+  kitchen_auto_print?: boolean
+  kitchen_sound?: boolean
   loyalty_enabled: boolean
   loyalty_baht_per_point: number
   loyalty_point_value: number
   loyalty_min_redeem: number
   line_to: string | null
+  morning_report_enabled?: boolean
+  morning_report_hour?: number
 }
 
 export interface Member {
@@ -107,6 +119,8 @@ export interface Member {
 export type PaymentMethod = 'cash' | 'promptpay' | 'card' | 'other'
 
 export interface Promotion {
+  coupon_code?: string | null
+  stackable?: boolean
   id: string
   restaurant_id: string
   name: string

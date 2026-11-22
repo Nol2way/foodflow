@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { api, ApiError } from '../lib/api'
@@ -89,23 +90,21 @@ export default function PromoSuggestions({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="section-title mb-1 flex items-center gap-2">
-            <Icon name="sparkle" className="h-5 w-5 text-brand-500" />
-            แนะนำโปรจากยอดขาย
-          </h2>
-          <p className="text-sm text-gray-500">ดูยอด 28 วันล่าสุด หาช่วงเวลาเงียบ เมนูขายช้าที่ยังลดได้ไม่ขาดทุน และเป้ายอดต่อบิล</p>
+            <Icon name="sparkle" className="h-5 w-5 text-brand-500" />{"" + translateUi("แนะนำโปรจากยอดขาย") + " "}</h2>
+          <p className="text-sm text-gray-500">{translateUi("ดูยอด 28 วันล่าสุด หาช่วงเวลาเงียบ เมนูขายช้าที่ยังลดได้ไม่ขาดทุน และเป้ายอดต่อบิล")}</p>
         </div>
         <div className="flex gap-2">
           <button className="btn btn-secondary btn-sm" disabled={busy !== null} onClick={() => void analyze(false)}>
             {busy === 'rules' ? 'กำลังวิเคราะห์...' : 'วิเคราะห์'}
           </button>
-          <button className="btn btn-primary btn-sm" disabled={busy !== null} onClick={() => void analyze(true)} title="ต้องตั้ง GEMINI_API_KEY ที่ backend">
+          <button className="btn btn-primary btn-sm" disabled={busy !== null} onClick={() => void analyze(true)} title={translateUi("ต้องตั้ง GEMINI_API_KEY ที่ backend")}>
             <Icon name="sparkle" className="h-4 w-4" />
             {busy === 'ai' ? 'AI กำลังคิด...' : 'ให้ AI ช่วยคิด'}
           </button>
         </div>
       </div>
       {note && <p className="note mt-3">{note}</p>}
-      {list && list.length === 0 && <p className="empty mt-3">ข้อมูลขายยังน้อยเกินไป (ต้องมีอย่างน้อย ~20 ออเดอร์) ลองใหม่เมื่อขายไปสักพัก</p>}
+      {list && list.length === 0 && <p className="empty mt-3">{translateUi("ข้อมูลขายยังน้อยเกินไป (ต้องมีอย่างน้อย ~20 ออเดอร์) ลองใหม่เมื่อขายไปสักพัก")}</p>}
       {list && list.length > 0 && (
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {list.map((s) => (
@@ -127,7 +126,7 @@ export default function PromoSuggestions({
           ))}
         </ul>
       )}
-      {list && !aiEnabled && list.length > 0 && <p className="mt-3 text-xs text-gray-400">ตั้ง GEMINI_API_KEY ที่ backend เพื่อให้ AI ช่วยเสนอเพิ่ม</p>}
+      {list && !aiEnabled && list.length > 0 && <p className="mt-3 text-xs text-gray-400">{translateUi("ตั้ง GEMINI_API_KEY ที่ backend เพื่อให้ AI ช่วยเสนอเพิ่ม")}</p>}
     </section>
   )
 }

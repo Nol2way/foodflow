@@ -1,0 +1,62 @@
+"""CRM contracts against disposable local Postgres, including tenant and identity boundaries."""
+import json
+import uuid
+from harness import start, Runner
+
+srv, uri, admin = start()
+t = Runner(uri)
+q, one, check = t.q, t.one, t.check
+rid = one('select id from restaurants order by created_at limit 1')
+other = one("insert into restaurants(name) values('CRM other') returning id")
+owner, staff = uuid.uuid4(), uuid.uuid4()
+for uid in [owner, staff]:
+    one('insert into app_users(id,email) values(%s,%s) returning id', (uid, f'{uid}@crm.invalid'))
+q('su', "insert into staff_members values(%s,%s,'owner'),(%s,%s,'staff')", (owner,rid,staff,rid))
+members=[]
+for phone in ['0811111234','0822221234']:
+    members.append(one("insert into members(restaurant_id,phone,name) values(%s,%s,'Test') returning id", (rid,phone)))
+r=q(staff,'select member_find(%s,%s)',(rid,'1234'))
+check('last4 returns all matching identities for explicit selection', r[0]=='ok' and len(r[1][0][0])==2)
+check('find denies cross tenant',q(staff,'select member_find(%s,%s)',(other,'1234'))[0]=='err')
+check('member export owner only',q(staff,'select member_export(%s,%s)',(rid,members[0]))[0]=='err')
+check('member export snapshot',q(owner,'select member_export(%s,%s)',(rid,members[0]))[1][0][0]['member']['phone']=='0811111234')
+ref=uuid.uuid4()
+a=q(staff,'select submit_feedback(%s,5,%s)',(rid,ref))
+b=q(staff,'select submit_feedback(%s,5,%s)',(rid,ref))
+check('feedback retry idempotent',a[0]==b[0]=='ok' and a[1]==b[1])
+check('feedback rejects out of range',q(staff,'select submit_feedback(%s,6,%s)',(rid,uuid.uuid4()))[0]=='err')
+check('feedback stores no identity',one("select count(*) from information_schema.columns where table_schema='public' and table_name='feedback' and column_name in ('name','phone','member_id','order_id')")==0)
+check('shared account status change refused',q('su',"insert into staff_members values(%s,%s,'staff')",(staff,other))[0]=='ok' and q(owner,'select staff_set_active(%s,%s,false)',(rid,staff))[0]=='err')
+check('shared identity password reset refused',q(owner,'select staff_reset_password(%s,%s,%s)',(rid,staff,'temporary-secret'))[0]=='err')
+q('su','delete from staff_members where user_id=%s and restaurant_id=%s',(staff,other))
+check('single-shop password reset succeeds with mandatory change and epoch increment',q(owner,'select staff_reset_password(%s,%s,%s)',(rid,staff,'temporary-secret'))[0]=='ok' and one('select must_change_password from app_users where id=%s',(staff,)))
+check('identity pending password change cannot join second shop',q('su',"insert into staff_members values(%s,%s,'staff')",(staff,other))[0]=='err')
+q('su','update app_users set must_change_password=false where id=%s',(staff,))
+check('exclusive nonowner can be disabled',q(owner,'select staff_set_active(%s,%s,false)',(rid,staff))[0]=='ok')
+check('disabled identity loses session',not one('select app_session_valid(%s,0,false)',(staff,)))
+q(owner,'select staff_set_active(%s,%s,true)',(rid,staff))
+values={'name':'Coupon','discount_type':'amount','value':1,'coupon_code':'test-10','stackable':False}
+r=q(owner,'select save_promotion(%s,null,%s::jsonb,ARRAY[]::uuid[])',(rid,json.dumps(values)))
+check('atomic promotion supports normalized coupon and stackable',r[0]=='ok' and one('select coupon_code from promotions where id=%s',(r[1][0][0],))=='TEST-10')
+check('coupon uniqueness per tenant',q(owner,'select save_promotion(%s,null,%s::jsonb,ARRAY[]::uuid[])',(rid,json.dumps(values)))[0]=='err')
+check('coupon lookup has item ids',q(staff,'select coupon_lookup(%s,%s)',(rid,'test-10'))[1][0][0]['item_ids']==[])
+paid=one("insert into orders(restaurant_id,status,order_type,member_id,import_batch) values(%s,'paid','takeaway',%s,%s) returning id",(rid,members[0],uuid.uuid4()))
+q('su','update orders set subtotal=107,total=107 where id=%s',(paid,))
+taxbase='010555123456'
+taxid=taxbase+str((11-sum(int(ch)*(13-i) for i,ch in enumerate(taxbase))%11)%10)
+q('su',"insert into shop_settings(restaurant_id,vat_registered,vat_rate) values(%s,true,7) on conflict(restaurant_id) do update set vat_registered=true,vat_rate=7",(rid,))
+q('su',"insert into tax_settings(restaurant_id,tax_id,company_name,registered_address) values(%s,%s,'Test seller','Test address')",(rid,taxid))
+draft_ref=uuid.uuid4()
+a=q(owner,"select tax_doc_create('ABB',p_order_id=>%s,p_client_ref=>%s)",(paid,draft_ref))
+b=q(owner,"select tax_doc_create('ABB',p_order_id=>%s,p_client_ref=>%s)",(paid,draft_ref))
+if a[0]!='ok' or b[0]!='ok': print('tax draft result',a,b)
+check('tax draft retry recovers original id',a[0]==b[0]=='ok' and a[1]==b[1])
+check('tax idempotency key rejects different payload',q(owner,"select tax_doc_create('ABB',p_order_id=>%s,p_exempt_amount=>1,p_client_ref=>%s)",(paid,draft_ref))[0]=='err')
+check('member deletion removes PII and preserves paid financial record',q(owner,'select member_delete(%s,%s)',(rid,members[0]))[0]=='ok' and one('select count(*) from members where id=%s',(members[0],))==0 and one('select member_id is null from orders where id=%s',(paid,)))
+check('morning and evening dispatch identities independent',one('select morning_dispatch_claim(%s,current_date)',(rid,))!=one('select report_dispatch_claim(%s,current_date)',(rid,)))
+closed=q(owner,'select acct_close_day(%s,current_date,0,null,true)',(rid,))
+check('day close commits notification intent atomically',closed[0]=='ok' and one('select count(*) from private.day_close_dispatches where restaurant_id=%s',(rid,))==1)
+q('su','update shop_settings set line_to=%s where restaurant_id=%s',('U'+'1'*32,rid))
+pending=one('select day_close_dispatch_pending()')
+check('closed report retry exposes saved summary and current LINE recipient',len(pending)==1 and pending[0]['summary']['counted_cash']==0 and pending[0]['line_to']=='U'+'1'*32)
+t.finish()

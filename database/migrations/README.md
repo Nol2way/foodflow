@@ -1,6 +1,6 @@
 # ชุด migration ของ FoodFlow
 
-ฐานใหม่รัน `.sql` ระดับบนสุดตามลำดับ `0001` ถึง `0008` ห้ามรัน archive ต่อจากชุดนี้
+ฐานใหม่รัน `.sql` ระดับบนสุดตามลำดับ `0001` ถึง `0011` ห้ามรัน archive ต่อจากชุดนี้
 
 | ไฟล์ | หน้าที่ |
 |---|---|
@@ -12,6 +12,9 @@
 | 0006_tax_shifts.sql | ภาษีและกะ (เดิม 0031–0032) |
 | 0007_order_cancel_kitchen.sql | ยกเลิกรายเมนู/สิทธิ์ครัว (เดิม 0033–0034) |
 | 0008_fix_accounting_stock.sql | สรุปไม่รวมรายจ่าย void; ยกเลิกบิลภาษีต้องมี CN ครอบคลุม; แก้ XML line amount |
+| 0009_audit_invariants.sql | session/RLS, payment invariants, import/promo transaction, limiter/report retry และ recovery |
+| 0010_pos_workflows.sql | ตัวเลือกเมนู snapshot, โต๊ะ, แก้/แยกบิล, ค่าบริการ/ทิป, audit และ client_ref |
+| 0011_crm_ops_features.sql | คูปอง สมาชิก privacy/feedback, รายงานตอนเช้า และจัดการ identity |
 
 ## ฐานที่มีอยู่แล้ว
 
@@ -19,4 +22,8 @@
 
 สำรองก่อนเปลี่ยน schema บันทึกไฟล์/commit/วันที่/ผู้รัน/ผลตรวจ โดยเฉพาะ SQL Editor ซึ่งอาจไม่มี CLI migration history อย่า reset หรือ seed ฐานที่มีข้อมูลจริง
 
-ชุด database/tests สร้าง PostgreSQL ชั่วคราวพร้อม auth stub: harness.py ที่บัญชี/สต็อกใช้โหลดเลขสี่หลักระดับบนสุดครบ 0001–0008; test_rls.py ยัง hardcode 0001–0007 ส่วน test_stock.py มีฐานแยกสำหรับทดสอบอัปเกรด archive ด้วย จึงต้องระบุ coverage แยก ไม่ถือว่า RLS suite ครอบคลุม 0008 ช่วง 0009–0019 และ 0020–0029 จองตาม [ใบงานสองคน](../../docs/tasks/2-people/README.md) ยังไม่มี migration ใหม่ในรอบเตรียมนี้
+ชุด database/tests สร้าง PostgreSQL ชั่วคราวพร้อม auth stub ทุก suite ใช้ discovery ของ migration เลขสี่หลักระดับบนสุด ส่วน test_stock.py มีฐานแยกสำหรับทดสอบอัปเกรด archive ด้วย รอบรวมนี้ใช้ 0009–0011 แทนการจองเลขตามคนในแผนเดิม เพื่อให้เรียง dependencies ได้แน่นอน
+
+ก่อน apply 0009 ตรวจ `select id,total from orders where total < 0;` และกระทบยอดข้อมูลเดิม การเพิ่ม constraint แบบ NOT VALID ป้องกัน write ใหม่ แต่ไม่ได้รับรองยอดติดลบที่มีอยู่ ต้อง reconcile ก่อน `VALIDATE CONSTRAINT` ตามชื่อ constraint ใน migration ห้ามแก้ยอดย้อนหลังโดยไม่ตรวจ journal/tax/points
+
+Session migration จะปฏิเสธ token เก่า ต้องประสานการปล่อย API/UI และให้ผู้ใช้เข้าสู่ระบบใหม่ ดู [operations](../../docs/operations.md) การทดสอบ XML บน Windows pgserver ที่ไม่มี libxml จะ skip อย่างชัดเจน; ต้องผ่าน Linux ที่รองรับ XML ก่อน release

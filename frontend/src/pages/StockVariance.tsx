@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import RequireRole from '../components/RequireRole'
@@ -34,16 +35,16 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
 
   return (
     <div className="page">
-      <PageHead title="รายงานส่วนต่าง" subtitle="นับจริง เทียบยอดที่ควรเหลือ (นับรอบก่อน + นำเข้า − ตัดตามสูตร) · ไม่มีของเสียแยก ของหายทั้งหมดอยู่ในส่วนต่าง" />
+      <PageHead title={translateUi("รายงานส่วนต่าง")} subtitle={translateUi("นับจริง เทียบยอดที่ควรเหลือ (นับรอบก่อน + นำเข้า − ตัดตามสูตร) · ไม่มีของเสียแยก ของหายทั้งหมดอยู่ในส่วนต่าง")} />
       <StockNav roles={roles} />
       {(counts.error || report.error) && <p className="alert-error">{counts.error ?? report.error}</p>}
-      {counts.data && counts.data.counts.length === 0 && <Empty>ยังไม่มีใบนับ เริ่มที่หน้า "นับสต็อก"</Empty>}
+      {counts.data && counts.data.counts.length === 0 && <Empty>{translateUi("ยังไม่มีใบนับ เริ่มที่หน้า \"นับสต็อก\"")}</Empty>}
 
       {countId && (
         <>
           <div className="card mb-4 flex flex-wrap items-end gap-3">
             <label className="min-w-64 flex-1">
-              <span className="label">ใบนับ</span>
+              <span className="label">{translateUi("ใบนับ")}</span>
               <select className="input w-full" value={countId} onChange={(e) => setParams({ count: e.target.value })}>
                 {(counts.data?.counts ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
@@ -53,59 +54,56 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               </select>
             </label>
             <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input type="checkbox" checked={kitchenUnits} onChange={(e) => setKitchenUnits(e.target.checked)} />
-              แสดงเป็นหน่วยครัว (ถุง ฟอง)
-            </label>
+              <input type="checkbox" checked={kitchenUnits} onChange={(e) => setKitchenUnits(e.target.checked)} />{"" + translateUi("แสดงเป็นหน่วยครัว (ถุง ฟอง)") + " "}</label>
           </div>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="stat">
-              <div className="stat-label">ส่วนต่างสุทธิ</div>
+              <div className="stat-label">{translateUi("ส่วนต่างสุทธิ")}</div>
               <div className={`stat-value ${net < 0 ? 'text-red-600' : ''}`}>{baht(net)}</div>
-              <div className="mt-1 hint">ของหายรวม {baht(loss)}</div>
+              <div className="mt-1 hint">{"" + translateUi("ของหายรวม") + " "}{baht(loss)}</div>
             </div>
             <div className="stat">
-              <div className="stat-label">ปกติ (&lt; 2%)</div>
+              <div className="stat-label">{translateUi("ปกติ (&lt; 2%)")}</div>
               <div className="stat-value text-emerald-700">{sum('green')}</div>
             </div>
             <div className="stat">
-              <div className="stat-label">เฝ้าดู (2–5%)</div>
+              <div className="stat-label">{translateUi("เฝ้าดู (2–5%)")}</div>
               <div className="stat-value text-amber-800">{sum('yellow')}</div>
             </div>
             <div className="stat">
-              <div className="stat-label">ผิดปกติ (&gt; 5%)</div>
+              <div className="stat-label">{translateUi("ผิดปกติ (&gt; 5%)")}</div>
               <div className="stat-value text-red-600">{sum('red')}</div>
-              {head && !head.verified_at && <div className="mt-1 hint">ใบนี้ยังรอผู้ตรวจรับรอง</div>}
+              {head && !head.verified_at && <div className="mt-1 hint">{translateUi("ใบนี้ยังรอผู้ตรวจรับรอง")}</div>}
             </div>
           </div>
 
           {lines.some((l) => l.recipe_alert) && (
-            <div className="alert-warn mt-4">
-              ติดลบต่อเนื่อง 3 รอบ (สูตรหรือ yield อาจไม่ตรง): {lines.filter((l) => l.recipe_alert).map((l) => l.ingredient_name).join(' · ')}
+            <div className="alert-warn mt-4">{"" + translateUi("ติดลบต่อเนื่อง 3 รอบ (สูตรหรือ yield อาจไม่ตรง):") + " "}{lines.filter((l) => l.recipe_alert).map((l) => l.ingredient_name).join(' · ')}
             </div>
           )}
 
-          <div className="mt-4 mb-2 flex flex-wrap gap-1.5" role="group" aria-label="กรองสถานะ">
-            <button className={chip(only === null)} onClick={() => setOnly(null)}>ทั้งหมด {lines.length}</button>
-            <button className={chip(only === 'red')} onClick={() => setOnly('red')}>ผิดปกติ</button>
-            <button className={chip(only === 'yellow')} onClick={() => setOnly('yellow')}>เฝ้าดู</button>
-            <button className={chip(only === 'alert')} onClick={() => setOnly('alert')}>สูตร/yield อาจไม่ตรง</button>
+          <div className="mt-4 mb-2 flex flex-wrap gap-1.5" role="group" aria-label={translateUi("กรองสถานะ")}>
+            <button className={chip(only === null)} onClick={() => setOnly(null)}>{"" + translateUi("ทั้งหมด") + " "}{lines.length}</button>
+            <button className={chip(only === 'red')} onClick={() => setOnly('red')}>{translateUi("ผิดปกติ")}</button>
+            <button className={chip(only === 'yellow')} onClick={() => setOnly('yellow')}>{translateUi("เฝ้าดู")}</button>
+            <button className={chip(only === 'alert')} onClick={() => setOnly('alert')}>{translateUi("สูตร/yield อาจไม่ตรง")}</button>
           </div>
 
           <div className="table-wrap">
             <table className="w-full min-w-[920px] text-sm">
               <thead>
                 <tr className="text-right">
-                  <th className="px-3 py-2 text-left">วัตถุดิบ</th>
-                  <th className="px-3 py-2">นับรอบก่อน</th>
-                  <th className="px-3 py-2">+ นำเข้า</th>
-                  <th className="px-3 py-2">− ตัดตามสูตร</th>
-                  <th className="px-3 py-2">= ควรเหลือ</th>
-                  <th className="px-3 py-2">นับจริง</th>
-                  <th className="px-3 py-2">ส่วนต่าง</th>
-                  <th className="px-3 py-2">บาท</th>
+                  <th className="px-3 py-2 text-left">{translateUi("วัตถุดิบ")}</th>
+                  <th className="px-3 py-2">{translateUi("นับรอบก่อน")}</th>
+                  <th className="px-3 py-2">{translateUi("+ นำเข้า")}</th>
+                  <th className="px-3 py-2">{translateUi("− ตัดตามสูตร")}</th>
+                  <th className="px-3 py-2">{translateUi("= ควรเหลือ")}</th>
+                  <th className="px-3 py-2">{translateUi("นับจริง")}</th>
+                  <th className="px-3 py-2">{translateUi("ส่วนต่าง")}</th>
+                  <th className="px-3 py-2">{translateUi("บาท")}</th>
                   <th className="px-3 py-2">%</th>
-                  <th className="px-3 py-2 text-left">สถานะ</th>
+                  <th className="px-3 py-2 text-left">{translateUi("สถานะ")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -114,8 +112,8 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                     <td className="px-3 py-2 text-left">
                       <span className="font-medium text-gray-900">{l.ingredient_name}</span>
                       {l.abc_class && <span className="badge badge-gray ml-1.5">{l.abc_class}</span>}
-                      {l.note && <div className="hint">เหตุผล: {l.note}</div>}
-                      {l.entered_text && <div className="text-xs text-gray-400">กรอก {l.entered_text}</div>}
+                      {l.note && <div className="hint">{"" + translateUi("เหตุผล:") + " "}{l.note}</div>}
+                      {l.entered_text && <div className="text-xs text-gray-400">{"" + translateUi("กรอก") + " "}{l.entered_text}</div>}
                     </td>
                     <td className="px-3 py-2 text-gray-600">{q(l, l.opening_qty)}</td>
                     <td className="px-3 py-2 text-gray-600">{q(l, l.received_qty)}</td>
@@ -128,20 +126,18 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                     <td className="px-3 py-2 text-left">
                       <VarianceBadge color={l.color} />
                       {l.negative_streak >= 2 && (
-                        <div className={`mt-1 text-xs ${l.recipe_alert ? 'font-medium text-red-700' : 'text-gray-500'}`}>ติดลบ {l.negative_streak} รอบติด</div>
+                        <div className={`mt-1 text-xs ${l.recipe_alert ? 'font-medium text-red-700' : 'text-gray-500'}`}>{"" + translateUi("ติดลบ") + " "}{l.negative_streak}{" " + translateUi("รอบติด") + ""}</div>
                       )}
                     </td>
                   </tr>
                 ))}
                 {shown.length === 0 && !report.loading && (
-                  <tr><td colSpan={10} className="empty-cell">ไม่มีรายการ</td></tr>
+                  <tr><td colSpan={10} className="empty-cell">{translateUi("ไม่มีรายการ")}</td></tr>
                 )}
               </tbody>
             </table>
           </div>
-          <p className="mt-2 hint">
-            ติดลบ = ของหายไม่ทราบสาเหตุ (ตักเกินสูตร ของเสียที่ไม่ได้บันทึก ชั่งรับไม่ตรง) · มูลค่าคิดจากต้นทุน FIFO ณ ตอนนับ
-          </p>
+          <p className="mt-2 hint">{"" + translateUi("ติดลบ = ของหายไม่ทราบสาเหตุ (ตักเกินสูตร ของเสียที่ไม่ได้บันทึก ชั่งรับไม่ตรง) · มูลค่าคิดจากต้นทุน FIFO ณ ตอนนับ") + " "}</p>
         </>
       )}
     </div>

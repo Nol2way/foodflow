@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Logo } from '../components/RequireRole'
@@ -45,7 +46,7 @@ export default function SetPassword() {
       <h1 className="text-xl font-bold text-gray-900">{forced ? 'ตั้งรหัสผ่านใหม่' : 'เปลี่ยนรหัสผ่าน'}</h1>
       <p className="text-sm text-gray-500">
         {session.user.email}
-        {forced && <span className="mt-1 block">คุณเข้าสู่ระบบด้วยรหัสชั่วคราว กรุณาตั้งรหัสผ่านของตัวเองก่อนใช้งาน</span>}
+        {forced && <span className="mt-1 block">{translateUi("คุณเข้าสู่ระบบด้วยรหัสชั่วคราว กรุณาตั้งรหัสผ่านของตัวเองก่อนใช้งาน")}</span>}
       </p>
       <input
         className="input w-full py-2.5"
@@ -68,7 +69,7 @@ export default function SetPassword() {
       <input
         className="input w-full py-2.5"
         type="password"
-        placeholder="ยืนยันรหัสผ่านใหม่"
+        placeholder={translateUi("ยืนยันรหัสผ่านใหม่")}
         autoComplete="new-password"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
@@ -79,9 +80,7 @@ export default function SetPassword() {
         {busy ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่าน'}
       </button>
       {!forced && (
-        <button type="button" className="link-muted block w-full text-center" onClick={() => navigate(-1)}>
-          ยกเลิก
-        </button>
+        <button type="button" className="link-muted block w-full text-center" onClick={() => navigate(-1)}>{"" + translateUi("ยกเลิก") + " "}</button>
       )}
         </form>
       </div>

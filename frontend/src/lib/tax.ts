@@ -197,6 +197,7 @@ export type TaxSetup = ReturnType<typeof useTaxSetup>
 
 // ===== backend /api/tax =====
 export interface DraftInput {
+  client_ref?: string
   restaurant_id: string
   doc_type: DocType
   order_id?: string | null
@@ -220,7 +221,7 @@ export const confirmDocument = (restaurantId: string, id: string, terminalCode: 
 // ออกใบอย่างย่อทันทีหลังรับชำระ (ร่าง + ยืนยันในคำขอเดียว)
 export const issueAbb = (restaurantId: string, orderId: string, terminalCode: string) =>
   api<{ document: Record<string, unknown> }>('/tax/documents', {
-    body: { restaurant_id: restaurantId, doc_type: 'ABB', order_id: orderId, confirm: true, terminal_code: terminalCode },
+    body: { restaurant_id: restaurantId, doc_type: 'ABB', order_id: orderId, client_ref: orderId, confirm: true, terminal_code: terminalCode },
   }).then((r) => normDoc(r.document))
 
 // แก้ฉบับร่าง (backend ไม่มี route แก้ร่าง: เรียก RPC ตรง ฐานข้อมูลตรวจสิทธิ์เอง)

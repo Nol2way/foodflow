@@ -23,7 +23,7 @@ const SECRET = 'jwt-test-secret'
 const now = () => Math.floor(Date.now() / 1000)
 const JWT: Record<string, string> = {}
 for (const [r, id] of Object.entries(USERS)) {
-  JWT[r] = await signJwt({ sub: id, email: `${r}@x.com`, role: 'authenticated', aud: 'authenticated', iat: now(), exp: now() + 3600 }, SECRET)
+  JWT[r] = await signJwt({ sub: id, email: `${r}@x.com`, credential_version: 0, role: 'authenticated', aud: 'authenticated', iat: now(), exp: now() + 3600 }, SECRET)
 }
 const env: Env = { SUPABASE_URL: SB, SUPABASE_ANON_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'service-secret', SUPABASE_JWT_SECRET: SECRET }
 
@@ -47,7 +47,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => 
     if (r) return r
   }
   const u = new URL(call.url)
-  if (u.pathname === '/rest/v1/rpc/app_user_active') return json(true)
+  if (u.pathname === '/rest/v1/rpc/app_session_valid') return json(true)
   if (u.pathname === '/rest/v1/staff_members' && call.method === 'GET') {
     const uid = u.searchParams.get('user_id')?.replace('eq.', '') ?? ''
     return json(ROLE[uid] ? [{ role: ROLE[uid] }] : [])

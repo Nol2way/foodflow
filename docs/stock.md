@@ -1,5 +1,8 @@
 # โมดูลสต็อกวัตถุดิบ FoodFlow
 
+การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) · การปล่อยและทดสอบ: [operations](operations.md) · [ผล verification](audits/2026-11-22-remediation-results.md)
+
+
 ฐานข้อมูลใช้ `0005_stock.sql` สำหรับ ledger ล็อต สูตรและสิทธิ์ ใช้ `0007_order_cancel_kitchen.sql` สำหรับสิทธิ์ตามสถานะออเดอร์ และ `0008_fix_accounting_stock.sql` สำหรับเงื่อนไขใบลดหนี้ก่อนยกเลิกบิลที่ชำระแล้ว
 
 API อยู่ใน `backend/src/stock.ts` (Swagger แท็ก “สต็อกวัตถุดิบ”) สูตรฝั่งหน้าเว็บอยู่ใน `frontend/src/lib/stockMath.ts` แบบออกแบบก่อนใช้ ledger เก็บไว้ใน [inventory-seafood.md](inventory-seafood.md)

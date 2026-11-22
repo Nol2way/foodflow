@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signIn } from '../lib/auth'
@@ -21,7 +22,7 @@ export default function Login() {
       // รหัสชั่วคราวจากเจ้าของร้าน: ต้องตั้งรหัสใหม่ก่อนใช้งาน
       navigate(s.user.must_change_password ? '/set-password' : '/')
     } catch (err) {
-      setError(err instanceof ApiError && err.code === 'invalid_credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : apiMessage(err))
+      setError(err instanceof ApiError && err.code === 'invalid_credentials' ? translateUi('อีเมลหรือรหัสผ่านไม่ถูกต้อง') : apiMessage(err))
     } finally {
       setBusy(false)
     }
@@ -32,11 +33,11 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <Logo className="mb-6 justify-center text-xl" />
         <form onSubmit={onSubmit} className="card space-y-4 p-6">
-      <h1 className="text-xl font-bold text-gray-900">เข้าสู่ระบบพนักงาน</h1>
+      <h1 className="text-xl font-bold text-gray-900">{translateUi("เข้าสู่ระบบพนักงาน")}</h1>
       <input
         className="input w-full py-2.5"
         type="email"
-        placeholder="อีเมล"
+        placeholder={translateUi("อีเมล")}
         autoComplete="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -45,7 +46,7 @@ export default function Login() {
       <input
         className="input w-full py-2.5"
         type="password"
-        placeholder="รหัสผ่าน"
+        placeholder={translateUi("รหัสผ่าน")}
         autoComplete="current-password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
@@ -53,16 +54,12 @@ export default function Login() {
       />
       {error && <p className="alert-error mb-0">{error}</p>}
       {forgot && (
-        <p className="alert-warn mb-0">
-          ให้เจ้าของร้านหรือผู้จัดการกด "รีเซ็ตรหัสผ่าน" ที่หน้าจัดการพนักงาน แล้วใช้รหัสชั่วคราวที่ได้เข้าสู่ระบบ
-        </p>
+        <p className="alert-warn mb-0">{"" + translateUi("ให้เจ้าของร้านหรือผู้จัดการกด \"รีเซ็ตรหัสผ่าน\" ที่หน้าจัดการพนักงาน แล้วใช้รหัสชั่วคราวที่ได้เข้าสู่ระบบ") + " "}</p>
       )}
       <button className="btn btn-primary w-full py-3" disabled={busy}>
-        {busy ? 'กำลังดำเนินการ...' : 'เข้าสู่ระบบ'}
+        {translateUi(busy ? 'กำลังดำเนินการ...' : 'เข้าสู่ระบบ')}
       </button>
-      <button type="button" className="link-muted block w-full text-center" onClick={() => setForgot(true)}>
-        ลืมรหัสผ่าน
-      </button>
+      <button type="button" className="link-muted block w-full text-center" onClick={() => setForgot(true)}>{"" + translateUi("ลืมรหัสผ่าน") + " "}</button>
         </form>
       </div>
     </div>

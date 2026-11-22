@@ -24,7 +24,7 @@ const SECRET = 'jwt-test-secret'
 const now = () => Math.floor(Date.now() / 1000)
 const JWT: Record<string, string> = {}
 for (const [r, id] of Object.entries(USERS)) {
-  JWT[r] = await signJwt({ sub: id, email: `${r}@x.com`, role: 'authenticated', aud: 'authenticated', iat: now(), exp: now() + 3600 }, SECRET)
+  JWT[r] = await signJwt({ sub: id, email: `${r}@x.com`, credential_version: 0, role: 'authenticated', aud: 'authenticated', iat: now(), exp: now() + 3600 }, SECRET)
 }
 const env: Env = { SUPABASE_URL: SB, SUPABASE_ANON_KEY: 'anon', SUPABASE_SERVICE_ROLE_KEY: 'service-secret', SUPABASE_JWT_SECRET: SECRET }
 
@@ -37,13 +37,15 @@ globalThis.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => 
   let body: unknown = init.body
   if (typeof body === 'string') body = JSON.parse(body)
   const call: Call = { url: String(input), method: init.method ?? 'GET', body }
+  if (Number(new URL(call.url).searchParams.get('offset')) > 0) return json([])
   calls.push(call)
   for (const h of handlers) {
     const r = h(call)
     if (r) return r
   }
   const u = new URL(call.url)
-  if (u.pathname === '/rest/v1/rpc/app_user_active') return json(true)
+  if (u.pathname === '/rest/v1/rpc/app_session_valid') return json(true)
+  if (u.pathname === '/rest/v1/orders') return json([{ id: 'order' }])
   if (u.pathname === '/rest/v1/staff_members') {
     const uid = u.searchParams.get('user_id')?.replace('eq.', '') ?? ''
     return json(ROLE[uid] ? [{ role: ROLE[uid] }] : [])
@@ -202,12 +204,12 @@ test('GET /tax/documents/:id/xml: ดาวน์โหลดไฟล์ · ร
 
 test('GET /accounting/reports/sales-tax: JSON + CSV (BOM, หัวผู้ประกอบการ) · month ผิด 400 · พนักงาน 403', async () => {
   on('/rest/v1/tax_settings', () => json([{ company_name: 'บจก. ร้านอาหาร', tax_id: '0105551234567', branch_code: '00000', registered_address: 'กรุงเทพฯ' }]))
-  on('/rest/v1/tax_documents?select=id,doc_type', () => json([doc({ id: 'a1', doc_number: 'ABB-POS01-202611-000001' })]))
+  on('/rpc/tax_document_export', () => json([doc({ id: 'a1', doc_number: 'ABB-POS01-202611-000001' })]))
   const r = await req(`/api/accounting/reports/sales-tax?restaurant_id=${RID}&month=2026-11`, { as: 'accountant' })
   const b = await body(r)
   assert.equal(r.status, 200)
   assert.equal(b.totals.vat, 7)
-  assert.match(callsTo('/rest/v1/tax_documents?')[0].url, /status=eq\.confirmed&issue_date=gte\.2026-11-01&issue_date=lte\.2026-11-30/)
+  assert.deepEqual(callsTo('/rpc/tax_document_export')[0].body, { p_restaurant_id: RID, p_from: '2026-11-01', p_to: '2026-11-30' })
   const bytes = new Uint8Array(await (await req(`/api/accounting/reports/sales-tax?restaurant_id=${RID}&month=2026-11&format=csv`, { as: 'accountant' })).arrayBuffer())
   assert.deepEqual([...bytes.slice(0, 3)], [0xef, 0xbb, 0xbf]) // UTF-8 BOM (text() ตัดทิ้งตอนถอดรหัส)
   const csv = new TextDecoder().decode(bytes)
@@ -220,8 +222,8 @@ test('GET /accounting/reports/sales-tax: JSON + CSV (BOM, หัวผู้ป�
 
 test('GET /accounting/reports/pp30-summary: ภาษีขาย - ภาษีซื้อ + เตือนรายจ่ายไม่มีใบกำกับ', async () => {
   on('/rest/v1/tax_settings', () => json([]))
-  on('/rest/v1/tax_documents', () => json([doc({ id: 't', doc_type: 'TAX', doc_number: 'TAX-1', taxable_amount: 1000, vat_amount: 70, total_amount: 1070 })]))
-  on('tax_invoice_no=not.is.null', () => json([{ tax_invoice_date: '2026-11-02', tax_invoice_no: 'IV1', supplier_name: 'ผู้ขาย', supplier_tax_id: '0105551234567', supplier_branch_code: '00000', amount: 535, vat_amount: 35, spent_on: '2026-11-02' }]))
+  on('/rpc/tax_document_export', () => json([doc({ id: 't', doc_type: 'TAX', doc_number: 'TAX-1', taxable_amount: 1000, vat_amount: 70, total_amount: 1070 })]))
+  on('/rpc/acct_expense_export', () => json([{ tax_invoice_date: '2026-11-02', tax_invoice_no: 'IV1', supplier_name: 'ผู้ขาย', supplier_tax_id: '0105551234567', supplier_branch_code: '00000', amount: 535, vat_amount: 35, spent_on: '2026-11-02' }, { vat_amount: 7 }]))
   on('tax_invoice_no=is.null', () => json([{ vat_amount: 7 }]))
   const b = await body(await req(`/api/accounting/reports/pp30-summary?restaurant_id=${RID}&month=2026-11`, { as: 'owner' }))
   assert.deepEqual([b.summary.output_vat, b.summary.input_vat, b.summary.vat_payable], [70, 35, 35])
@@ -230,9 +232,9 @@ test('GET /accounting/reports/pp30-summary: ภาษีขาย - ภาษี
 
 test('GET /accounting/reports/wht: กรองแบบ + type ผิด 400', async () => {
   on('/rest/v1/tax_settings', () => json([]))
-  on('/rest/v1/expenses', () => json([]))
+  on('/rpc/acct_expense_export', () => json([]))
   assert.equal((await req(`/api/accounting/reports/wht?restaurant_id=${RID}&month=2026-11&type=pnd53`, { as: 'owner' })).status, 200)
-  assert.match(callsTo('/rest/v1/expenses')[0].url, /wht_type=eq\.pnd53/)
+  assert.deepEqual(callsTo('/rpc/acct_expense_export')[0].body, { p_restaurant_id: RID, p_from: '2026-11-01', p_to: '2026-11-30' })
   assert.equal((await req(`/api/accounting/reports/wht?restaurant_id=${RID}&month=2026-11&type=pnd1`, { as: 'owner' })).status, 400)
 })
 

@@ -1,3 +1,4 @@
+import { translateUi } from "../../lib/uiText"
 // ตั้งค่าบัญชี: โหมดเริ่มต้น จด VAT เป้า Food/Prime Cost ใบรับของจ่ายด้วยอะไร · ยอดยกมา · รายได้ตามหมวดเมนู
 // ผังบัญชี (เพิ่ม/ปิดหมวดเอง) · จ่ายเจ้าหนี้ · ข้อมูลผู้ประกอบการ (ใบกำกับภาษี) · เครื่อง POS + เลขอนุมัติกรมสรรพากร
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
@@ -70,7 +71,7 @@ export default function AcctSettings({
     const [a, c, t, ts, pt] = await Promise.all([
       supabase.from('accounts').select('id,code,name,type,grp,system_key,is_active').eq('restaurant_id', restaurantId).order('code'),
       supabase.from('menu_categories').select('id,name,revenue_account_id').eq('restaurant_id', restaurantId).order('sort_order'),
-      supabase.rpc('acct_trial_balance', { p_restaurant_id: restaurantId, p_from: today, p_to: today }),
+      supabase.rpc('acct_trial_balance_export', { p_restaurant_id: restaurantId, p_from: today, p_to: today }),
       supabase
         .from('tax_settings')
         .select('tax_id,company_name,branch_code,branch_name,registered_address,postcode')
@@ -235,11 +236,11 @@ export default function AcctSettings({
   return (
     <div>
       {msg && <p className={msg.ok ? 'alert-success' : 'alert-error'}>{msg.text}</p>}
-      {!isOwner && <p className="note mb-4">แก้ตั้งค่าบัญชีได้เฉพาะเจ้าของร้าน</p>}
+      {!isOwner && <p className="note mb-4">{translateUi("แก้ตั้งค่าบัญชีได้เฉพาะเจ้าของร้าน")}</p>}
 
       <form onSubmit={(e) => void save(e)} className="card grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="label">โหมดแสดงผลเริ่มต้นของร้าน</span>
+          <span className="label">{translateUi("โหมดแสดงผลเริ่มต้นของร้าน")}</span>
           <select className="input w-full" value={f.accounting_mode} disabled={!isOwner} onChange={(e) => setF({ ...f, accounting_mode: e.target.value as AccountingMode })}>
             {(Object.keys(MODE_LABEL) as AccountingMode[]).map((m) => (
               <option key={m} value={m}>
@@ -249,43 +250,42 @@ export default function AcctSettings({
           </select>
         </label>
         <label className="block">
-          <span className="label">รูปแบบธุรกิจ</span>
+          <span className="label">{translateUi("รูปแบบธุรกิจ")}</span>
           <select className="input w-full" value={f.business_type} disabled={!isOwner} onChange={(e) => setF({ ...f, business_type: e.target.value as AccountingSettings['business_type'] })}>
-            <option value="individual">บุคคลธรรมดา</option>
-            <option value="company">นิติบุคคล (บริษัท/หจก.)</option>
+            <option value="individual">{translateUi("บุคคลธรรมดา")}</option>
+            <option value="company">{translateUi("นิติบุคคล (บริษัท/หจก.)")}</option>
           </select>
         </label>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={f.vat_registered} disabled={!isOwner} onChange={(e) => setF({ ...f, vat_registered: e.target.checked })} />
-          <span className="text-sm">จดทะเบียนภาษีมูลค่าเพิ่ม (ราคาขายรวม VAT แล้ว)</span>
+          <span className="text-sm">{translateUi("จดทะเบียนภาษีมูลค่าเพิ่ม (ราคาขายรวม VAT แล้ว)")}</span>
         </label>
         {f.vat_registered && numIn('vat_rate', 'อัตรา VAT (%)')}
         <label className="block sm:col-span-2">
-          <span className="label">ใบรับของ (ซื้อวัตถุดิบ) จ่ายด้วย</span>
+          <span className="label">{translateUi("ใบรับของ (ซื้อวัตถุดิบ) จ่ายด้วย")}</span>
           <select
             className="input w-full"
             value={f.receipt_payment_default}
             disabled={!isOwner}
             onChange={(e) => setF({ ...f, receipt_payment_default: e.target.value as AccountingSettings['receipt_payment_default'] })}
           >
-            <option value="cash">เงินสด</option>
-            <option value="bank">โอน/QR</option>
-            <option value="credit">ค้างจ่าย (เจ้าหนี้การค้า)</option>
+            <option value="cash">{translateUi("เงินสด")}</option>
+            <option value="bank">{translateUi("โอน/QR")}</option>
+            <option value="credit">{translateUi("ค้างจ่าย (เจ้าหนี้การค้า)")}</option>
           </select>
         </label>
         {numIn('food_cost_target_min', 'เป้า Food Cost ต่ำสุด (%)')}
         {numIn('food_cost_target_max', 'เป้า Food Cost สูงสุด (%)')}
         {numIn('prime_cost_target_min', 'เป้า Prime Cost ต่ำสุด (%)')}
         {numIn('prime_cost_target_max', 'เป้า Prime Cost สูงสุด (%)')}
-        {isOwner && <button className="btn btn-primary sm:col-span-2">บันทึกตั้งค่า</button>}
+        {isOwner && <button className="btn btn-primary sm:col-span-2">{translateUi("บันทึกตั้งค่า")}</button>}
       </form>
 
-      <Section title="ข้อมูลผู้ประกอบการ (พิมพ์บนใบกำกับภาษีและรายงานภาษี)">
-        {!f.vat_registered && <p className="note mb-3">ร้านยังไม่ได้ตั้งค่าจด VAT · ออกใบกำกับภาษีได้หลังเปิด "จดทะเบียนภาษีมูลค่าเพิ่ม" ด้านบน</p>}
+      <Section title={translateUi("ข้อมูลผู้ประกอบการ (พิมพ์บนใบกำกับภาษีและรายงานภาษี)")}>
+        {!f.vat_registered && <p className="note mb-3">{translateUi("ร้านยังไม่ได้ตั้งค่าจด VAT · ออกใบกำกับภาษีได้หลังเปิด \"จดทะเบียนภาษีมูลค่าเพิ่ม\" ด้านบน")}</p>}
         <form onSubmit={(e) => void saveTax(e)} className="card grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="label">
-              เลขประจำตัวผู้เสียภาษีอากร (13 หลัก) <span className="text-red-600">*</span>
+            <span className="label">{"" + translateUi("เลขประจำตัวผู้เสียภาษีอากร (13 หลัก)") + " "}<span className="text-red-600">*</span>
             </span>
             <input
               className="input w-full tabular-nums"
@@ -300,14 +300,12 @@ export default function AcctSettings({
             <span className="mt-1 block hint">{tax.tax_id.length === 13 ? formatTaxId(tax.tax_id) : `${tax.tax_id.length}/13 หลัก`}</span>
           </label>
           <label className="block">
-            <span className="label">
-              ชื่อผู้ประกอบการ / บริษัท <span className="text-red-600">*</span>
+            <span className="label">{"" + translateUi("ชื่อผู้ประกอบการ / บริษัท") + " "}<span className="text-red-600">*</span>
             </span>
             <input className="input w-full" maxLength={200} value={tax.company_name} disabled={!canEditTax} onChange={(e) => setTax({ ...tax, company_name: e.target.value })} required />
           </label>
           <label className="block">
-            <span className="label">
-              รหัสสาขา (5 หลัก) <span className="text-red-600">*</span>
+            <span className="label">{"" + translateUi("รหัสสาขา (5 หลัก)") + " "}<span className="text-red-600">*</span>
             </span>
             <input
               className="input w-full tabular-nums"
@@ -318,15 +316,14 @@ export default function AcctSettings({
               onChange={(e) => setTax({ ...tax, branch_code: digits(e.target.value, 5) })}
               required
             />
-            <span className="mt-1 block hint">00000 = สำนักงานใหญ่</span>
+            <span className="mt-1 block hint">{translateUi("00000 = สำนักงานใหญ่")}</span>
           </label>
           <label className="block">
-            <span className="label">ชื่อสาขา (ถ้ามี)</span>
+            <span className="label">{translateUi("ชื่อสาขา (ถ้ามี)")}</span>
             <input className="input w-full" maxLength={100} value={tax.branch_name} disabled={!canEditTax} onChange={(e) => setTax({ ...tax, branch_name: e.target.value })} />
           </label>
           <label className="block sm:col-span-2">
-            <span className="label">
-              ที่อยู่ตามที่จดทะเบียน <span className="text-red-600">*</span>
+            <span className="label">{"" + translateUi("ที่อยู่ตามที่จดทะเบียน") + " "}<span className="text-red-600">*</span>
             </span>
             <textarea
               className="input w-full"
@@ -339,7 +336,7 @@ export default function AcctSettings({
             />
           </label>
           <label className="block">
-            <span className="label">รหัสไปรษณีย์</span>
+            <span className="label">{translateUi("รหัสไปรษณีย์")}</span>
             <input
               className="input w-full tabular-nums"
               inputMode="numeric"
@@ -352,20 +349,20 @@ export default function AcctSettings({
           {canEditTax ? (
             <button className="btn btn-primary self-end">{taxSaved ? 'บันทึกข้อมูลผู้ประกอบการ' : 'เพิ่มข้อมูลผู้ประกอบการ'}</button>
           ) : (
-            <p className="self-end hint">แก้ได้เฉพาะเจ้าของร้านและพนักงานบัญชี</p>
+            <p className="self-end hint">{translateUi("แก้ได้เฉพาะเจ้าของร้านและพนักงานบัญชี")}</p>
           )}
         </form>
-        <p className="mt-2 hint">เอกสารที่ยืนยันแล้วเก็บข้อมูลผู้ขาย ณ วันที่ออก การแก้ที่นี่ไม่เปลี่ยนเอกสารเก่า</p>
+        <p className="mt-2 hint">{translateUi("เอกสารที่ยืนยันแล้วเก็บข้อมูลผู้ขาย ณ วันที่ออก การแก้ที่นี่ไม่เปลี่ยนเอกสารเก่า")}</p>
       </Section>
 
-      <Section title="เครื่อง POS และเลขอนุมัติจากกรมสรรพากร">
+      <Section title={translateUi("เครื่อง POS และเลขอนุมัติจากกรมสรรพากร")}>
         <div className="table-wrap">
           <table className="tbl">
             <thead>
               <tr>
-                <th className="text-left">รหัส</th>
-                <th className="text-left">ชื่อเครื่อง</th>
-                <th className="text-left">เลขอนุมัติเครื่อง POS (RD)</th>
+                <th className="text-left">{translateUi("รหัส")}</th>
+                <th className="text-left">{translateUi("ชื่อเครื่อง")}</th>
+                <th className="text-left">{translateUi("เลขอนุมัติเครื่อง POS (RD)")}</th>
                 <th />
               </tr>
             </thead>
@@ -375,7 +372,7 @@ export default function AcctSettings({
                   <td className="font-mono">{x.terminal_code}</td>
                   <td>
                     {x.name}
-                    {!x.is_active && <span className="badge badge-gray ml-2">ปิดใช้</span>}
+                    {!x.is_active && <span className="badge badge-gray ml-2">{translateUi("ปิดใช้")}</span>}
                   </td>
                   <td>
                     {isOwner ? (
@@ -383,7 +380,7 @@ export default function AcctSettings({
                         <input
                           className="input min-w-0 flex-1 font-mono"
                           maxLength={30}
-                          placeholder="ยังไม่มีเลขอนุมัติ"
+                          placeholder={translateUi("ยังไม่มีเลขอนุมัติ")}
                           value={regDraft[x.id] ?? ''}
                           onChange={(e) => setRegDraft({ ...regDraft, [x.id]: e.target.value })}
                           aria-label={`เลขอนุมัติเครื่อง ${x.terminal_code}`}
@@ -393,9 +390,7 @@ export default function AcctSettings({
                           className="btn btn-secondary btn-sm"
                           disabled={(regDraft[x.id] ?? '').trim() === (x.pos_reg_no ?? '')}
                           onClick={() => void saveRegNo(x)}
-                        >
-                          บันทึก
-                        </button>
+                        >{"" + translateUi("บันทึก") + " "}</button>
                       </div>
                     ) : (
                       <span className="font-mono">{x.pos_reg_no ?? '—'}</span>
@@ -412,9 +407,7 @@ export default function AcctSettings({
               ))}
               {terminals.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="empty-cell">
-                    ยังไม่มีเครื่อง POS
-                  </td>
+                  <td colSpan={4} className="empty-cell">{"" + translateUi("ยังไม่มีเครื่อง POS") + " "}</td>
                 </tr>
               )}
             </tbody>
@@ -424,45 +417,43 @@ export default function AcctSettings({
           <form onSubmit={(e) => void addTerminal(e)} className="card mt-3 grid gap-2 sm:grid-cols-[8rem_1fr_1fr_auto]">
             <input
               className="input font-mono uppercase"
-              placeholder="รหัส เช่น POS01"
+              placeholder={translateUi("รหัส เช่น POS01")}
               maxLength={10}
               value={newTerm.code}
               onChange={(e) => setNewTerm({ ...newTerm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
-              aria-label="รหัสเครื่อง"
+              aria-label={translateUi("รหัสเครื่อง")}
               required
             />
             <input
               className="input"
-              placeholder="ชื่อเครื่อง เช่น แคชเชียร์หน้าร้าน"
+              placeholder={translateUi("ชื่อเครื่อง เช่น แคชเชียร์หน้าร้าน")}
               maxLength={80}
               value={newTerm.name}
               onChange={(e) => setNewTerm({ ...newTerm, name: e.target.value })}
-              aria-label="ชื่อเครื่อง"
+              aria-label={translateUi("ชื่อเครื่อง")}
               required
             />
             <input
               className="input font-mono"
-              placeholder="เลขอนุมัติ RD (ถ้ามี)"
+              placeholder={translateUi("เลขอนุมัติ RD (ถ้ามี)")}
               maxLength={30}
               value={newTerm.reg}
               onChange={(e) => setNewTerm({ ...newTerm, reg: e.target.value })}
-              aria-label="เลขอนุมัติเครื่อง POS"
+              aria-label={translateUi("เลขอนุมัติเครื่อง POS")}
             />
-            <button className="btn btn-secondary">+ เพิ่มเครื่อง</button>
+            <button className="btn btn-secondary">{translateUi("+ เพิ่มเครื่อง")}</button>
           </form>
         )}
-        <p className="mt-2 hint">
-          ใบกำกับภาษีอย่างย่อ (ABB) ออกได้เฉพาะเครื่องที่มีเลขอนุมัติ · รหัสเครื่องใช้ในเลขที่เอกสาร เปลี่ยนไม่ได้หลังออกเอกสารแล้ว
-        </p>
+        <p className="mt-2 hint">{"" + translateUi("ใบกำกับภาษีอย่างย่อ (ABB) ออกได้เฉพาะเครื่องที่มีเลขอนุมัติ · รหัสเครื่องใช้ในเลขที่เอกสาร เปลี่ยนไม่ได้หลังออกเอกสารแล้ว") + " "}</p>
       </Section>
 
-      <Section title="รายได้ตามหมวดเมนู">
+      <Section title={translateUi("รายได้ตามหมวดเมนู")}>
         <ul className="list-card">
           {cats.map((c) => (
             <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <span>{c.name}</span>
               <select className="input" value={c.revenue_account_id ?? ''} disabled={!isOwner} onChange={(e) => void setRevenue(c.id, e.target.value)} aria-label={`บัญชีรายได้ของ ${c.name}`}>
-                <option value="">รายได้ขายอาหาร (ค่าเริ่มต้น)</option>
+                <option value="">{translateUi("รายได้ขายอาหาร (ค่าเริ่มต้น)")}</option>
                 {salesAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -471,46 +462,44 @@ export default function AcctSettings({
               </select>
             </li>
           ))}
-          {cats.length === 0 && <li className="empty-cell">ยังไม่มีหมวดเมนู</li>}
+          {cats.length === 0 && <li className="empty-cell">{translateUi("ยังไม่มีหมวดเมนู")}</li>}
         </ul>
       </Section>
 
       {isOwner && (
-        <Section title="ยอดยกมา (เงินสด / ธนาคาร ตอนเริ่มใช้ระบบ)">
+        <Section title={translateUi("ยอดยกมา (เงินสด / ธนาคาร ตอนเริ่มใช้ระบบ)")}>
           <form onSubmit={(e) => void saveOpening(e)} className="card grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            <input className="input" type="number" min="0" step="0.01" placeholder="เงินสดในลิ้นชัก" value={opening.cash} onChange={(e) => setOpening({ ...opening, cash: e.target.value })} />
-            <input className="input" type="number" min="0" step="0.01" placeholder="เงินในบัญชีธนาคาร" value={opening.bank} onChange={(e) => setOpening({ ...opening, bank: e.target.value })} />
-            <button className="btn btn-secondary" disabled={!opening.cash && !opening.bank}>
-              ลงยอดยกมา
-            </button>
+            <input className="input" type="number" min="0" step="0.01" placeholder={translateUi("เงินสดในลิ้นชัก")} value={opening.cash} onChange={(e) => setOpening({ ...opening, cash: e.target.value })} />
+            <input className="input" type="number" min="0" step="0.01" placeholder={translateUi("เงินในบัญชีธนาคาร")} value={opening.bank} onChange={(e) => setOpening({ ...opening, bank: e.target.value })} />
+            <button className="btn btn-secondary" disabled={!opening.cash && !opening.bank}>{"" + translateUi("ลงยอดยกมา") + " "}</button>
           </form>
-          <p className="mt-2 hint">สต็อกวัตถุดิบที่มีอยู่ลงเป็นยอดยกมาให้อัตโนมัติแล้ว</p>
+          <p className="mt-2 hint">{translateUi("สต็อกวัตถุดิบที่มีอยู่ลงเป็นยอดยกมาให้อัตโนมัติแล้ว")}</p>
         </Section>
       )}
 
       {canWrite && (
         <Section title={`เจ้าหนี้การค้าคงค้าง ${baht(apBalance)}`}>
           <form onSubmit={(e) => void paySupplier(e)} className="card grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
-            <input className="input" placeholder="ผู้ขาย" maxLength={100} value={pay.supplier} onChange={(e) => setPay({ ...pay, supplier: e.target.value })} />
-            <input className="input" type="number" min="0" step="0.01" placeholder="จำนวนเงิน" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} required />
-            <select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })} aria-label="จ่ายด้วย">
-              <option value="bank">โอน/QR</option>
-              <option value="cash">เงินสด</option>
+            <input className="input" placeholder={translateUi("ผู้ขาย")} maxLength={100} value={pay.supplier} onChange={(e) => setPay({ ...pay, supplier: e.target.value })} />
+            <input className="input" type="number" min="0" step="0.01" placeholder={translateUi("จำนวนเงิน")} value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} required />
+            <select className="input" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })} aria-label={translateUi("จ่ายด้วย")}>
+              <option value="bank">{translateUi("โอน/QR")}</option>
+              <option value="cash">{translateUi("เงินสด")}</option>
             </select>
-            <button className="btn btn-secondary">จ่ายเจ้าหนี้</button>
+            <button className="btn btn-secondary">{translateUi("จ่ายเจ้าหนี้")}</button>
           </form>
         </Section>
       )}
 
-      <Section title="ผังบัญชี">
+      <Section title={translateUi("ผังบัญชี")}>
         <div className="table-wrap">
           <table className="tbl">
             <thead>
               <tr>
-                <th className="text-left">รหัส</th>
-                <th className="text-left">ชื่อบัญชี</th>
-                <th className="text-left">ประเภท</th>
-                <th className="text-right">คงเหลือวันนี้</th>
+                <th className="text-left">{translateUi("รหัส")}</th>
+                <th className="text-left">{translateUi("ชื่อบัญชี")}</th>
+                <th className="text-left">{translateUi("ประเภท")}</th>
+                <th className="text-right">{translateUi("คงเหลือวันนี้")}</th>
                 <th />
               </tr>
             </thead>
@@ -520,7 +509,7 @@ export default function AcctSettings({
                   <td className="tabular-nums">{a.code}</td>
                   <td>
                     {a.name}
-                    {a.system_key && <span className="badge badge-gray ml-2">ระบบ</span>}
+                    {a.system_key && <span className="badge badge-gray ml-2">{translateUi("ระบบ")}</span>}
                   </td>
                   <td>
                     {TYPE_LABEL[a.type]}
@@ -539,7 +528,7 @@ export default function AcctSettings({
             </tbody>
           </table>
         </div>
-        <p className="mt-2 hint">เพิ่มหมวดรายจ่ายของร้านเองได้ที่แท็บ "รายจ่าย" (ปุ่ม + หมวด)</p>
+        <p className="mt-2 hint">{translateUi("เพิ่มหมวดรายจ่ายของร้านเองได้ที่แท็บ \"รายจ่าย\" (ปุ่ม + หมวด)")}</p>
       </Section>
     </div>
   )

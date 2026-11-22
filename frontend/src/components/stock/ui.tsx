@@ -1,3 +1,4 @@
+import { translateUi } from "../../lib/uiText"
 // ชิ้นส่วนที่ใช้ร่วมกันในหน้าสต็อก
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -9,7 +10,7 @@ export function StockNav({ roles }: { roles: Role[] }) {
   const { pathname } = useLocation()
   const pages = STAFF_PAGES.filter((p) => p.group === 'stock' && canAccess(roles, p.roles))
   return (
-    <nav className="-mx-1 mb-5 flex gap-1.5 overflow-x-auto px-1 pb-1 print:hidden" aria-label="เมนูสต็อก">
+    <nav className="-mx-1 mb-5 flex gap-1.5 overflow-x-auto px-1 pb-1 print:hidden" aria-label={translateUi("เมนูสต็อก")}>
       {pages.map((p) => (
         <Link
           key={p.path}

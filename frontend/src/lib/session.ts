@@ -18,6 +18,12 @@ export interface Session {
 const KEY = 'plato.session'
 const listeners = new Set<(s: Session | null) => void>()
 let current: Session | null = read()
+let expiry: ReturnType<typeof setTimeout> | undefined
+function scheduleExpiry() {
+  clearTimeout(expiry)
+  if (current) expiry = setTimeout(() => { getSession(); scheduleExpiry() }, Math.min(2_147_483_647, Math.max(1, current.expires_at - Date.now())))
+}
+scheduleExpiry()
 
 function read(): Session | null {
   try {
@@ -37,7 +43,7 @@ export function getSession(): Session | null {
 
 export function setSession(s: Session | null) {
   // เปลี่ยนผู้ใช้/ออกจากระบบ: ล้างข้อมูลที่แคชไว้ทั้งหมด (กันข้อมูลบัญชีเก่าโผล่)
-  if (current?.user.id !== s?.user.id) {
+  if (current?.access_token !== s?.access_token) {
     clearAll()
     try {
       localStorage.removeItem('plato.staff')
@@ -46,6 +52,7 @@ export function setSession(s: Session | null) {
     }
   }
   current = s
+  scheduleExpiry()
   try {
     if (s) localStorage.setItem(KEY, JSON.stringify(s))
     else localStorage.removeItem(KEY)
@@ -71,8 +78,9 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key !== KEY) return
     const next = read()
-    if (current?.user.id !== next?.user.id) clearAll()
+    if (current?.access_token !== next?.access_token) clearAll()
     current = next
+    scheduleExpiry()
     for (const fn of listeners) fn(current)
   })
 }

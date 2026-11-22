@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createApp } from '../src/app.ts'
 import { openapi } from '../src/openapi.ts'
+import { operationsPaths } from '../src/openapi-operations.ts'
 
 const app = createApp()
 const env = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'a', SUPABASE_SERVICE_ROLE_KEY: 's' }
@@ -29,6 +30,11 @@ test('ทุก endpoint ที่ต้องล็อกอินมี securi
       .map(([m]) => `${m} ${p}`),
   )
   assert.deepEqual(secured.sort(), [
+    ...Object.entries(operationsPaths).flatMap(([path, methods]) => Object.keys(methods).map(method => `${method} ${path}`)),
+    'post /api/auth/logout',
+    'get /api/shifts',
+    'get /api/shifts/{id}',
+    'get /api/tax/documents/{id}',
     'delete /api/import/{batch_id}',
     'delete /api/staff/{user_id}',
     'get /api/auth/me',

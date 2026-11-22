@@ -34,6 +34,9 @@ export const PAGE_GROUPS: { id: PageGroup; title: string }[] = [
 ]
 
 export const STAFF_PAGES: StaffPage[] = [
+  { path: '/audit', group: 'admin', title: 'ประวัติการเปลี่ยนแปลง', label: 'ตรวจผู้ทำและรายการที่เปลี่ยน', icon: 'clock', roles: ['owner', 'manager'] },
+  { path: '/tables', group: 'front', title: 'ผังโต๊ะ', label: 'สถานะ ย้ายโต๊ะ รวมโต๊ะ และขอเช็คบิล', icon: 'table', roles: ['owner', 'staff', 'manager'] },
+  { path: '/bills', group: 'front', title: 'ประวัติบิล', label: 'ค้นหา แก้ แยกบิล และพิมพ์ซ้ำ', icon: 'counter', roles: ['owner', 'staff', 'manager'] },
   { path: '/pos', group: 'front', title: 'รับออเดอร์', label: 'เลือกโต๊ะ/กลับบ้าน แล้วส่งเข้าครัว', icon: 'pos', roles: ['owner', 'staff'] },
   { path: '/kitchen', group: 'front', title: 'หน้าจอครัว', label: 'ออเดอร์ใหม่ กำลังทำ พร้อมเสิร์ฟ', icon: 'kitchen', roles: ['owner', 'staff', 'kitchen'] },
   { path: '/serve', group: 'front', title: 'เสิร์ฟอาหาร', label: 'ส่งโต๊ะไหน เสิร์ฟอะไรแล้ว', icon: 'serve', roles: ['owner', 'staff'] },

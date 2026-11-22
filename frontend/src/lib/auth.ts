@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { api } from './api'
 import { getSession, onSessionChange, setSession, type Session } from './session'
@@ -19,6 +19,7 @@ export async function signIn(email: string, password: string): Promise<Session> 
 }
 
 export function signOut() {
+  void api('/auth/logout', { body: {} }).catch(() => undefined)
   setSession(null)
 }
 
@@ -58,6 +59,7 @@ function rememberedStaff(userId: string): StaffState | null {
 }
 
 function loadStaff(userId: string): Promise<StaffRow[]> {
+  const token = getSession()?.access_token
   return fetchCached(
     `staff:${userId}`,
     async () => {
@@ -65,7 +67,7 @@ function loadStaff(userId: string): Promise<StaffRow[]> {
       if (error) throw error
       const rows = (data ?? []) as StaffRow[]
       try {
-        localStorage.setItem(STAFF_KEY, JSON.stringify({ userId, rows }))
+        if (getSession()?.access_token === token) localStorage.setItem(STAFF_KEY, JSON.stringify({ userId, rows }))
       } catch {
         // storage ใช้ไม่ได้: จำไว้แค่ในหน่วยความจำ
       }
@@ -78,6 +80,8 @@ function loadStaff(userId: string): Promise<StaffRow[]> {
 // อ่านบทบาทและร้านของผู้ใช้ที่ล็อกอิน: 1 แถวต่อ 1 บทบาท (0020) · ตอนนี้รองรับ 1 ผู้ใช้ต่อ 1 ร้าน
 // เปลี่ยนหน้า: ใช้ค่าที่จำไว้ทันที (ไม่ขึ้น "กำลังโหลด...") แล้วตรวจกับฐานข้อมูลเบื้องหลังเมื่อเกิน 5 นาที
 export function useStaff(userId: string | undefined): StaffState {
+  const identity = getSession()?.access_token
+  const owner = useRef(identity)
   const [state, setState] = useState<StaffState>(() =>
     userId ? (rememberedStaff(userId) ?? { loading: true, roles: [], restaurantId: null, error: null }) : { loading: false, roles: [], restaurantId: null, error: null },
   )
@@ -87,10 +91,11 @@ export function useStaff(userId: string | undefined): StaffState {
       setState({ loading: false, roles: [], restaurantId: null, error: null })
       return
     }
+    owner.current = identity
     let cancelled = false
     const remembered = rememberedStaff(userId)
-    setState((s) => remembered ?? { ...s, loading: true })
-    loadStaff(userId).then(
+    setState(remembered ?? { loading: true, roles: [], restaurantId: null, error: null })
+    const refresh = () => loadStaff(userId).then(
       (rows) => {
         if (!cancelled) setState(toState(rows))
       },
@@ -99,10 +104,13 @@ export function useStaff(userId: string | undefined): StaffState {
         if (!cancelled && !remembered) setState(toState(null))
       },
     )
+    refresh()
+    const tick = setInterval(refresh, STAFF_MAX_AGE)
     return () => {
+      clearInterval(tick)
       cancelled = true
     }
-  }, [userId])
+  }, [userId, identity])
 
-  return state
+  return owner.current === identity ? state : { loading: true, roles: [], restaurantId: null, error: null }
 }

@@ -1,9 +1,11 @@
+import { translateUi } from "../lib/uiText"
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { signOut, useSession, useStaff } from '../lib/auth'
 import { canAccess, groupPages, pagesFor, roleLabels, type Role } from '../lib/roles'
 import Icon from './Icon'
 import { preloadPage, preloadPages } from '../pages/loaders'
+import OfflineOrders from './OfflineOrders'
 
 export interface StaffContext {
   restaurantId: string
@@ -58,7 +60,7 @@ export default function RequireRole({
     if (roleKey) preloadPages(['/', ...pagesFor(roleKey.split(',') as Role[]).map((p) => p.path)])
   }, [roleKey])
 
-  if (loading || (session && staff.loading)) return <FullPageMessage>กำลังโหลด...</FullPageMessage>
+  if (loading || (session && staff.loading)) return <FullPageMessage>{translateUi("กำลังโหลด...")}</FullPageMessage>
   if (!session) return <Navigate to="/login" replace />
   if (session.user.must_change_password) return <Navigate to="/set-password" replace />
 
@@ -68,9 +70,7 @@ export default function RequireRole({
       <FullPageMessage>
         <div className="card max-w-sm">
           <p className="text-red-600">{staff.error ?? 'ไม่พบสิทธิ์การใช้งาน'}</p>
-          <button className="btn btn-secondary mt-4" onClick={() => signOut()}>
-            ออกจากระบบ
-          </button>
+          <button className="btn btn-secondary mt-4" onClick={() => signOut()}>{"" + translateUi("ออกจากระบบ") + " "}</button>
         </div>
       </FullPageMessage>
     )
@@ -83,7 +83,7 @@ export default function RequireRole({
     <nav className="flex flex-col gap-5">
       {groupPages(pages).map((g) => (
         <div key={g.id} className="flex flex-col gap-1">
-          <div className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-white/35 uppercase">{g.title}</div>
+          <div className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-white/35 uppercase">{translateUi(g.title)}</div>
           {g.pages.map((p) => {
             const active = pathname === p.path
             return (
@@ -103,7 +103,7 @@ export default function RequireRole({
                   name={p.icon}
                   className={`h-5 w-5 transition ${active ? 'text-white' : 'text-white/45 group-hover:text-white/80'}`}
                 />
-                {p.title}
+                {translateUi(p.title)}
               </Link>
             )
           })}
@@ -120,23 +120,19 @@ export default function RequireRole({
         </span>
         <div className="min-w-0">
           <div className="truncate text-sm font-medium text-white">{session.user.display_name ?? session.user.email}</div>
-          <div className="truncate text-xs text-white/50">{roleLabels(mine)}</div>
+          <div className="truncate text-xs text-white/50">{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}</div>
         </div>
       </div>
       <Link
         to="/set-password"
         className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
       >
-        <Icon name="settings" className="h-5 w-5 text-white/50" />
-        เปลี่ยนรหัสผ่าน
-      </Link>
+        <Icon name="settings" className="h-5 w-5 text-white/50" />{"" + translateUi("เปลี่ยนรหัสผ่าน") + " "}</Link>
       <button
         className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white"
         onClick={() => signOut()}
       >
-        <Icon name="logout" className="h-5 w-5 text-white/50" />
-        ออกจากระบบ
-      </button>
+        <Icon name="logout" className="h-5 w-5 text-white/50" />{"" + translateUi("ออกจากระบบ") + " "}</button>
     </div>
   )
 
@@ -153,11 +149,11 @@ export default function RequireRole({
 
       {/* แถบด้านบน (มือถือ/แท็บเล็ต) */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-2.5 shadow-xs backdrop-blur-md lg:hidden">
-        <button className="btn btn-ghost -ml-2 p-2" onClick={() => setDrawer(true)} aria-label="เปิดเมนู">
+        <button className="btn btn-ghost -ml-2 p-2" onClick={() => setDrawer(true)} aria-label={translateUi("เปิดเมนู")}>
           <Icon name="bars" />
         </button>
-        <span className="strong-text">{current?.title ?? 'Plato'}</span>
-        <span className="badge badge-gray ml-auto max-w-[45%] truncate">{roleLabels(mine)}</span>
+        <span className="strong-text">{translateUi(current?.title ?? 'Plato')}</span>
+        <span className="badge badge-gray ml-auto max-w-[45%] truncate">{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}</span>
       </header>
 
       {drawer && (
@@ -171,7 +167,7 @@ export default function RequireRole({
               <Link to="/">
                 <Logo className="text-white" />
               </Link>
-              <button className="btn p-2 text-white/75 hover:bg-white/10 hover:text-white" onClick={() => setDrawer(false)} aria-label="ปิดเมนู">
+              <button className="btn p-2 text-white/75 hover:bg-white/10 hover:text-white" onClick={() => setDrawer(false)} aria-label={translateUi("ปิดเมนู")}>
                 <Icon name="close" />
               </button>
             </div>
@@ -182,11 +178,12 @@ export default function RequireRole({
       )}
 
       <main>
+        <OfflineOrders key={`${session.user.id}:${restaurantId}`} userId={session.user.id} restaurantId={restaurantId} />
         {canAccess(mine, roles) ? (
           children({ restaurantId, roles: mine })
         ) : (
           <div className="page">
-            <div className="alert-error">บทบาท "{roleLabels(mine)}" ไม่มีสิทธิ์เข้าหน้านี้</div>
+            <div className="alert-error">{translateUi("บทบาท \"")}{roleLabels(mine).split(' · ').map(translateUi).join(' · ')}{translateUi("\" ไม่มีสิทธิ์เข้าหน้านี้")}</div>
           </div>
         )}
       </main>

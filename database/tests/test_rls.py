@@ -49,17 +49,8 @@ alter default privileges in schema public grant all on sequences to anon, authen
 """
 admin.execute(STUB)
 
-FILES = [
-    'migrations/0001_core.sql',
-    'migrations/0002_display_payment_reports.sql',
-    'migrations/0003_users_inventory.sql',
-    'migrations/0004_accounting.sql',
-    'migrations/0005_stock.sql',
-    'migrations/0006_tax_shifts.sql',
-    'migrations/0007_order_cancel_kitchen.sql',
-    'seed/seed.sql',
-    'seed/seed_demo.sql',
-]
+from harness import files, quoted_payment
+FILES = files()
 for f in FILES:
     try:
         text = (ROOT / f).read_text(encoding='utf-8')
@@ -95,8 +86,10 @@ def q(uid, sql, args=None):
             cur.execute('set local role anon')
             cur.execute("select set_config('request.jwt.claim.sub','',true)")
         else:
+            cur.execute("select set_config('request.jwt.claims', json_build_object('credential_version',credential_version)::text,true) from app_users where id=%s", (str(uid),))
             cur.execute('set local role authenticated')
             cur.execute("select set_config('request.jwt.claim.sub',%s,true)", (str(uid),))
+        sql, args = quoted_payment(cur, sql, args)
         cur.execute(sql, args)
         rows = cur.fetchall() if cur.description else None
         rc = cur.rowcount
@@ -237,9 +230,10 @@ check('accountant: ติ๊กเสิร์ฟรายเมนูไม่�
 check('ร้านอื่น: ติ๊กเสิร์ฟรายเมนูไม่ได้', q(U['other'], 'select set_item_served(%s, true)', (item1,))[0] == 'err')
 check('kitchen: ตั้ง paid ไม่ได้', q(U['kitchen'], "update orders set status='paid' where id=%s", (oid,))[0] == 'err')
 check('kitchen: ตั้ง cancelled ไม่ได้', q(U['kitchen'], "update orders set status='cancelled' where id=%s", (oid,))[0] == 'err')
-check('staff: served แล้ว paid ได้',
+check('staff: served then direct paid is rejected',
       q(U['staff'], "update orders set status='served' where id=%s", (oid,))[2] == 1
-      and q(U['staff'], "update orders set status='paid' where id=%s", (oid,))[2] == 1)
+      and q(U['staff'], "update orders set status='paid' where id=%s", (oid,))[0] == 'err')
+check('staff: payment RPC succeeds', q(U['staff'], 'select counter_pay_bill(%s,%s::uuid[],null)', (r1,[str(oid)]))[0]=='ok')
 check('staff: ติ๊กเสิร์ฟรายเมนูได้เฉพาะตอนพร้อมเสิร์ฟ', q(U['staff'], 'select set_item_served(%s, true)', (item1,))[0] == 'err')
 check('orders: paid_at ถูกบันทึกอัตโนมัติ', one('select paid_at is not null from orders where id=%s', (oid,)))
 check('accountant: อ่านออเดอร์ได้', q(U['acc'], 'select count(*) from orders')[1][0][0] >= 1)
@@ -269,7 +263,7 @@ def upd(uid, oid_, status, reason=None):
 
 def walk(oid_, *steps):
     for who, st_ in steps:
-        r_ = upd(U[who], oid_, st_)
+        r_ = q(U[who], 'select counter_pay_bill(%s,%s::uuid[],null)', (r1,[str(oid_)])) if st_ == 'paid' else upd(U[who], oid_, st_)
         assert r_[0] == 'ok' and r_[2] == 1, (who, st_, r_)
 
 a1 = place(1)[1][0][0]
@@ -460,8 +454,10 @@ check('accounting_summary: days ผิดถูกปฏิเสธ', q(U['owne
 
 # ---------- 9.5) นำเข้ายอดขาย CSV (migration 0005) ----------
 def imp(uid, rows, dry=False, skip=False, rid=None):
-    return q(uid, 'select import_sales_history(%s, %s::jsonb, %s, %s)',
-             (rid or r1, json.dumps(rows), dry, skip))
+    preview = q(uid, 'select import_sales_history(%s, %s::jsonb, true, %s)', (rid or r1, json.dumps(rows), skip))
+    if dry or preview[0] != 'ok': return preview
+    return q(uid, 'select import_sales_history(%s, %s::jsonb, false, %s, %s)',
+             (rid or r1, json.dumps(rows), skip, preview[1][0][0].get('preview_token')))
 
 ROWS = [
     {"line": 2, "ref": "B001", "at": "2026-09-01 12:05", "item": "ผัดกะเพราหมูสับ", "qty": 2, "price": ""},
@@ -736,7 +732,7 @@ check('anon: เห็นโปรโมชันไม่ได้', q(None, 's
 # 6) บัญชีเห็นยอดส่วนลด
 pd = order_promo(today)[1][0][0]
 for who, st_ in [('kitchen', 'preparing'), ('kitchen', 'ready'), ('kitchen', 'served'), ('staff', 'paid')]:
-    q(U[who], "update orders set status=%s where id=%s", (st_, pd))
+    walk(pd, (who, st_))
 want_disc = float(one("select coalesce(sum(discount_total),0) from orders where restaurant_id=%s and status='paid' and (paid_at at time zone 'Asia/Bangkok')::date = (now() at time zone 'Asia/Bangkok')::date", (r1,)))
 ac = q(U['acc'], 'select discount_total, revenue_total from accounting_summary(%s, 1)', (r1,))
 check('accounting_summary: แสดงยอดส่วนลดโปรของบิลที่ชำระแล้ว', ac[0] == 'ok' and float(ac[1][0][0]) == want_disc and want_disc > 0, (ac, want_disc))

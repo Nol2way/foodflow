@@ -15,6 +15,7 @@ export interface DisplayMedia {
 }
 
 export interface DisplayItem {
+  sold_by_weight?: boolean
   id: string
   name: string
   price: number

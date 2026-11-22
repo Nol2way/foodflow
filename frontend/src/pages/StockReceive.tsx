@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor, type Role } from '../lib/roles'
@@ -193,9 +194,7 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
     <form onSubmit={submit} className="space-y-4">
       {error && <p className="alert-error">{error}</p>}
       {result && (
-        <div className="alert-success">
-          บันทึกใบรับของแล้ว
-          {result.recosted > 0 && <> · คำนวณต้นทุนสูตรใหม่ {result.recosted} สูตร (รวมสูตรแม่)</>}
+        <div className="alert-success">{"" + translateUi("บันทึกใบรับของแล้ว") + " "}{result.recosted > 0 && <>{" " + translateUi("· คำนวณต้นทุนสูตรใหม่") + " "}{result.recosted}{" " + translateUi("สูตร (รวมสูตรแม่)") + ""}</>}
           {result.warnings.length > 0 && (
             <ul className="mt-1 list-disc pl-5 text-amber-900">
               {result.warnings.map((w) => (
@@ -207,24 +206,24 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
               ))}
             </ul>
           )}
-          <button type="button" className="link ml-2" onClick={() => onSaved(result.id)}>ดูใบรับของ</button>
+          <button type="button" className="link ml-2" onClick={() => onSaved(result.id)}>{translateUi("ดูใบรับของ")}</button>
         </div>
       )}
 
       <div className="card grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="sm:col-span-2">
-          <span className="label">ผู้ขาย</span>
+          <span className="label">{translateUi("ผู้ขาย")}</span>
           <select className="input w-full" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-            <option value="">ไม่ระบุ</option>
+            <option value="">{translateUi("ไม่ระบุ")}</option>
             {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
         <label>
-          <span className="label">เลขที่บิล</span>
+          <span className="label">{translateUi("เลขที่บิล")}</span>
           <input className="input w-full" maxLength={50} value={invoice} onChange={(e) => setInvoice(e.target.value)} />
         </label>
         <label>
-          <span className="label">วันที่รับ</span>
+          <span className="label">{translateUi("วันที่รับ")}</span>
           <input className="input w-full" type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} required />
         </label>
       </div>
@@ -238,21 +237,21 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
             <div key={l.key} className="card space-y-3">
               <div className="flex gap-2">
                 <label className="flex-1">
-                  <span className="label">วัตถุดิบ</span>
+                  <span className="label">{translateUi("วัตถุดิบ")}</span>
                   <select className="input w-full" value={l.ingredient_id} onChange={(e) => pick(l.key, e.target.value)}>
-                    <option value="">เลือก...</option>
+                    <option value="">{translateUi("เลือก...")}</option>
                     {options.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
                 </label>
                 {lines.length > 1 && (
-                  <button type="button" className="link-danger self-end pb-2" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>ลบ</button>
+                  <button type="button" className="link-danger self-end pb-2" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>{translateUi("ลบ")}</button>
                 )}
               </div>
               {ing && (
                 <>
                   <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                     <label>
-                      <span className="label">จำนวนที่รับ ({ing.purchase_unit})</span>
+                      <span className="label">{translateUi("จำนวนที่รับ (")}{ing.purchase_unit})</span>
                       <input className="input w-full text-right" type="number" min="0" step="any" inputMode="decimal" value={l.packs} onChange={(e) => set(l.key, { packs: e.target.value })} required />
                     </label>
                     <label>
@@ -260,26 +259,26 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
                       <input className="input w-full text-right" type="number" min="0" step="any" inputMode="decimal" value={l.packSize} onChange={(e) => set(l.key, { packSize: e.target.value })} required />
                     </label>
                     <label>
-                      <span className="label">ราคาต่อ {ing.purchase_unit} (บาท)</span>
+                      <span className="label">{"" + translateUi("ราคาต่อ") + " "}{ing.purchase_unit}{" " + translateUi("(บาท)") + ""}</span>
                       <input className="input w-full text-right" type="number" min="0" step="any" inputMode="decimal" value={l.packPrice} onChange={(e) => set(l.key, { packPrice: e.target.value })} required />
                     </label>
                     <label>
-                      <span className="label">วันหมดอายุ</span>
+                      <span className="label">{translateUi("วันหมดอายุ")}</span>
                       <input className="input w-full" type="date" min={date} value={l.expiry} onChange={(e) => set(l.key, { expiry: e.target.value })} />
                     </label>
                     <label>
-                      <span className="label">ตามบิล ({ing.purchase_unit}) ถ้าได้ไม่ครบ</span>
+                      <span className="label">{translateUi("ตามบิล (")}{ing.purchase_unit}{translateUi(") ถ้าได้ไม่ครบ")}</span>
                       <input className="input w-full text-right" type="number" min="0" step="any" inputMode="decimal" placeholder={l.packs || '-'} value={l.billPacks} onChange={(e) => set(l.key, { billPacks: e.target.value })} />
                     </label>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 hint">
-                    <span>เข้าสต็อก {fmtNum(baseQty)} {ing.unit}</span>
+                    <span>{"" + translateUi("เข้าสต็อก") + " "}{fmtNum(baseQty)} {ing.unit}</span>
                     {Number(l.packSize) > 0 && l.packPrice !== '' && (
                       <span>
-                        {baht(Number(l.packPrice) / Number(l.packSize))}/{ing.unit} · หลัง yield {baht((Number(l.packPrice) / Number(l.packSize)) * 10000 / (ing.trim_yield_pct * ing.cook_yield_pct))}/{ing.unit}
+                        {baht(Number(l.packPrice) / Number(l.packSize))}/{ing.unit}{" " + translateUi("· หลัง yield") + " "}{baht((Number(l.packPrice) / Number(l.packSize)) * 10000 / (ing.trim_yield_pct * ing.cook_yield_pct))}/{ing.unit}
                       </span>
                     )}
-                    {last.get(ing.id) && <span>ครั้งก่อน {baht(Number(last.get(ing.id)!.unit_cost))}/{ing.unit}</span>}
+                    {last.get(ing.id) && <span>{"" + translateUi("ครั้งก่อน") + " "}{baht(Number(last.get(ing.id)!.unit_cost))}/{ing.unit}</span>}
                     <span className="ml-auto font-medium text-gray-700">{baht((Number(l.packs) || 0) * (Number(l.packPrice) || 0))}</span>
                   </div>
                   {warns.length > 0 && <p className="note">⚠ {warns.join(' · ')}</p>}
@@ -288,16 +287,14 @@ function ReceiveForm({ restaurantId, onSaved }: { restaurantId: string; onSaved:
             </div>
           )
         })}
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLines((ls) => [...ls, blank()])}>+ เพิ่มรายการ</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLines((ls) => [...ls, blank()])}>{translateUi("+ เพิ่มรายการ")}</button>
       </div>
 
       <div className="card flex flex-wrap items-center gap-3">
-        <input className="input min-w-48 flex-1" maxLength={300} placeholder="หมายเหตุ" value={note} onChange={(e) => setNote(e.target.value)} />
+        <input className="input min-w-48 flex-1" maxLength={300} placeholder={translateUi("หมายเหตุ")} value={note} onChange={(e) => setNote(e.target.value)} />
         <label className="flex items-center gap-2 text-sm text-gray-600">
-          <input type="checkbox" checked={expense} onChange={(e) => setExpense(e.target.checked)} />
-          บันทึกเป็นรายจ่าย
-        </label>
-        <span className="text-sm">รวม <strong className="tabular-nums">{baht(total)}</strong></span>
+          <input type="checkbox" checked={expense} onChange={(e) => setExpense(e.target.checked)} />{"" + translateUi("บันทึกเป็นรายจ่าย") + " "}</label>
+        <span className="text-sm">{"" + translateUi("รวม") + " "}<strong className="tabular-nums">{baht(total)}</strong></span>
         <button className="btn btn-primary" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึกรับเข้า'}</button>
       </div>
     </form>
@@ -338,38 +335,35 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
   return (
     <div>
       <div className="mb-4 flex gap-2 print:hidden">
-        <button className="btn btn-secondary btn-sm" onClick={onBack}>← กลับ</button>
+        <button className="btn btn-secondary btn-sm" onClick={onBack}>{translateUi("← กลับ")}</button>
         <button className="btn btn-secondary btn-sm ml-auto" onClick={() => window.print()}>
-          <Icon name="print" className="h-4 w-4" />
-          พิมพ์
-        </button>
+          <Icon name="print" className="h-4 w-4" />{"" + translateUi("พิมพ์") + " "}</button>
       </div>
       {error && <p className="alert-error">{error}</p>}
       <div className="print-sheet card">
         <div className="flex flex-wrap justify-between gap-2 border-b pb-3">
           <div>
-            <h2 className="title-lg">ใบรับของ (ตรวจรับเทียบบิล)</h2>
-            <p className="text-sm text-gray-500">
-              วันที่รับ {new Date(receipt.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} · ผู้รับ {receipt.received_by_name ?? '-'}
+            <h2 className="title-lg">{translateUi("ใบรับของ (ตรวจรับเทียบบิล)")}</h2>
+            <p className="text-sm text-gray-500">{"" + translateUi("วันที่รับ") + " "}{new Date(receipt.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })}{" " + translateUi("· ผู้รับ") + " "}{receipt.received_by_name ?? '-'}
             </p>
-            {receipt.note && <p className="text-sm text-gray-700">หมายเหตุ: {receipt.note}</p>}
+            {receipt.note && <p className="text-sm text-gray-700">{"" + translateUi("หมายเหตุ:") + " "}{receipt.note}</p>}
           </div>
           <div className="text-right text-sm">
-            <div>ผู้ขาย: <strong>{receipt.supplier ?? '-'}</strong></div>
-            <div>เลขที่บิล: {receipt.invoice_no ?? '-'}</div>
-            {receipt.expense_id && <div className="text-xs text-emerald-700">บันทึกเป็นรายจ่ายแล้ว</div>}
+            <div>{"" + translateUi("ผู้ขาย:") + " "}<strong>{receipt.supplier ?? '-'}</strong></div>
+            <div>{"" + translateUi("เลขที่บิล:") + " "}{receipt.invoice_no ?? '-'}</div>
+            {receipt.expense_id && <div className="text-xs text-emerald-700">{translateUi("บันทึกเป็นรายจ่ายแล้ว")}</div>}
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="mt-3 w-full min-w-[720px] text-sm">
             <thead>
               <tr className="text-left">
-                <th className="px-2 py-1.5">วัตถุดิบ</th>
-                <th className="px-2 py-1.5 text-right">ตามบิล</th>
-                <th className="px-2 py-1.5 text-right">รับจริง</th>
-                <th className="px-2 py-1.5 text-right">ราคา</th>
-                <th className="px-2 py-1.5">ผล</th>
-                <th className="px-2 py-1.5 text-right">รอทวง</th>
+                <th className="px-2 py-1.5">{translateUi("วัตถุดิบ")}</th>
+                <th className="px-2 py-1.5 text-right">{translateUi("ตามบิล")}</th>
+                <th className="px-2 py-1.5 text-right">{translateUi("รับจริง")}</th>
+                <th className="px-2 py-1.5 text-right">{translateUi("ราคา")}</th>
+                <th className="px-2 py-1.5">{translateUi("ผล")}</th>
+                <th className="px-2 py-1.5 text-right">{translateUi("รอทวง")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -390,17 +384,15 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
                       {l.pack_qty !== null && l.pack_size !== null && (
                         <div className="hint">{fmtNum(Number(l.pack_qty))} × {fmtNum(Number(l.pack_size))} {l.unit}</div>
                       )}
-                      {l.expiry_date && <div className="hint">หมดอายุ {new Date(l.expiry_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</div>}
-                      {glaze !== null && <div className="hint">รวม {fmtNum(Number(l.gross_qty))} · น้ำแข็ง {pct(glaze)}</div>}
+                      {l.expiry_date && <div className="hint">{"" + translateUi("หมดอายุ") + " "}{new Date(l.expiry_date).toLocaleDateString('th-TH', { dateStyle: 'medium' })}</div>}
+                      {glaze !== null && <div className="hint">{"" + translateUi("รวม") + " "}{fmtNum(Number(l.gross_qty))}{" " + translateUi("· น้ำแข็ง") + " "}{pct(glaze)}</div>}
                     </td>
                     <td className="px-2 py-1.5 num">
                       {l.pack_price !== null ? `${baht(Number(l.pack_price))}/แพ็ค` : `${baht(Number(l.unit_cost))}/${l.unit}`}
                       {l.price_change_pct !== null && Number(l.price_change_pct) !== 0 && (
-                        <div className="text-xs text-amber-800">
-                          ราคา{Number(l.price_change_pct) > 0 ? 'ขึ้น' : 'ลง'} {pct(Math.abs(Number(l.price_change_pct)))} จากครั้งก่อน
-                        </div>
+                        <div className="text-xs text-amber-800">{translateUi("ราคา")}{Number(l.price_change_pct) > 0 ? 'ขึ้น' : 'ลง'} {pct(Math.abs(Number(l.price_change_pct)))}{" " + translateUi("จากครั้งก่อน") + " "}</div>
                       )}
-                      {l.pack_changed && <div className="text-xs text-amber-800">ขนาดบรรจุเปลี่ยน</div>}
+                      {l.pack_changed && <div className="text-xs text-amber-800">{translateUi("ขนาดบรรจุเปลี่ยน")}</div>}
                     </td>
                     <td className="px-2 py-1.5"><span className={`badge ${STATUS[l.status].badge}`}>{STATUS[l.status].label}</span></td>
                     <td className="px-2 py-1.5 text-right">
@@ -426,8 +418,7 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
             </tbody>
             <tfoot>
               <tr className="border-t text-right">
-                <td colSpan={6} className="px-2 py-2">
-                  ยอดตามบิล <strong>{baht(Number(head.invoice_total))}</strong> · รับจริง <strong>{baht(Number(head.total_cost))}</strong> · รอทวง{' '}
+                <td colSpan={6} className="px-2 py-2">{"" + translateUi("ยอดตามบิล") + " "}<strong>{baht(Number(head.invoice_total))}</strong>{" " + translateUi("· รับจริง") + " "}<strong>{baht(Number(head.total_cost))}</strong>{" " + translateUi("· รอทวง") + ""}{' '}
                   <strong className={Number(head.claim_total) > 0 ? 'text-red-700' : ''}>{baht(Number(head.claim_total))}</strong>
                 </td>
               </tr>
@@ -435,8 +426,8 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
           </table>
         </div>
         <div className="mt-8 hidden grid-cols-2 gap-8 text-sm print:grid">
-          <div className="border-t pt-1 text-center text-gray-500">ผู้ส่งของ</div>
-          <div className="border-t pt-1 text-center text-gray-500">ผู้รับของ</div>
+          <div className="border-t pt-1 text-center text-gray-500">{translateUi("ผู้ส่งของ")}</div>
+          <div className="border-t pt-1 text-center text-gray-500">{translateUi("ผู้รับของ")}</div>
         </div>
       </div>
     </div>
@@ -472,13 +463,10 @@ function ReceiptList({ restaurantId, openId, canClaim, onOpen }: { restaurantId:
     <div>
       {error && <p className="alert-error">{error}</p>}
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span className="text-sm text-gray-600">
-          รอทวงทั้งหมด <strong className={pending > 0 ? 'text-red-700' : ''}>{baht(pending)}</strong>
+        <span className="text-sm text-gray-600">{"" + translateUi("รอทวงทั้งหมด") + " "}<strong className={pending > 0 ? 'text-red-700' : ''}>{baht(pending)}</strong>
         </span>
         <label className="ml-auto flex items-center gap-2 text-sm text-gray-600">
-          <input type="checkbox" checked={onlyClaims} onChange={(e) => setOnlyClaims(e.target.checked)} />
-          เฉพาะใบที่ยังมียอดรอทวง
-        </label>
+          <input type="checkbox" checked={onlyClaims} onChange={(e) => setOnlyClaims(e.target.checked)} />{"" + translateUi("เฉพาะใบที่ยังมียอดรอทวง") + " "}</label>
       </div>
       <ul className="list-card">
         {shown.map((r) => (
@@ -487,15 +475,14 @@ function ReceiptList({ restaurantId, openId, canClaim, onOpen }: { restaurantId:
               <span className="min-w-40 flex-1">
                 <span className="block font-medium text-gray-900">{r.supplier ?? 'ไม่ระบุผู้ขาย'}{r.invoice_no && ` · ${r.invoice_no}`}</span>
                 <span className="hint">
-                  {new Date(r.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} · {r.received_by_name ?? '-'} · {r.item_count} รายการ
-                </span>
+                  {new Date(r.received_on).toLocaleDateString('th-TH', { dateStyle: 'medium' })} · {r.received_by_name ?? '-'} · {r.item_count}{" " + translateUi("รายการ") + " "}</span>
               </span>
-              {Number(r.claim_total) > 0 && <span className="badge badge-red">รอทวง {baht(Number(r.claim_total))}</span>}
+              {Number(r.claim_total) > 0 && <span className="badge badge-red">{"" + translateUi("รอทวง") + " "}{baht(Number(r.claim_total))}</span>}
               <span className="w-28 num font-semibold">{baht(Number(r.invoice_total || r.total_cost))}</span>
             </button>
           </li>
         ))}
-        {shown.length === 0 && !error && <li className="empty-cell">ไม่มีใบรับของ</li>}
+        {shown.length === 0 && !error && <li className="empty-cell">{translateUi("ไม่มีใบรับของ")}</li>}
       </ul>
     </div>
   )
@@ -543,29 +530,29 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
     <div>
       <div className="card mb-4 flex flex-wrap items-end gap-3">
         <label>
-          <span className="label">ตั้งแต่</span>
+          <span className="label">{translateUi("ตั้งแต่")}</span>
           <input className="input" type="date" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} />
         </label>
         <label>
-          <span className="label">ถึง</span>
+          <span className="label">{translateUi("ถึง")}</span>
           <input className="input" type="date" value={to} max={today()} onChange={(e) => e.target.value && setTo(e.target.value)} />
         </label>
-        <p className="hint">เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล · น้ำแข็งไม่เกิน {settings.glazeMax}%</p>
+        <p className="hint">{"" + translateUi("เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล · น้ำแข็งไม่เกิน") + " "}{settings.glazeMax}%</p>
       </div>
       {error && <p className="alert-error">{error}</p>}
       <div className="table-wrap">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="text-right">
-              <th className="px-3 py-2 text-left">ผู้ขาย</th>
-              <th className="px-3 py-2">ใบ</th>
-              <th className="px-3 py-2">ยอดบิล</th>
-              <th className="px-3 py-2">ขาด/ตีกลับ</th>
-              <th className="px-3 py-2">% ของบิล</th>
-              <th className="px-3 py-2">รอทวง</th>
-              <th className="px-3 py-2">ได้ลดหนี้</th>
-              <th className="px-3 py-2">น้ำแข็งเฉลี่ย</th>
-              <th className="px-3 py-2">ราคาขึ้น &gt;10%</th>
+              <th className="px-3 py-2 text-left">{translateUi("ผู้ขาย")}</th>
+              <th className="px-3 py-2">{translateUi("ใบ")}</th>
+              <th className="px-3 py-2">{translateUi("ยอดบิล")}</th>
+              <th className="px-3 py-2">{translateUi("ขาด/ตีกลับ")}</th>
+              <th className="px-3 py-2">{translateUi("% ของบิล")}</th>
+              <th className="px-3 py-2">{translateUi("รอทวง")}</th>
+              <th className="px-3 py-2">{translateUi("ได้ลดหนี้")}</th>
+              <th className="px-3 py-2">{translateUi("น้ำแข็งเฉลี่ย")}</th>
+              <th className="px-3 py-2">{translateUi("ราคาขึ้น &gt;10%")}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -577,20 +564,20 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
                   <td className="px-3 py-2 text-left font-medium text-gray-900">{r.supplier}</td>
                   <td className="px-3 py-2">{r.receipts}</td>
                   <td className="px-3 py-2">{baht(Number(r.invoice_value))}</td>
-                  <td className="px-3 py-2">{Number(r.short_lines) + Number(r.rejected_lines)} ครั้ง</td>
+                  <td className="px-3 py-2">{Number(r.short_lines) + Number(r.rejected_lines)}{" " + translateUi("ครั้ง") + ""}</td>
                   <td className={`px-3 py-2 font-semibold ${gap !== null && gap >= 1 ? 'text-red-700' : 'text-emerald-700'}`}>{gap === null ? '-' : pct(gap)}</td>
                   <td className={`px-3 py-2 ${Number(r.claim_pending) > 0 ? 'text-red-700' : 'text-gray-500'}`}>{baht(Number(r.claim_pending))}</td>
                   <td className="px-3 py-2 text-gray-600">{baht(Number(r.claim_credited))}</td>
                   <td className={`px-3 py-2 ${glaze !== null && glaze > settings.glazeMax ? 'font-semibold text-red-700' : ''}`}>
                     {glaze === null ? '-' : pct(glaze)}
-                    {Number(r.glaze_over_lines) > 0 && <div className="text-xs">เกินเกณฑ์ {r.glaze_over_lines} ครั้ง</div>}
+                    {Number(r.glaze_over_lines) > 0 && <div className="text-xs">{"" + translateUi("เกินเกณฑ์") + " "}{r.glaze_over_lines}{" " + translateUi("ครั้ง") + ""}</div>}
                   </td>
-                  <td className={`px-3 py-2 ${Number(r.price_up_lines) > 0 ? 'text-amber-800' : 'text-gray-500'}`}>{r.price_up_lines} ครั้ง</td>
+                  <td className={`px-3 py-2 ${Number(r.price_up_lines) > 0 ? 'text-amber-800' : 'text-gray-500'}`}>{r.price_up_lines}{" " + translateUi("ครั้ง") + ""}</td>
                 </tr>
               )
             })}
             {rows.length === 0 && !error && (
-              <tr><td colSpan={9} className="empty-cell">ไม่มีใบรับของในช่วงนี้</td></tr>
+              <tr><td colSpan={9} className="empty-cell">{translateUi("ไม่มีใบรับของในช่วงนี้")}</td></tr>
             )}
           </tbody>
         </table>
@@ -609,13 +596,13 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   return (
     <div className="page">
       <PageHead
-        title="รับเข้า"
-        subtitle="เลือกผู้ขาย กรอกจำนวน ราคา วันหมดอายุ · ทุกการรับเป็นล็อตใหม่ (หยิบแบบ FEFO คิดต้นทุนแบบ FIFO)"
+        title={translateUi("รับเข้า")}
+        subtitle={translateUi("เลือกผู้ขาย กรอกจำนวน ราคา วันหมดอายุ · ทุกการรับเป็นล็อตใหม่ (หยิบแบบ FEFO คิดต้นทุนแบบ FIFO)")}
         action={
           <>
-            {canReceive && <button className={chip(tab === 'new')} onClick={() => setTab('new')}>รับของใหม่</button>}
-            <button className={chip(tab === 'list')} onClick={() => { setTab('list'); setOpenId(null) }}>ใบรับของย้อนหลัง</button>
-            <button className={chip(tab === 'suppliers')} onClick={() => setTab('suppliers')}>รายงานผู้ขาย</button>
+            {canReceive && <button className={chip(tab === 'new')} onClick={() => setTab('new')}>{translateUi("รับของใหม่")}</button>}
+            <button className={chip(tab === 'list')} onClick={() => { setTab('list'); setOpenId(null) }}>{translateUi("ใบรับของย้อนหลัง")}</button>
+            <button className={chip(tab === 'suppliers')} onClick={() => setTab('suppliers')}>{translateUi("รายงานผู้ขาย")}</button>
           </>
         }
       />

@@ -1,8 +1,11 @@
 # แผนการทดสอบ FoodFlow
 
+ผลหลังแก้ audit และเพิ่มฟีเจอร์ดู [remediation results](audits/2026-11-22-remediation-results.md) ตารางผลเดิมท้ายเอกสารเป็นประวัติ ไม่ใช่ผลของ branch ล่าสุด
+
+
 ผลรอบเตรียม 22 พฤศจิกายน 2026: ดู [project-readiness.md](project-readiness.md) ซึ่งแยกผลล่าสุดและ coverage ของ migration ออกจากผลประวัติด้านล่าง
 
-> ตารางด้านล่างเป็นแผนสำหรับชุด migrations `0001`–`0008` บันทึกผลพร้อมวันที่ commit และสภาพแวดล้อมหลังรันแต่ละครั้ง ส่วนท้ายเก็บผลจากรอบก่อนเพื่อใช้อ้างอิงย้อนหลัง
+> ตารางด้านล่างเป็นแผนสำหรับชุด migrations `0001`–`0011` บันทึกผลพร้อมวันที่ commit และสภาพแวดล้อมหลังรันแต่ละครั้ง ส่วนท้ายเก็บผลจากรอบก่อนเพื่อใช้อ้างอิงย้อนหลัง
 
 ## 1. ระดับการทดสอบ
 
@@ -16,7 +19,7 @@
 
 จากราก repo ใช้ `npm run test:frontend`, `npm run test:backend` และ `npm run test:database` หรือ `npm test` เพื่อรันทั้งสามชุด ชุดฐานข้อมูลต้องมี Python 3, `psycopg` และ `pgserver` หรือ `pixeltable-pgserver` ใช้ PostgreSQL ชั่วคราวและจำลอง `auth.uid()`, บทบาท Supabase และฟังก์ชัน pgcrypto
 
-สำหรับ `npm run test:e2e` ติดตั้งเบราว์เซอร์ด้วย `npx playwright install chromium` จาก `frontend/` แล้วเตรียม Supabase สำหรับทดสอบตาม [คู่มือติดตั้ง](SETUP.md) ลง migrations `0001`–`0008` และ seed ข้อมูลกับบัญชีทดสอบ (`seed.sql`, `seed_test_users.sql`) ตั้งค่า frontend/backend ให้ชี้ชุดเดียวกัน เปิด backend ด้วย `npm run dev:backend` หากทดสอบในเครื่องและใช้ Vite proxy Playwright ใช้ dev server ที่พอร์ต `5173` และอ่านรหัสจาก `E2E_PASSWORD` หรือ `seed_test_users.sql` ชุด `order-flow` สร้างออเดอร์ลงฐานข้อมูลที่ชี้อยู่โดยมีคำนำหน้าชื่อลูกค้า `E2E-`
+ค่าเริ่มต้น `npm run test:e2e` รัน browser mocks ที่สกัดกั้น API/DB; ติดตั้ง Chromium ด้วย Playwright ก่อน หากรัน roles/order-flow จริงต้องมี staging, `E2E_ALLOW_REMOTE=1`, `E2E_SUPABASE_URL` ตรงกับ Vite และ `E2E_PASSWORD` ดู [operations](operations.md) ชุด order-flow เขียนข้อมูลจริง ห้ามใช้ production
 
 ## 2. Test Case
 

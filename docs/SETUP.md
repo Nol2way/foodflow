@@ -1,5 +1,8 @@
 # SETUP — วิธีรันและดีพลอย Plato
 
+ขั้นตอน release, หมุน secret, backup/restore และข้อจำกัดบริการจริง: [operations](operations.md) ฟีเจอร์ใหม่: [features](features.md)
+
+
 โปรเจกต์แบ่งเป็น 4 ส่วน
 
 | โฟลเดอร์ | คืออะไร |
@@ -16,7 +19,7 @@
 | Node.js | 22.18 ขึ้นไป (ชุดทดสอบใช้ TypeScript โดยตรง) | `node -v` |
 | npm | 10 ขึ้นไป | `npm -v` |
 | Git | ล่าสุด | `git --version` |
-| Python (เฉพาะทดสอบฐานข้อมูล) | 3.10 ขึ้นไป | `python3 --version` |
+| Python (เฉพาะทดสอบฐานข้อมูล) | 3.13 ตาม `.python-version` | `python3 --version` |
 | บัญชี Supabase | ฟรีได้ | [supabase.com](https://supabase.com) |
 | บัญชี Cloudflare (ตอน deploy) | ฟรีได้ | [cloudflare.com](https://cloudflare.com) |
 
@@ -32,7 +35,7 @@ npm --prefix backend ci
 ## 3. ฐานข้อมูล (`database/`)
 
 1. สำหรับฐานใหม่ สร้างโปรเจกต์ใน Supabase; หากใช้ฐานเดิม ให้ตรวจ schema และประวัติ migration ก่อน อย่ารันชุดเริ่มต้นซ้ำ
-2. เปิด **SQL Editor** แล้วรันไฟล์ใน `database/migrations/` **ตามลำดับเลข** (0001 → 0008)
+2. เปิด **SQL Editor** แล้วรันไฟล์ใน `database/migrations/` **ตามลำดับเลข** (0001 → 0011)
 
    | ไฟล์ | เนื้อหา |
    |------|---------|
@@ -44,6 +47,9 @@ npm --prefix backend ci
    | `0006_tax_shifts.sql` | ภาษีกรมสรรพากร (ใบกำกับอย่างย่อ/เต็มรูป e-Tax) และกะแคชเชียร์ |
    | `0007_order_cancel_kitchen.sql` | เลือกยกเลิกบางเมนูในออเดอร์ · ขั้นทำอาหารเป็นของครัวเท่านั้น |
    | `0008_fix_accounting_stock.sql` | แก้สรุปรายจ่าย void, การยกเลิกบิลภาษี และยอดบรรทัด XML |
+   | `0009_audit_invariants.sql` | session, RLS, payment, import และ audit fixes |
+   | `0010_pos_workflows.sql` | POS options, table/bill workflows, offline idempotency และ audit |
+   | `0011_crm_ops_features.sql` | CRM, coupon, privacy, morning reports และ identity |
 
    รายละเอียดว่าแต่ละไฟล์รวมจาก migration เดิมไฟล์ไหน และวิธีอัปเดต**ฐานข้อมูลที่เคยรันชุดเดิม 34 ไฟล์แล้ว** ดู [`database/migrations/README.md`](../database/migrations/README.md)
 
@@ -155,7 +161,7 @@ npm run deploy                                      # ต้องสั่ง�
 | Pages build ไม่ผ่าน: หา `hono` ไม่เจอ | Build command ไม่ใช่ `npm run build:pages` | แก้ Build command |
 | Swagger ขึ้นหน้าว่าง | เครือข่ายบล็อก `cdn.jsdelivr.net` | เปิดไฟล์ `docs/openapi.json` ใน [editor.swagger.io](https://editor.swagger.io) แทน |
 | AI ตอบ "ยังไม่ได้ตั้งค่า GEMINI_API_KEY" | ไม่ได้ใส่ key | ใส่ใน `.dev.vars` / secret แล้วรันใหม่ |
-| หน้ารับออเดอร์ไม่มีเมนู/โต๊ะ หรือส่งเข้าครัวไม่ได้ | ยังไม่ได้รัน migration ครบ 0001–0008 หรือบัญชีไม่ใช่ `owner`/`staff` | ตรวจ migration ที่ apply จริงและบทบาท |
+| หน้ารับออเดอร์ไม่มีเมนู/โต๊ะ หรือส่งเข้าครัวไม่ได้ | ยังไม่ได้รัน migration ครบ 0001–0011 หรือบัญชีไม่ใช่ `owner`/`staff` | ตรวจ migration ที่ apply จริงและบทบาท |
 | ส่งออเดอร์แล้วขึ้น "... หมดแล้ว" | เมนูถูกตั้งเป็นหมดระหว่างเลือก | เอาเมนูนั้นออกแล้วส่งใหม่ |
 | ออเดอร์ไม่ขึ้นหน้าจอครัว | ยังไม่เปิด Realtime ให้ `orders` | Supabase → Database → Replication |
 | `permission denied` / แก้ข้อมูลไม่ได้ | บทบาทไม่มีสิทธิ์ตามตารางใน README | ตรวจบทบาทใน `staff_members` |
@@ -170,10 +176,10 @@ npm run deploy                                      # ต้องสั่ง�
 | คำสั่ง | ทดสอบอะไร | ต้องมี |
 |--------|-----------|--------|
 | `npm test` | รันทั้ง 3 ชุดด้านล่าง | ทุกอย่างด้านล่าง |
-| `npm run test:e2e` | หน้าเว็บจริงกับ Supabase จริง (ดูหัวข้อด้านล่าง) | migration + บัญชีทดสอบ + Chromium ของ Playwright |
+| `npm run test:e2e` | browser mocks โดยค่าเริ่มต้น; remote E2E ต้อง opt-in | Chromium; remote ต้องมี staging + บัญชีทดสอบ |
 | `npm run test:frontend` | ฟังก์ชันจัดช่วงพีค/ออฟพีค คาดการณ์ ข้อความสรุป | Node 22.18+ |
 | `npm run test:backend` | ทุก endpoint (Supabase/Gemini จำลอง), ตัวอ่าน CSV, Swagger ตรงกับ route | `npm run install:all` |
-| `npm run test:database` | migration ทั้งหมด + สิทธิ์ทุกบทบาท + วิเคราะห์ + นำเข้า CSV + พนักงาน + บัญชีคู่ (`test_accounting.py`) + สต็อก ledger/ล็อต/AvT/ย้ายข้อมูลเดิม (`test_stock.py`) บน Postgres ชั่วคราว | `pip install pixeltable-pgserver "psycopg[binary]"` · บน Windows ตั้ง `PYTHONUTF8=1` |
+| `npm run test:database` | migration ทั้งหมด + สิทธิ์ทุกบทบาท + วิเคราะห์ + นำเข้า CSV + พนักงาน + บัญชีคู่ (`test_accounting.py`) + สต็อก ledger/ล็อต/AvT/ย้ายข้อมูลเดิม (`test_stock.py`) บน Postgres ชั่วคราว | `npm run setup:database` ใช้ dependency ที่ pin และเลือก `.venv` อัตโนมัติ |
 
 > ชุดทดสอบฐานข้อมูลจำลอง auth ของ Supabase ด้วย stub จึงไม่ใช่ Supabase จริง · การทดสอบหน้าเว็บจริง (E2E) ดูหัวข้อถัดไป
 
@@ -190,8 +196,8 @@ npm run deploy                                      # ต้องสั่ง�
 | `e2e/roles.spec.ts` | ทุกบทบาทเห็นเมนูตรงสิทธิ์, บัญชีไม่มีบทบาท, ครัวเข้าหน้าบัญชีไม่ได้, ผู้จัดการดูบัญชีอย่างเดียว, ร้านอื่นไม่เห็นเมนูร้านเรา (ไม่แก้ข้อมูล) |
 | `e2e/order-flow.spec.ts` | รับออเดอร์ → ครัว → เสิร์ฟ → รับชำระ → ใบเสร็จ → รายงานรายวัน (**สร้างออเดอร์จริง** ชื่อลูกค้า `E2E-...`) |
 
-- รหัสผ่านอ่านจาก `v_password` ใน `seed_test_users.sql` (หรือตั้ง `E2E_PASSWORD`) · ทดสอบเว็บที่อื่น: ตั้ง `E2E_BASE_URL`
-- ใบเสร็จ/รายงานเดิม 0017–0018 อยู่ในชุดรวม 0002 แล้ว เตรียมฐานทดสอบด้วย 0001–0008; ตรวจผล skip จากรายงานจริง ไม่ถือว่า skip เท่ากับผ่าน
+- ต้องตั้ง `E2E_ALLOW_REMOTE=1`, `E2E_SUPABASE_URL` ตรงกับ Vite และ `E2E_PASSWORD` สำหรับบัญชี staging · ทดสอบเว็บที่อื่น: ตั้ง `E2E_BASE_URL`
+- ใบเสร็จ/รายงานเดิม 0017–0018 อยู่ในชุดรวม 0002 แล้ว เตรียมฐานทดสอบด้วย 0001–0011; ตรวจผล skip จากรายงานจริง ไม่ถือว่า skip เท่ากับผ่าน
 - E2E order-flow สร้างข้อมูลและรายการบัญชีจริง ใช้ฐานทดสอบแยก แล้วคืน snapshot/สร้างฐานทดสอบใหม่ตามขั้นตอนของทีม ห้ามใช้ DELETE ลัดกับบิลที่ลงบัญชีแล้ว
 
 **ก่อนใช้งานจริง:** ใช้ฐาน production ที่ไม่เคย seed บัญชี/ออเดอร์ทดสอบ หรือวางแผนล้างข้อมูลโดยตรวจ foreign keys และ journal triggers ก่อน ไม่รันคำสั่งลบเหมารวม
@@ -206,7 +212,7 @@ Windows: คำสั่ง `cp` ในตัวอย่างใช้ `Copy-I
 
 ```powershell
 python -m venv .venv
-.venv/Scripts/python.exe -m pip install pixeltable-pgserver "psycopg[binary]"
+.venv/Scripts/python.exe -m pip install -r database/requirements-test.txt
 $env:PYTHONUTF8 = '1'
 .venv/Scripts/python.exe database/tests/test_rls.py
 .venv/Scripts/python.exe database/tests/test_accounting.py

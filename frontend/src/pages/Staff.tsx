@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { MANAGER_ASSIGNABLE, ROLE_LABEL, roleLabels, rolesFor, type Role } from '../lib/roles'
 import { ApiError, api, apiMessage } from '../lib/api'
@@ -6,6 +7,7 @@ import RequireRole from '../components/RequireRole'
 import { useCachedState } from '../lib/useCachedState'
 
 interface Member {
+  is_active?: boolean
   user_id: string
   email: string
   display_name: string | null
@@ -122,6 +124,16 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
     }
   }
 
+  async function setActive(m: Member) {
+    if (saving || !window.confirm(m.is_active === false ? 'เปิดบัญชีนี้อีกครั้ง?' : 'ปิดบัญชีนี้และยกเลิกเซสชันเดิม?')) return
+    setSaving(m.user_id); setMessage(null)
+    try {
+      await api(`/staff/${m.user_id}/active`, { body: { restaurant_id: restaurantId, is_active: m.is_active === false } })
+      await load()
+    } catch (error) { setMessage(apiMessage(error)) }
+    finally { setSaving(null) }
+  }
+
   async function remove(m: Member) {
     if (!window.confirm(`นำ ${m.email} ออกจากร้าน?`)) return
     setMessage(null)
@@ -135,35 +147,29 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
 
   return (
     <div className="page-narrow">
-      <h1 className="page-title mb-5">จัดการพนักงาน</h1>
+      <h1 className="page-title mb-5">{translateUi("จัดการพนักงาน")}</h1>
 
       <form onSubmit={add} className="card mb-4 space-y-3">
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input className="input flex-1" type="email" placeholder="อีเมลพนักงาน" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input className="input sm:w-40" placeholder="ชื่อ (ไม่บังคับ)" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-          <button className="btn btn-primary" disabled={busy}>
-            เพิ่ม / เชิญ
-          </button>
+          <input className="input flex-1" type="email" placeholder={translateUi("อีเมลพนักงาน")} value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input className="input sm:w-40" placeholder={translateUi("ชื่อ (ไม่บังคับ)")} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+          <button className="btn btn-primary" disabled={busy}>{"" + translateUi("เพิ่ม / เชิญ") + " "}</button>
         </div>
         <div>
-          <div className="label">บทบาท (เลือกได้หลายอัน)</div>
+          <div className="label">{translateUi("บทบาท (เลือกได้หลายอัน)")}</div>
           <RolePicker options={assignable} value={roles} onToggle={(r) => setRoles((prev) => toggle(prev, r))} />
         </div>
       </form>
-      <p className="mb-4 hint">
-        ถ้าอีเมลยังไม่มีบัญชี ระบบจะสร้างบัญชีพร้อมรหัสชั่วคราวให้ส่งต่อพนักงาน (พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก) · พนักงาน 1 คนมีได้หลายบทบาท เห็นหน้าของทุกบทบาทรวมกัน · ร้านต้องมีเจ้าของอย่างน้อย 1 คนเสมอ
-        {!isOwner && ' · ผู้จัดการจัดการได้เฉพาะหน้าร้าน ครัว บัญชี และสต็อก'}
+      <p className="mb-4 hint">{"" + translateUi("ถ้าอีเมลยังไม่มีบัญชี ระบบจะสร้างบัญชีพร้อมรหัสชั่วคราวให้ส่งต่อพนักงาน (พนักงานต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก) · พนักงาน 1 คนมีได้หลายบทบาท เห็นหน้าของทุกบทบาทรวมกัน · ร้านต้องมีเจ้าของอย่างน้อย 1 คนเสมอ") + " "}{!isOwner && ' · ผู้จัดการจัดการได้เฉพาะหน้าร้าน ครัว บัญชี และสต็อก'}
       </p>
 
       {temp && (
         <div className="alert-success">
-          <p>รหัสชั่วคราวของ <strong>{temp.email}</strong> (แสดงครั้งเดียว ส่งให้พนักงานเอง)</p>
+          <p>{"" + translateUi("รหัสชั่วคราวของ") + " "}<strong>{temp.email}</strong>{" " + translateUi("(แสดงครั้งเดียว ส่งให้พนักงานเอง)") + ""}</p>
           <div className="mt-2 flex items-center gap-2">
             <code className="rounded-lg bg-white px-3 py-1.5 text-base strong-text tracking-wider select-all">{temp.password}</code>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void navigator.clipboard?.writeText(temp.password)}>
-              คัดลอก
-            </button>
-            <button type="button" className="link-muted ml-auto" onClick={() => setTemp(null)}>ปิด</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void navigator.clipboard?.writeText(temp.password)}>{"" + translateUi("คัดลอก") + " "}</button>
+            <button type="button" className="link-muted ml-auto" onClick={() => setTemp(null)}>{translateUi("ปิด")}</button>
           </div>
         </div>
       )}
@@ -176,14 +182,17 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
               <span className="break-all font-medium text-gray-900">
                 {m.display_name && <span>{m.display_name} · </span>}
                 {m.email}
-                {m.user_id === session?.user.id && <span className="font-normal text-gray-400"> (คุณ)</span>}
+                {m.user_id === session?.user.id && <span className="font-normal text-gray-400">{" " + translateUi("(คุณ)") + ""}</span>}
               </span>
               {canEdit(m) && (
                 <span className="flex shrink-0 items-center gap-3">
                   {m.user_id !== session?.user.id && (
-                    <button className="link-muted" onClick={() => void resetPassword(m)}>รีเซ็ตรหัสผ่าน</button>
+                    <>
+                    <button className="link-muted" onClick={() => void resetPassword(m)}>{translateUi("รีเซ็ตรหัสผ่าน")}</button>
+                    {isOwner && m.user_id !== session?.user.id && !m.roles.includes('owner') && <button className="link-muted" disabled={saving !== null} onClick={() => void setActive(m)}>{m.is_active === false ? 'เปิดบัญชี' : 'ปิดบัญชี'}</button>}
+                    </>
                   )}
-                  <button className="link-danger" onClick={() => void remove(m)}>นำออก</button>
+                  <button className="link-danger" onClick={() => void remove(m)}>{translateUi("นำออก")}</button>
                 </span>
               )}
             </div>
@@ -194,7 +203,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
             )}
           </li>
         ))}
-        {staff.length === 0 && <li className="empty-cell">ยังไม่มีข้อมูล</li>}
+        {staff.length === 0 && <li className="empty-cell">{translateUi("ยังไม่มีข้อมูล")}</li>}
       </ul>
     </div>
   )

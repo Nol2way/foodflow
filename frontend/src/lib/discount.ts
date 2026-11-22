@@ -19,6 +19,7 @@ export function estimateDiscount(
 // ===== หลายโปรพร้อมกัน (ต้องตรงกับ apply_promotions ใน 0012) =====
 // โปรรายเมนูรวมกันได้ถ้าเมนูในบิลไม่ซ้ำกัน · โปรทั้งบิลได้ 1 อัน คิดจากยอดที่เหลือหลังหักโปรรายเมนู
 export interface PromoRule {
+  stackable?: boolean
   id: string
   discount_type: 'percent' | 'amount'
   value: number
@@ -46,6 +47,7 @@ export function promoReason(p: PromoRule, lines: PromoLine[]): string | null {
 // ใช้โปรนี้ร่วมกับชุดที่เลือกอยู่ไม่ได้เพราะอะไร (null = ใช้ร่วมกันได้)
 export function promoConflict(p: PromoRule, selected: PromoRule[], lines: PromoLine[]): string | null {
   const others = selected.filter((s) => s.id !== p.id)
+  if (others.length && (p.stackable === false || others.some(s => s.stackable === false))) return 'โปรนี้ใช้ร่วมกับโปรอื่นไม่ได้'
   if (p.itemIds.length === 0) {
     const bill = others.find((s) => s.itemIds.length === 0)
     return bill ? 'ใช้โปรทั้งบิลได้ทีละ 1 อัน' : null
@@ -73,21 +75,25 @@ export function computeDiscounts(selected: PromoRule[], lines: PromoLine[]): { b
 
 // เลือกให้อัตโนมัติ: โปรรายเมนูที่ลดได้มากก่อน (ข้ามที่เมนูซ้ำ) แล้วโปรทั้งบิลที่ลดได้มากที่สุด
 export function bestSelection(promos: PromoRule[], lines: PromoLine[]): string[] {
-  const ok = promos.filter((p) => promoReason(p, lines) === null)
-  const chosen: PromoRule[] = []
-  const itemPromos = ok
-    .filter((p) => p.itemIds.length > 0)
-    .map((p) => ({ p, d: computeDiscounts([p], lines).total }))
-    .sort((a, b) => b.d - a.d)
-  for (const { p } of itemPromos) if (promoConflict(p, chosen, lines) === null) chosen.push(p)
-  let bestBill: PromoRule | null = null
-  let bestTotal = computeDiscounts(chosen, lines).total
-  for (const p of ok.filter((x) => x.itemIds.length === 0)) {
-    const t = computeDiscounts([...chosen, p], lines).total
-    if (t > bestTotal) {
-      bestTotal = t
-      bestBill = p
+  const ok = promos.filter((p) => promoReason(p, lines) === null).sort((a, b) => a.id.localeCompare(b.id))
+  const scoped = ok.filter((p) => p.itemIds.length > 0)
+  const bill = ok.filter((p) => p.itemIds.length === 0)
+  let best: string[] = [], bestTotal = 0
+  const consider = (chosen: PromoRule[]) => {
+    const total = computeDiscounts(chosen, lines).total
+    const ids = chosen.map((p) => p.id).sort()
+    if (total > bestTotal || (total === bestTotal && (ids.length < best.length || (ids.length === best.length && ids.join(',') < best.join(','))))) {
+      best = ids; bestTotal = total
     }
   }
-  return [...chosen, ...(bestBill ? [bestBill] : [])].map((p) => p.id)
+  const visit = (index: number, chosen: PromoRule[]) => {
+    consider(chosen)
+    if (chosen.length < 10) for (const p of bill) if (promoConflict(p, chosen, lines) === null) consider([...chosen, p])
+    if (chosen.length >= 10) return
+    for (let i = index; i < scoped.length; i++) {
+      if (promoConflict(scoped[i], chosen, lines) === null) visit(i + 1, [...chosen, scoped[i]])
+    }
+  }
+  visit(0, [])
+  return best
 }

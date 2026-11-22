@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { baht } from '../lib/format'
@@ -158,13 +159,11 @@ export default function PosterEditor({
   )
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="สร้างโปสเตอร์">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={translateUi("สร้างโปสเตอร์")}>
       <div className="mx-auto max-w-6xl rounded-2xl bg-white p-4 shadow-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="title-lg">{target.media ? 'แก้โปสเตอร์' : 'สร้างโปสเตอร์จากเทมเพลต'}</h2>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>
-            ปิด
-          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy}>{"" + translateUi("ปิด") + " "}</button>
         </div>
         <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
           <div>
@@ -173,7 +172,7 @@ export default function PosterEditor({
               width={POSTER_W}
               height={POSTER_H}
               className="aspect-video w-full rounded-xl border bg-gray-100 shadow-sm"
-              aria-label="ตัวอย่างโปสเตอร์"
+              aria-label={translateUi("ตัวอย่างโปสเตอร์")}
             />
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(Object.keys(POSTER_TEMPLATES) as PosterTemplate[]).map((t) => (
@@ -192,32 +191,31 @@ export default function PosterEditor({
 
           <div className="space-y-3">
             <div>
-              <span className="label">ขึ้นจอที่</span>
+              <span className="label">{translateUi("ขึ้นจอที่")}</span>
               <select className="input w-full" value={menuItemId ?? ''} onChange={(e) => chooseTarget(e.target.value)}>
-                <option value="">สไลด์โฆษณาร้าน</option>
+                <option value="">{translateUi("สไลด์โฆษณาร้าน")}</option>
                 {items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    เมนู: {i.name}
+                  <option key={i.id} value={i.id}>{"" + translateUi("เมนู:") + " "}{i.name}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <span className="label">หัวข้อ</span>
+              <span className="label">{translateUi("หัวข้อ")}</span>
               <input className="input w-full" maxLength={80} value={spec.title} onChange={(e) => set({ title: e.target.value })} />
             </div>
             <div>
-              <span className="label">คำโปรย</span>
+              <span className="label">{translateUi("คำโปรย")}</span>
               <textarea className="input w-full" rows={2} maxLength={160} value={spec.subtitle} onChange={(e) => set({ subtitle: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <span className="label">ป้าย</span>
-                <input className="input w-full" maxLength={30} placeholder="เช่น ลด 20%" value={spec.badge} onChange={(e) => set({ badge: e.target.value })} />
+                <span className="label">{translateUi("ป้าย")}</span>
+                <input className="input w-full" maxLength={30} placeholder={translateUi("เช่น ลด 20%")} value={spec.badge} onChange={(e) => set({ badge: e.target.value })} />
               </div>
               <div>
-                <span className="label">ราคา</span>
-                <input className="input w-full" maxLength={30} placeholder="เช่น ฿59" value={spec.price} onChange={(e) => set({ price: e.target.value })} />
+                <span className="label">{translateUi("ราคา")}</span>
+                <input className="input w-full" maxLength={30} placeholder={translateUi("เช่น ฿59")} value={spec.price} onChange={(e) => set({ price: e.target.value })} />
               </div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -226,7 +224,7 @@ export default function PosterEditor({
               {color('ink', 'ตัวหนังสือ')}
             </div>
             <div>
-              <span className="label">ฟอนต์</span>
+              <span className="label">{translateUi("ฟอนต์")}</span>
               <select className="input w-full" value={spec.font} onChange={(e) => set({ font: e.target.value as DisplayFont })}>
                 {(Object.keys(DISPLAY_FONTS) as DisplayFont[]).map((f) => (
                   <option key={f} value={f}>
@@ -236,15 +234,13 @@ export default function PosterEditor({
               </select>
             </div>
             <div>
-              <span className="label">รูปพื้นหลัง</span>
+              <span className="label">{translateUi("รูปพื้นหลัง")}</span>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => set({ image: null })}
                   className={`grid h-12 w-16 place-items-center rounded-lg border text-xs text-gray-500 ${spec.image === null ? 'ring-2 ring-brand-500' : ''}`}
-                >
-                  ไม่มีรูป
-                </button>
+                >{"" + translateUi("ไม่มีรูป") + " "}</button>
                 {pictures.map((p) => (
                   <button
                     key={p.id}
@@ -255,9 +251,7 @@ export default function PosterEditor({
                     <img src={p.src} alt="" loading="lazy" className="media-cover" />
                   </button>
                 ))}
-                <label className={`grid h-12 w-16 place-items-center rounded-lg border border-dashed text-xs text-gray-500 ${busy ? 'opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}>
-                  + อัปโหลด
-                  <input
+                <label className={`grid h-12 w-16 place-items-center rounded-lg border border-dashed text-xs text-gray-500 ${busy ? 'opacity-50' : 'cursor-pointer hover:bg-gray-50'}`}>{"" + translateUi("+ อัปโหลด") + " "}<input
                     type="file"
                     accept="image/*"
                     className="hidden"
@@ -270,16 +264,14 @@ export default function PosterEditor({
                   />
                 </label>
               </div>
-              {imgError && <p className="mt-1 field-error">โหลดรูปนี้มาวาดไม่ได้ (เว็บต้นทางไม่อนุญาต) ให้อัปโหลดรูปเองแทน</p>}
+              {imgError && <p className="mt-1 field-error">{translateUi("โหลดรูปนี้มาวาดไม่ได้ (เว็บต้นทางไม่อนุญาต) ให้อัปโหลดรูปเองแทน")}</p>}
             </div>
             {error && <p className="alert-error">{error}</p>}
             <div className="flex gap-2 pt-1">
               <button className="btn btn-primary flex-1" onClick={() => void save()} disabled={busy}>
                 {busy ? 'กำลังบันทึก...' : target.media ? 'บันทึกการแก้ไข' : 'บันทึกขึ้นจอ'}
               </button>
-              <button className="btn btn-secondary" onClick={onClose} disabled={busy}>
-                ยกเลิก
-              </button>
+              <button className="btn btn-secondary" onClick={onClose} disabled={busy}>{"" + translateUi("ยกเลิก") + " "}</button>
             </div>
           </div>
         </div>

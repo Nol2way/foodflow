@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -65,46 +66,42 @@ function Landing() {
         <div className="pointer-events-none absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-sage-500/20 blur-3xl" />
         <Logo className="relative text-xl text-white" />
         <div className="relative my-auto max-w-md">
-          <h2 className="text-4xl leading-tight font-bold tracking-tight">
-            ร้านเดียว
-            <br />
-            <span className="text-brand-300">ทุกงานในจอเดียว</span>
+          <h2 className="text-4xl leading-tight font-bold tracking-tight">{"" + translateUi("ร้านเดียว") + " "}<br />
+            <span className="text-brand-300">{translateUi("ทุกงานในจอเดียว")}</span>
           </h2>
-          <p className="mt-4 text-white/60">ตั้งแต่รับออเดอร์ ครัว เสิร์ฟ ชำระเงิน จนถึงสต็อกและบัญชีปลายวัน</p>
+          <p className="mt-4 text-white/60">{translateUi("ตั้งแต่รับออเดอร์ ครัว เสิร์ฟ ชำระเงิน จนถึงสต็อกและบัญชีปลายวัน")}</p>
           <ul className="mt-10 grid gap-5">
             {FEATURES.map((f) => (
-              <li key={f.title} className="flex items-start gap-4">
+              <li key={translateUi(f.title)} className="flex items-start gap-4">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-brand-300">
                   <Icon name={f.icon} />
                 </span>
                 <span>
-                  <span className="block font-semibold">{f.title}</span>
-                  <span className="block text-sm text-white/55">{f.text}</span>
+                  <span className="block font-semibold">{translateUi(f.title)}</span>
+                  <span className="block text-sm text-white/55">{translateUi(f.text)}</span>
                 </span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-white/35">ออเดอร์ · ครัว · บัญชี · สต็อก · AI คาดการณ์ยอดขาย</p>
+        <p className="relative text-xs text-white/35">{translateUi("ออเดอร์ · ครัว · บัญชี · สต็อก · AI คาดการณ์ยอดขาย")}</p>
       </section>
 
       <section className="grid place-items-center px-4 py-10">
         <div className="w-full max-w-sm">
           <Logo className="justify-center text-2xl lg:hidden" />
-          <h1 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900 lg:mt-0 lg:text-left">ระบบบริหารร้านอาหาร</h1>
-          <p className="mt-2 text-center text-gray-500 lg:text-left">เข้าสู่ระบบด้วยบัญชีพนักงานที่เจ้าของร้านสร้างให้</p>
-          <Link className="btn btn-primary btn-lg mt-8 w-full" to="/login">
-            เข้าสู่ระบบพนักงาน
-          </Link>
+          <h1 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900 lg:mt-0 lg:text-left">{translateUi("ระบบบริหารร้านอาหาร")}</h1>
+          <p className="mt-2 text-center text-gray-500 lg:text-left">{translateUi("เข้าสู่ระบบด้วยบัญชีพนักงานที่เจ้าของร้านสร้างให้")}</p>
+          <Link className="btn btn-primary btn-lg mt-8 w-full" to="/login">{"" + translateUi("เข้าสู่ระบบพนักงาน") + " "}</Link>
           <div className="mt-8 grid grid-cols-2 gap-3 lg:hidden">
             {FEATURES.map((f) => (
-              <div key={f.title} className="card flex flex-col gap-2 p-3">
+              <div key={translateUi(f.title)} className="card flex flex-col gap-2 p-3">
                 <Icon name={f.icon} className="h-5 w-5 text-brand-500" />
-                <span className="text-sm strong-text">{f.title}</span>
+                <span className="text-sm strong-text">{translateUi(f.title)}</span>
               </div>
             ))}
           </div>
-          <p className="mt-6 text-center text-sm text-gray-400 lg:text-left">พนักงานหน้าร้านรับออเดอร์ แล้วส่งเข้าหน้าจอครัวทันที</p>
+          <p className="mt-6 text-center text-sm text-gray-400 lg:text-left">{translateUi("พนักงานหน้าร้านรับออเดอร์ แล้วส่งเข้าหน้าจอครัวทันที")}</p>
         </div>
       </section>
     </div>
@@ -131,7 +128,7 @@ export default function Home() {
     return () => clearInterval(t)
   }, [])
 
-  if (loading || (session && staff.loading)) return <FullPageMessage>กำลังโหลด...</FullPageMessage>
+  if (loading || (session && staff.loading)) return <FullPageMessage>{translateUi("กำลังโหลด...")}</FullPageMessage>
   if (session?.user.must_change_password) return <Navigate to="/set-password" replace />
   if (!session) return <Landing />
 
@@ -145,13 +142,11 @@ export default function Home() {
         <div className="page flex items-center gap-3 py-3!">
           <Logo />
           <span className="ml-auto hidden max-w-[40%] truncate text-sm text-gray-500 sm:block">{name}</span>
-          <Link to="/set-password" className="btn btn-ghost btn-sm" title="เปลี่ยนรหัสผ่าน" aria-label="เปลี่ยนรหัสผ่าน">
+          <Link to="/set-password" className="btn btn-ghost btn-sm" title={translateUi("เปลี่ยนรหัสผ่าน")} aria-label={translateUi("เปลี่ยนรหัสผ่าน")}>
             <Icon name="settings" className="h-4 w-4" />
           </Link>
           <button className="btn btn-ghost btn-sm" onClick={() => signOut()}>
-            <Icon name="logout" className="h-4 w-4" />
-            ออกจากระบบ
-          </button>
+            <Icon name="logout" className="h-4 w-4" />{"" + translateUi("ออกจากระบบ") + " "}</button>
         </div>
       </header>
 
@@ -204,7 +199,7 @@ export default function Home() {
           {groups.map((g, gi) => (
             <section key={g.id}>
               <h2 className="section-title flex items-center gap-2">
-                {g.title}
+                {translateUi(g.title)}
                 <span className="badge badge-gray">{g.pages.length}</span>
               </h2>
               <div className={`grid gap-3 ${gi === 0 ? 'grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
@@ -220,8 +215,8 @@ export default function Home() {
                         <Icon name={p.icon} className="h-6 w-6" />
                       </span>
                       <span>
-                        <span className="block text-lg strong-text">{p.title}</span>
-                        <span className="mt-0.5 block text-sm text-gray-500">{p.label}</span>
+                        <span className="block text-lg strong-text">{translateUi(p.title)}</span>
+                        <span className="mt-0.5 block text-sm text-gray-500">{translateUi(p.label)}</span>
                       </span>
                     </Link>
                   ) : (
@@ -234,8 +229,8 @@ export default function Home() {
                         <Icon name={p.icon} className="h-5.5 w-5.5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block strong-text">{p.title}</span>
-                        <span className="mt-0.5 block truncate text-sm text-gray-500">{p.label}</span>
+                        <span className="block strong-text">{translateUi(p.title)}</span>
+                        <span className="mt-0.5 block truncate text-sm text-gray-500">{translateUi(p.label)}</span>
                       </span>
                       <span className="text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-brand-500">›</span>
                     </Link>

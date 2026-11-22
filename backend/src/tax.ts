@@ -7,11 +7,11 @@ import type { Context, Hono } from 'hono'
 import type { AppEnv, Role } from './env.ts'
 import { DbError, asUser } from './supabase.ts'
 import type { Helpers } from './accounting.ts'
+import { money, optionalText, validDate } from './validation.ts'
 
 type Ctx = Context<AppEnv>
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DATE = /^\d{4}-\d{2}-\d{2}$/
 const TERMINAL = /^[A-Za-z0-9]{1,10}$/
 export const DOC_TYPES = ['ABB', 'TAX', 'CN'] as const
 export type DocType = (typeof DOC_TYPES)[number]
@@ -85,7 +85,7 @@ export function taxErrorCode(message: string): string | null {
 }
 export const taxErrorStatus = (code: string): 400 | 409 => (TAX_CONFLICTS.has(code) ? 409 : 400)
 
-const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+const str = optionalText
 const LIST_COLUMNS =
   'id,order_id,ref_document_id,doc_type,doc_number,status,terminal_code,pos_reg_no,buyer_name,buyer_tax_id,buyer_branch_code,' +
   'vat_rate,taxable_amount,exempt_amount,vat_amount,total_amount,credit_note_reason,issue_date,created_by_name,created_at,' +
@@ -115,12 +115,16 @@ export function registerTax(app: Hono<AppEnv>, h: Helpers) {
     if (!orderId && !refId) return fail(c, 400, 'order_required', { message: 'ต้องระบุ order_id (หรือ ref_document_id)' })
     if (type === 'CN' && !refId) return fail(c, 400, 'ref_required', { message: TAX_ERRORS.ref_required })
     for (const k of ['exempt_amount', 'amount'] as const) {
-      if (b[k] !== undefined && b[k] !== null && !(Number(b[k]) >= 0 && Number(b[k]) <= 100_000_000)) return fail(c, 400, 'invalid_amount')
+      if (b[k] !== undefined && b[k] !== null && money(b[k]) < 0) return fail(c, 400, 'invalid_amount')
     }
     const confirmNow = b.confirm === true
+    if (b.client_ref !== undefined && (typeof b.client_ref !== 'string' || !UUID.test(b.client_ref))) return fail(c, 400, 'invalid_client_ref')
     const terminal = String(b.terminal_code ?? '')
     if (confirmNow && !TERMINAL.test(terminal)) return fail(c, 400, 'terminal_required', { message: 'ยืนยันทันทีต้องระบุ terminal_code' })
 
+    for (const [table, id] of [['orders', orderId], ['tax_documents', refId]]) {
+      if (id && !(await db(c).select(`${table}?select=id&id=eq.${id}&restaurant_id=eq.${rid}`)).length) return fail(c, 404, 'not_found')
+    }
     const id = await db(c).rpc<string>('tax_doc_create', {
       p_doc_type: type,
       p_order_id: orderId,
@@ -132,20 +136,22 @@ export function registerTax(app: Hono<AppEnv>, h: Helpers) {
       p_exempt_amount: b.exempt_amount === undefined || b.exempt_amount === null ? 0 : Number(b.exempt_amount),
       p_amount: b.amount === undefined || b.amount === null ? null : Number(b.amount),
       p_credit_note_reason: str(b.credit_note_reason, 300),
+      p_client_ref: b.client_ref ?? null,
     })
     if (confirmNow) {
       try {
         return c.json({ document: strip(await confirm(c, id, terminal)) }, 201)
       } catch (e) {
         // ร่างถูกบันทึกแล้ว ยืนยันไม่ผ่าน: คืน id ให้แก้แล้วยืนยันใหม่
-        if (!(e instanceof DbError)) throw e
-        const code = taxErrorCode(e.message)
-        if (!code) throw e
+        const code = e instanceof DbError ? taxErrorCode(e.message) : null
+        if (!code) return c.json({ document_id: id, status: 'confirmation_unknown', recovery_url: `/api/tax/documents/${id}?restaurant_id=${rid}` }, 202)
         return fail(c, taxErrorStatus(code), code, { message: TAX_ERRORS[code], document_id: id, status: 'draft' })
       }
     }
-    const [doc] = await db(c).select<Record<string, unknown>>(`tax_documents?select=${LIST_COLUMNS}&id=eq.${id}`)
-    return c.json({ document: doc ?? { id, status: 'draft' } }, 201)
+    try {
+      const [doc] = await db(c).select<Record<string, unknown>>(`tax_documents?select=${LIST_COLUMNS}&id=eq.${id}`)
+      return c.json({ document: doc ?? { id, status: 'draft' } }, 201)
+    } catch { return c.json({ document: { id }, document_id: id, status: 'created', recovery_url: `/api/tax/documents/${id}?restaurant_id=${rid}` }, 202) }
   })
 
   // ยืนยันฉบับร่าง: ออกเลขที่ + สร้าง XML (ETDA) ในธุรกรรมเดียว
@@ -165,7 +171,6 @@ export function registerTax(app: Hono<AppEnv>, h: Helpers) {
   app.get('/tax/documents', auth, async (c) => {
     const rid = await requireRole(c, c.req.query('restaurant_id'), TAX_ISSUE)
     if (typeof rid !== 'string') return rid
-    const f: string[] = [`restaurant_id=eq.${rid}`]
     const type = c.req.query('doc_type')
     const status = c.req.query('status')
     const from = c.req.query('from')
@@ -173,27 +178,33 @@ export function registerTax(app: Hono<AppEnv>, h: Helpers) {
     const order = c.req.query('order_id')
     if (type !== undefined) {
       if (!DOC_TYPES.includes(type.toUpperCase() as DocType)) return fail(c, 400, 'invalid_doc_type')
-      f.push(`doc_type=eq.${type.toUpperCase()}`)
     }
     if (status !== undefined) {
       if (!['draft', 'confirmed', 'voided'].includes(status)) return fail(c, 400, 'invalid_status')
-      f.push(`status=eq.${status}`)
     }
     if (order !== undefined) {
       if (!UUID.test(order)) return fail(c, 400, 'invalid_order_id')
-      f.push(`order_id=eq.${order}`)
     }
     // ช่วงวันที่กรองตามวันที่ออกเอกสาร (ฉบับร่างยังไม่มีวันที่ออก)
-    for (const [k, v, op] of [['from', from, 'gte'], ['to', to, 'lte']] as const) {
+    for (const [k, v] of [['from', from], ['to', to]] as const) {
       if (v === undefined) continue
-      if (!DATE.test(v) || Number.isNaN(Date.parse(v))) return fail(c, 400, 'invalid_range', { message: `${k} ต้องเป็น YYYY-MM-DD` })
-      f.push(`issue_date=${op}.${v}`)
+      if (!validDate(v)) return fail(c, 400, 'invalid_range', { message: `${k} ต้องเป็น YYYY-MM-DD` })
     }
-    const documents = await db(c).select(`tax_documents?select=${LIST_COLUMNS}&${f.join('&')}&order=created_at.desc&limit=1000`)
+    if (from && to && from > to) return fail(c, 400, 'invalid_range')
+    const documents = await db(c).rpc('tax_documents_list', { p_restaurant_id: rid, p_from: from ?? null, p_to: to ?? null, p_doc_type: type?.toUpperCase() ?? null, p_status: status ?? null, p_order_id: order ?? null })
     return c.json({ documents })
   })
 
   // ดาวน์โหลด XML ที่สร้างไว้ตอนยืนยัน (ส่งออกเอง ไม่ส่งกรมสรรพากรอัตโนมัติ)
+  app.get('/tax/documents/:id', auth, async (c) => {
+    const rid = await requireRole(c, c.req.query('restaurant_id'), TAX_ISSUE)
+    if (typeof rid !== 'string') return rid
+    const id = c.req.param('id')
+    if (!UUID.test(id)) return fail(c, 400, 'invalid_document_id')
+    const [document] = await db(c).select(`tax_documents?select=${LIST_COLUMNS}&id=eq.${id}&restaurant_id=eq.${rid}`)
+    return document ? c.json({ document }) : fail(c, 404, 'not_found')
+  })
+
   app.get('/tax/documents/:id/xml', auth, async (c) => {
     const rid = await requireRole(c, c.req.query('restaurant_id'), TAX_ISSUE)
     if (typeof rid !== 'string') return rid

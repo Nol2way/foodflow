@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { translateUi } from "../lib/uiText"
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor } from '../lib/roles'
 import { describePromotion, promotionError, todayISO } from '../lib/promotions'
@@ -13,6 +14,8 @@ import { useCachedState } from '../lib/useCachedState'
 // วันที่ย้อนหลังกว่าวันนี้ไม่ได้ · วันสิ้นสุดต้องไม่ก่อนวันเริ่ม · จำกัดจำนวนครั้งได้ (ฐานข้อมูลบังคับซ้ำใน 0012)
 
 const EMPTY = {
+  coupon_code: '',
+  stackable: true,
   name: '',
   discount_type: 'percent' as Promotion['discount_type'],
   value: '',
@@ -28,6 +31,8 @@ const EMPTY = {
 type Form = typeof EMPTY
 
 function Board({ restaurantId }: { restaurantId: string }) {
+  const saving = useRef(false)
+  const [busy, setBusy] = useState(false)
   const [promos, setPromos] = useCachedState<Promotion[]>(`promos:${restaurantId}`, [])
   const [links, setLinks] = useCachedState<{ promotion_id: string; menu_item_id: string }[]>(`promos.links:${restaurantId}`, [])
   const [menu, setMenu] = useCachedState<MenuItem[]>(`promos.menu:${restaurantId}`, [])
@@ -48,7 +53,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       supabase.rpc('promotion_usage', { p_restaurant_id: restaurantId }),
     ])
     if (p.error || l.error || m.error || a.error || u.error) {
-      setMessage({ ok: false, text: 'โหลดโปรโมชันไม่สำเร็จ (รัน migration 0009 และ 0012 แล้วหรือยัง)' })
+      setMessage({ ok: false, text: 'โหลดโปรโมชันไม่สำเร็จ ตรวจการเชื่อมต่อและลองใหม่' })
       return
     }
     setPromos(p.data as Promotion[])
@@ -80,6 +85,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
       p
         ? {
             name: p.name,
+            coupon_code: p.coupon_code ?? '',
+            stackable: p.stackable !== false,
             discount_type: p.discount_type,
             value: String(p.value),
             min_subtotal: Number(p.min_subtotal) > 0 ? String(p.min_subtotal) : '',
@@ -111,6 +118,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
     if (maxUses !== null && !(Number.isInteger(maxUses) && maxUses >= 1))
       return setMessage({ ok: false, text: 'จำนวนครั้งที่ใช้ได้ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป (เว้นว่าง = ไม่จำกัด)' })
     const row = {
+      coupon_code: form.coupon_code.trim().toUpperCase() || null,
+      stackable: form.stackable,
       name: form.name.trim(),
       discount_type: form.discount_type,
       value,
@@ -122,19 +131,15 @@ function Board({ restaurantId }: { restaurantId: string }) {
       end_time: form.end_time || null,
       max_uses: maxUses,
     }
-    const res = editingId
-      ? await supabase.from('promotions').update(row).eq('id', editingId).select('id').single()
-      : await supabase.from('promotions').insert({ ...row, restaurant_id: restaurantId }).select('id').single()
+    if (saving.current) return
+    saving.current = true
+    setBusy(true)
+    const res = await supabase.rpc('save_promotion', { p_restaurant_id: restaurantId, p_promotion_id: editingId, p_values: row, p_item_ids: form.items })
+    saving.current = false
+    setBusy(false)
     if (res.error) {
       const text = promotionError(res.error.message)
       return setMessage({ ok: false, text: text === res.error.message ? 'บันทึกไม่สำเร็จ ตรวจวันที่/เวลา (สิ้นสุดต้องหลังเริ่ม)' : text })
-    }
-    const id = res.data.id as string
-    // แทนที่รายการเมนูที่ร่วมโปรทั้งชุด
-    await supabase.from('promotion_items').delete().eq('promotion_id', id)
-    if (form.items.length) {
-      const { error } = await supabase.from('promotion_items').insert(form.items.map((m) => ({ promotion_id: id, menu_item_id: m })))
-      if (error) return setMessage({ ok: false, text: 'บันทึกเมนูที่ร่วมโปรไม่สำเร็จ' })
     }
     setMessage({ ok: true, text: `${editingId ? 'แก้ไข' : 'สร้าง'}โปร "${row.name}" แล้ว` })
     edit(null)
@@ -161,11 +166,11 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const today = todayISO()
   // โปรที่เริ่มไปแล้ว: คงวันเริ่มเดิมไว้ได้ แต่เลือกวันใหม่ที่ย้อนหลังกว่าวันนี้ไม่ได้
   const minStart = original.starts_on && original.starts_on < today ? original.starts_on : today
-  const minEnd = form.starts_on && form.starts_on > today ? form.starts_on : today
+  const minEnd = original.ends_on && original.ends_on < today ? original.ends_on : form.starts_on && form.starts_on > today ? form.starts_on : today
 
   return (
     <div className="page">
-      <h1 className="page-title mb-5">โปรโมชัน</h1>
+      <h1 className="page-title mb-5">{translateUi("โปรโมชัน")}</h1>
       {message && (
         <p className={message.ok ? 'alert-success' : 'alert-error'}>{message.text}</p>
       )}
@@ -180,31 +185,33 @@ function Board({ restaurantId }: { restaurantId: string }) {
       />
 
       <form onSubmit={save} className="card mb-6 space-y-3 text-sm">
+        <label className="block">{translateUi("รหัสคูปอง (เว้นว่างสำหรับโปรทั่วไป)")}<input className="input mt-1 w-full" maxLength={40} pattern="[A-Za-z0-9_-]+" value={form.coupon_code} onChange={event => set('coupon_code', event.target.value.toUpperCase())} /></label>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={form.stackable} onChange={event => set('stackable', event.target.checked)} />{translateUi("อนุญาตใช้ร่วมกับโปรอื่นที่ไม่ซ้ำรายการ")}</label>
         <h2 className="section-title mb-0">{editingId ? 'แก้ไขโปรโมชัน' : 'สร้างโปรโมชัน'}</h2>
         <div className="grid gap-2 sm:grid-cols-[1fr_140px_120px_160px]">
-          <input className="input" placeholder="ชื่อโปร เช่น บ่ายเงียบลด 15%" maxLength={80} value={form.name} onChange={(e) => set('name', e.target.value)} required />
+          <input className="input" placeholder={translateUi("ชื่อโปร เช่น บ่ายเงียบลด 15%")} maxLength={80} value={form.name} onChange={(e) => set('name', e.target.value)} required />
           <select className="input" value={form.discount_type} onChange={(e) => set('discount_type', e.target.value as Form['discount_type'])}>
-            <option value="percent">ลดเป็น %</option>
-            <option value="amount">ลดเป็นบาท</option>
+            <option value="percent">{translateUi("ลดเป็น %")}</option>
+            <option value="amount">{translateUi("ลดเป็นบาท")}</option>
           </select>
           <input className="input" type="number" min="0" step="0.01" placeholder={form.discount_type === 'percent' ? '%' : 'บาท'} value={form.value} onChange={(e) => set('value', e.target.value)} required />
-          <input className="input" type="number" min="0" step="0.01" placeholder="ซื้อขั้นต่ำ (บาท)" value={form.min_subtotal} onChange={(e) => set('min_subtotal', e.target.value)} />
+          <input className="input" type="number" min="0" step="0.01" placeholder={translateUi("ซื้อขั้นต่ำ (บาท)")} value={form.min_subtotal} onChange={(e) => set('min_subtotal', e.target.value)} />
         </div>
         <div className="toolbar">
-          <span className="text-gray-500">จำนวนครั้งที่ใช้ได้</span>
+          <span className="text-gray-500">{translateUi("จำนวนครั้งที่ใช้ได้")}</span>
           <input
             className="input w-36 py-1.5"
             type="number"
             min="1"
             step="1"
-            placeholder="ไม่จำกัด"
+            placeholder={translateUi("ไม่จำกัด")}
             value={form.max_uses}
             onChange={(e) => set('max_uses', e.target.value)}
           />
-          <span className="text-xs text-gray-400">นับ 1 ครั้งต่อ 1 ออเดอร์ (ใส่ตอนรับออเดอร์) หรือ 1 บิล (ใส่ตอนรับชำระ) · เว้นว่าง = ไม่จำกัด</span>
+          <span className="text-xs text-gray-400">{translateUi("นับ 1 ครั้งต่อ 1 ออเดอร์ (ใส่ตอนรับออเดอร์) หรือ 1 บิล (ใส่ตอนรับชำระ) · เว้นว่าง = ไม่จำกัด")}</span>
         </div>
         <div className="toolbar">
-          <span className="text-gray-500">ช่วงวันที่</span>
+          <span className="text-gray-500">{translateUi("ช่วงวันที่")}</span>
           <input
             className="input py-1.5"
             type="date"
@@ -215,20 +222,20 @@ function Board({ restaurantId }: { restaurantId: string }) {
               setForm((f) => ({ ...f, starts_on: v, ends_on: f.ends_on && v && f.ends_on < v ? '' : f.ends_on }))
             }}
           />
-          <span>ถึง</span>
+          <span>{translateUi("ถึง")}</span>
           <input className="input py-1.5" type="date" min={minEnd} value={form.ends_on} onChange={(e) => set('ends_on', e.target.value)} />
-          <span className="ml-2 text-gray-500">เวลา</span>
+          <span className="ml-2 text-gray-500">{translateUi("เวลา")}</span>
           <input className="input py-1.5" type="time" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} />
           <span>–</span>
           <input className="input py-1.5" type="time" value={form.end_time} onChange={(e) => set('end_time', e.target.value)} />
         </div>
         <div className="toolbar">
-          <span className="text-gray-500">วัน (ไม่เลือก = ทุกวัน)</span>
+          <span className="text-gray-500">{translateUi("วัน (ไม่เลือก = ทุกวัน)")}</span>
           {DAY_SHORT.map((d, i) => (
-            <label key={d} className={`cursor-pointer rounded-full border px-3.5 py-1.5 transition ${form.days.includes(i) ? 'border-gray-900 bg-gray-900 text-white' : 'bg-white text-gray-600 hover:border-gray-300'}`}>
+            <label key={d} className={`cursor-pointer focus-within:ring-2 focus-within:ring-brand-500 rounded-full border px-3.5 py-1.5 transition ${form.days.includes(i) ? 'border-gray-900 bg-gray-900 text-white' : 'bg-white text-gray-600 hover:border-gray-300'}`}>
               <input
                 type="checkbox"
-                className="hidden"
+                className="sr-only"
                 checked={form.days.includes(i)}
                 onChange={() => set('days', form.days.includes(i) ? form.days.filter((x) => x !== i) : [...form.days, i])}
               />
@@ -237,8 +244,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
           ))}
         </div>
         <details>
-          <summary className="cursor-pointer text-gray-600">
-            เมนูที่ร่วมโปร: {form.items.length ? form.items.map(menuName).join(', ') : 'ทั้งบิล'}
+          <summary className="cursor-pointer text-gray-600">{"" + translateUi("เมนูที่ร่วมโปร:") + " "}{form.items.length ? form.items.map(menuName).join(', ') : 'ทั้งบิล'}
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-4">
             {menu.map((m) => (
@@ -254,12 +260,12 @@ function Board({ restaurantId }: { restaurantId: string }) {
           </div>
         </details>
         <div className="flex gap-2">
-          <button className="btn btn-primary">{editingId ? 'บันทึก' : 'สร้างโปร'}</button>
+          <button disabled={busy} className="btn btn-primary">{editingId ? 'บันทึก' : 'สร้างโปร'}</button>
           {editingId && (
-            <button type="button" className="btn btn-secondary" onClick={() => edit(null)}>ยกเลิก</button>
+            <button type="button" className="btn btn-secondary" onClick={() => edit(null)}>{translateUi("ยกเลิก")}</button>
           )}
         </div>
-        <p className="hint">เวลาและวันคิดตามเขตเวลาของร้าน · ดูช่วงลูกค้าน้อย (ออฟพีค) ได้ที่หน้าวิเคราะห์ เพื่อตั้งโปรดึงลูกค้า</p>
+        <p className="hint">{translateUi("เวลาและวันคิดตามเขตเวลาของร้าน · ดูช่วงลูกค้าน้อย (ออฟพีค) ได้ที่หน้าวิเคราะห์ เพื่อตั้งโปรดึงลูกค้า")}</p>
       </form>
 
       <ul className="space-y-2">
@@ -271,7 +277,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 <div className="font-medium">
                   {p.name}{' '}
                   {live.has(p.id) ? (
-                    <span className="badge badge-green">ใช้ได้ตอนนี้</span>
+                    <span className="badge badge-green">{translateUi("ใช้ได้ตอนนี้")}</span>
                   ) : (
                     <span className="badge badge-gray">
                       {!p.is_active ? 'ปิดอยู่' : p.max_uses && (usage[p.id] ?? 0) >= p.max_uses ? 'ใช้ครบแล้ว' : 'ไม่อยู่ในช่วงเวลา'}
@@ -281,20 +287,19 @@ function Board({ restaurantId }: { restaurantId: string }) {
                 <div className="text-gray-500">
                   {describePromotion(p)} · {its.length ? its.map(menuName).join(', ') : 'ทั้งบิล'}
                 </div>
-                <div className="mt-0.5 hint">
-                  ใช้ไปแล้ว {(usage[p.id] ?? 0).toLocaleString('th-TH')}
+                <div className="mt-0.5 hint">{"" + translateUi("ใช้ไปแล้ว") + " "}{(usage[p.id] ?? 0).toLocaleString('th-TH')}
                   {p.max_uses ? ` / ${p.max_uses.toLocaleString('th-TH')} ครั้ง (เหลือ ${Math.max(0, p.max_uses - (usage[p.id] ?? 0)).toLocaleString('th-TH')})` : ' ครั้ง'}
                 </div>
               </div>
               <span className="flex gap-3">
-                <button className="link" onClick={() => edit(p)}>แก้ไข</button>
+                <button className="link" onClick={() => edit(p)}>{translateUi("แก้ไข")}</button>
                 <button className="link" onClick={() => void toggle(p)}>{p.is_active ? 'ปิด' : 'เปิด'}</button>
-                <button className="link-danger" onClick={() => void remove(p)}>ลบ</button>
+                <button className="link-danger" onClick={() => void remove(p)}>{translateUi("ลบ")}</button>
               </span>
             </li>
           )
         })}
-        {promos.length === 0 && <li className="empty">ยังไม่มีโปรโมชัน</li>}
+        {promos.length === 0 && <li className="empty">{translateUi("ยังไม่มีโปรโมชัน")}</li>}
       </ul>
     </div>
   )

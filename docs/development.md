@@ -1,5 +1,8 @@
 # กระบวนการพัฒนา FoodFlow
 
+การเปลี่ยนแปลงรอบ audit/P1/P2: [features](features.md) · การปล่อยและทดสอบ: [operations](operations.md) · [ผล verification](audits/2026-11-22-remediation-results.md)
+
+
 ## โครงสร้างปัจจุบัน
 
 React/TypeScript/Vite/Tailwind + Hono บน Cloudflare + Supabase PostgreSQL/RLS/Realtime ล็อกอินด้วย `app_users` และ backend JWT ไม่ใช่ Supabase Auth มี Gemini เดิมเป็นตัวเลือก แต่รอบสองคนไม่เพิ่ม AI ไม่มี Python/Prophet/FastAPI service ใน repository นี้

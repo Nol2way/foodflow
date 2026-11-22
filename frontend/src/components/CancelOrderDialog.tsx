@@ -1,3 +1,4 @@
+import { translateUi } from "../lib/uiText"
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { baht, kg, orderLabel } from '../lib/format'
@@ -75,15 +76,13 @@ export default function CancelOrderDialog({
       <div className="modal max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
-            <h2 id="cancel-title" className="text-lg strong-text">
-              เลือกรายการที่จะยกเลิก
-            </h2>
+            <h2 id="cancel-title" className="text-lg strong-text">{"" + translateUi("เลือกรายการที่จะยกเลิก") + " "}</h2>
             <p className="mt-0.5 text-sm text-gray-500">
-              {orderLabel(order)} · สั่งเมื่อ{' '}
+              {orderLabel(order)}{" " + translateUi("· สั่งเมื่อ") + ""}{' '}
               {new Date(order.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <button className="btn btn-ghost -mr-2 p-2" onClick={onClose} disabled={saving} aria-label="ปิด">
+          <button className="btn btn-ghost -mr-2 p-2" onClick={onClose} disabled={saving} aria-label={translateUi("ปิด")}>
             <Icon name="close" className="h-5 w-5" />
           </button>
         </div>
@@ -124,7 +123,7 @@ export default function CancelOrderDialog({
                         className="grid h-8 w-8 place-items-center text-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                         disabled={n === 0}
                         onClick={() => set(it.id, n - 1)}
-                        aria-label="ลด"
+                        aria-label={translateUi("ลด")}
                       >
                         −
                       </button>
@@ -136,7 +135,7 @@ export default function CancelOrderDialog({
                         className="grid h-8 w-8 place-items-center text-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30"
                         disabled={n === it.quantity}
                         onClick={() => set(it.id, n + 1)}
-                        aria-label="เพิ่ม"
+                        aria-label={translateUi("เพิ่ม")}
                       >
                         +
                       </button>
@@ -150,7 +149,7 @@ export default function CancelOrderDialog({
           </ul>
 
           <div className="mt-5">
-            <span className="label">เหตุผล (ไม่บังคับ)</span>
+            <span className="label">{translateUi("เหตุผล (ไม่บังคับ)")}</span>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {REASONS.map((r) => (
                 <button
@@ -165,7 +164,7 @@ export default function CancelOrderDialog({
             </div>
             <input
               className="input w-full"
-              placeholder="หรือพิมพ์เหตุผลเอง"
+              placeholder={translateUi("หรือพิมพ์เหตุผลเอง")}
               maxLength={200}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -179,17 +178,15 @@ export default function CancelOrderDialog({
           <div className="text-sm">
             {pickedUnits > 0 ? (
               <>
-                <span className="text-gray-500">ยกเลิก {pickedUnits} รายการ · </span>
+                <span className="text-gray-500">{"" + translateUi("ยกเลิก") + " "}{pickedUnits}{" " + translateUi("รายการ ·") + " "}</span>
                 <span className="font-semibold text-red-700 tabular-nums">−{baht(refund)}</span>
               </>
             ) : (
-              <span className="text-gray-400">ยังไม่ได้เลือกรายการ</span>
+              <span className="text-gray-400">{translateUi("ยังไม่ได้เลือกรายการ")}</span>
             )}
           </div>
           <div className="flex gap-2">
-            <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
-              ไม่ยกเลิก
-            </button>
+            <button className="btn btn-secondary" onClick={onClose} disabled={saving}>{"" + translateUi("ไม่ยกเลิก") + " "}</button>
             <button className="btn btn-danger" disabled={pickedUnits === 0 || saving} onClick={() => void submit()}>
               {saving ? 'กำลังยกเลิก...' : all ? 'ยกเลิกทั้งออเดอร์' : 'ยืนยันยกเลิก'}
             </button>

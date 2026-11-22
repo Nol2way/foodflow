@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
+import { getToken } from './session'
 import { peek, put } from './cache'
 import type { KitchenOrder, OrderStatus } from './types'
 
@@ -9,18 +10,28 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
   const cacheKey = `orders:${restaurantId}:${statusKey}`
   // เปิดหน้าครัว/เสิร์ฟ/รับชำระซ้ำ: แสดงออเดอร์ชุดล่าสุดทันที แล้ว Realtime/โหลดใหม่จะอัปเดตตาม
   const [orders, setOrders] = useState<KitchenOrder[]>(() => peek<KitchenOrder[]>(cacheKey) ?? [])
+  const [loaded, setLoaded] = useState(false)
+  const sequence = useRef(0)
+  const owner = useRef(cacheKey)
+  owner.current = cacheKey
+  const [readError, setReadError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
+    const seq = ++sequence.current
+    const token = getToken()
     const { data, error: err } = await supabase
       .from('orders')
       .select(
-        'id,status,total,subtotal,discount_total,created_at,started_at,ready_at,table_id,order_type,customer_label,note,promotion_id,order_promotions(promotion_id,discount,promotions(name)),dining_tables(label),order_items(id,menu_item_id,unit_price,quantity,weight_g,note,done_at,served_at,menu_items(name))',
+        'id,status,total,subtotal,discount_total,service_charge,tip,is_split,bill_requested_at,created_at,started_at,ready_at,table_id,order_type,customer_label,note,promotion_id,order_promotions(promotion_id,discount,promotions(name)),dining_tables(label),order_items(id,menu_item_id,unit_price,quantity,weight_g,note,options_snapshot,done_at,served_at,menu_items(name))',
       )
       .eq('restaurant_id', restaurantId)
       .in('status', statusKey.split(','))
       .order('created_at')
-    if (err) return setError(err.message)
+    if (seq !== sequence.current || owner.current !== cacheKey || getToken() !== token) return
+    if (err) return setReadError(err.message)
+    setReadError(null)
+    setLoaded(true)
     const next = data as unknown as KitchenOrder[]
     put(cacheKey, next)
     setOrders(next)
@@ -40,10 +51,11 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
       .subscribe()
     const fallback = setInterval(() => void reload(), 15000) // กันกรณี Realtime หลุด
     return () => {
+      sequence.current++
       void supabase.removeChannel(channel)
       clearInterval(fallback)
     }
   }, [restaurantId, statusKey, reload])
 
-  return { orders, error, setError, reload }
+  return { orders, error: error ?? readError, setError, reload, loaded }
 }

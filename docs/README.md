@@ -1,5 +1,9 @@
 # สารบัญคู่มือ FoodFlow
 
+หลังแก้: [ผล remediation](audits/2026-11-22-remediation-results.md) · [คู่มือฟีเจอร์ P1/P2](features.md) · [ติดตั้ง/ปล่อย/restore](operations.md)
+
+ผลตรวจล่าสุด: [Project audit 22 พฤศจิกายน 2026](audits/2026-11-22-project-audit.md) — บั๊กที่ยืนยันแล้ว ความเสี่ยง งานค้าง และเกณฑ์ก่อนใช้งานจริง
+
 อ่าน [ผลตรวจความพร้อม](project-readiness.md) → [ติดตั้ง](SETUP.md) → [บริบทรายวิชา](course-context.md) → [ใบงานสองคน](tasks/2-people/README.md)
 
 | เอกสาร | ใช้สำหรับ |

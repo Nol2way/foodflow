@@ -1,5 +1,8 @@
 # เอกสาร API (Backend)
 
+หลัง remediation: เพิ่ม logout/revocation, readiness, strict input/PATCH, recovery/idempotency, CSV/XLSX preview binding และ ops endpoints; รายละเอียด authoritative คือ [OpenAPI](openapi.json) ที่ generate จาก source
+
+
 Backend อยู่ที่ [`backend/`](../backend) เขียนด้วย **Hono** รันบน Cloudflare ได้ 2 แบบ (โค้ดชุดเดียวกัน)
 
 | แบบ | ใช้เมื่อ | ที่อยู่ API |
@@ -19,7 +22,7 @@ Backend อยู่ที่ [`backend/`](../backend) เขียนด้ว�
 
 - **ฐานข้อมูลเป็นด่านสุดท้ายเสมอ** backend เรียก Supabase ด้วย JWT ของผู้ใช้ (RLS และ `has_role` ทำงาน) ใช้ service role ใน custom auth/profile/password, จัดการบัญชีพนักงาน และงานรายงาน Cron ตาม source โดย endpoint ที่มีสิทธิ์ต้องตรวจผู้เรียกก่อน ไม่ใช้ service role แทน RLS ในงานร้านทั่วไป
 - **ความลับอยู่ฝั่ง backend เท่านั้น** `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY`
-- **เมนูและโปรโมชันไม่ผ่าน backend** หน้า `/menu` และ `/promotions` เขียนตาราง Supabase โดยตรงภายใต้ RLS (เจ้าของ/ผู้จัดการ) ส่วนลดคำนวณใน `staff_place_order` ตอนรับออเดอร์
+- **เมนูและโปรโมชันไม่ผ่าน backend** หน้า `/menu` ใช้ตาราง/RPC และ `/promotions` บันทึกผ่าน `save_promotion` แบบ transaction ภายใต้ RLS (เจ้าของ/ผู้จัดการ) ส่วนลดคำนวณใน `staff_place_order` ตอนรับออเดอร์
 - **การรับออเดอร์ไม่ผ่าน backend** พนักงานที่ล็อกอินเรียกฟังก์ชัน `staff_place_order` ของ Supabase โดยตรง (ตรวจบทบาท owner/staff และคิดราคาในฐานข้อมูล) ออเดอร์จึงขึ้นหน้าจอครัวผ่าน Realtime ทันที
 - **AI ไม่เดาตัวเลข** backend ดึงตัวเลขที่ฐานข้อมูลคำนวณแล้ว ส่งให้ Gemini อธิบาย และส่งตัวเลขชุดเดียวกันกลับให้หน้าเว็บแสดงเพื่อตรวจสอบ
 - ข้อผิดพลาดตอบเป็น JSON `{ "error": "<code>", "message": "<ข้อความไทย ถ้ามี>" }` ข้อผิดพลาดที่ไม่คาดคิดตอบ `500 internal_error` โดยไม่เปิดเผยรายละเอียด
@@ -150,4 +153,4 @@ API ใช้ `app_user_active` ตรวจบัญชีหลังตรว
 
 ตารางในหน้านี้เป็นภาพรวม รายการครบของ tax documents, sales-tax/PP30/WHT, shift open/close/cash movement/Z-report, reports และ promo suggestions อยู่ใน [OpenAPI](openapi.json) ซึ่งสร้างจาก source และมี test ตรวจตรงกับ route
 
-จุด API/UI ที่ยังไม่เปิดครบอยู่ใน [P2-F5](tasks/2-people/person-2-crm-ops.md) สิ่งที่อยู่ใน SQL ไม่ถือว่ามี REST endpoint แล้ว งานความปลอดภัยที่ระบุในใบงานยังเปิดอยู่ รวมผลตอบ staff DELETE และ rate limiter
+P2-F5 เพิ่ม HTTP endpoint ใน `backend/src/operations.ts` แล้ว รายการ method/path/schema ล่าสุดอยู่ใน [OpenAPI](openapi.json) และมี parity test; rate limiter ใช้ฐานข้อมูลร่วมและ auth ตรวจ session epoch ทั้ง API/RLS ดู [features](features.md)

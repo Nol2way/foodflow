@@ -13,11 +13,14 @@ export async function allow(
   now = Date.now(),
 ): Promise<boolean> {
   if (binding) return (await binding.limit({ key })).success
+  if (!memory.has(key) && memory.size >= 10_000) {
+    for (const [k, timestamps] of memory) if (timestamps.every(t => now - t >= WINDOW_MS)) memory.delete(k)
+    if (memory.size >= 10_000) return false
+  }
   const hits = (memory.get(key) ?? []).filter((t) => now - t < WINDOW_MS)
   const ok = hits.length < perMinute
   if (ok) hits.push(now)
   memory.set(key, hits)
-  if (memory.size > 10_000) memory.clear() // กันหน่วยความจำโต
   return ok
 }
 
