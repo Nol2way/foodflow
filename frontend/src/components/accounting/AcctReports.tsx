@@ -81,6 +81,11 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
 
   const pro = mode === 'pro'
   const views = VIEWS.filter((v) => pro || !v.pro)
+  const selectedLedger = trial.find((t) => t.account_id === ledgerAccount)
+
+  useEffect(() => {
+    if (!pro && VIEWS.find((v) => v.key === view)?.pro) setView('pnl')
+  }, [pro, view])
 
   const load = useCallback(async () => {
     const args = { p_restaurant_id: restaurantId, p_from: from, p_to: to }
@@ -179,7 +184,7 @@ export default function AcctReports({ restaurantId, today, mode }: { restaurantI
               </option>
             ))}
           </select>
-          {ledgerAccount && <Ledger rows={journal} account={trial.find((t) => t.account_id === ledgerAccount)!} />}
+          {selectedLedger && <Ledger rows={journal} account={selectedLedger} />}
         </>
       )}
       {view === 'balance' && <Balance rows={trial} to={to} />}

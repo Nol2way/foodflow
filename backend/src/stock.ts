@@ -104,11 +104,21 @@ export function receiptLines(v: unknown): Record<string, unknown>[] | null {
     const byPack = Number.isFinite(packQty) && Number.isFinite(packSize) && Number.isFinite(packPrice)
     if (byPack ? packQty < 0 || packSize <= 0 || packPrice < 0 : !(qty >= 0 && cost >= 0)) return null
     if (l.expiry_date != null && l.expiry_date !== '' && !isDate(l.expiry_date)) return null
+    const grossQty = num(l.gross_qty)
+    const enteredQty = num(l.entered_qty)
+    const enteredUnitCost = num(l.entered_unit_cost)
+    const invoiceUnitQty = num(l.invoice_unit_qty)
     out.push({
       ingredient_id: l.ingredient_id,
       ...(byPack ? { pack_qty: packQty, pack_size: packSize, pack_price: packPrice } : { quantity: qty, unit_cost: cost }),
       ...(isDate(l.expiry_date) ? { expiry_date: l.expiry_date } : {}),
       ...(Number.isFinite(num(l.invoice_qty)) ? { invoice_qty: num(l.invoice_qty) } : {}),
+      ...(Number.isFinite(grossQty) && grossQty >= 0 ? { gross_qty: grossQty } : {}),
+      ...(typeof l.entered_unit === 'string' && l.entered_unit.trim() ? { entered_unit: text(l.entered_unit, 30) } : {}),
+      ...(Number.isFinite(enteredQty) && enteredQty >= 0 ? { entered_qty: enteredQty } : {}),
+      ...(Number.isFinite(enteredUnitCost) && enteredUnitCost >= 0 ? { entered_unit_cost: enteredUnitCost } : {}),
+      ...(typeof l.invoice_unit === 'string' && l.invoice_unit.trim() ? { invoice_unit: text(l.invoice_unit, 30) } : {}),
+      ...(Number.isFinite(invoiceUnitQty) && invoiceUnitQty >= 0 ? { invoice_unit_qty: invoiceUnitQty } : {}),
       ...(typeof l.note === 'string' && l.note.trim() ? { note: text(l.note, 200) } : {}),
     })
   }
@@ -255,6 +265,7 @@ export function registerStock(app: Hono<AppEnv>, h: Helpers) {
     if (!isUuid(id)) return fail(c, 400, 'invalid_id')
     const row = supplierRow(b, false)
     if (typeof row === 'string') return fail(c, 400, 'invalid_field', { field: row })
+    if (Object.keys(row).length === 0) return fail(c, 400, 'nothing_to_update')
     const saved = await db(c).update(`suppliers?id=eq.${id}&restaurant_id=eq.${r}`, row)
     if (saved.length === 0) return fail(c, 404, 'not_found')
     return c.json({ supplier: saved[0] })

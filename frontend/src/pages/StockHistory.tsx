@@ -24,6 +24,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   const [actors, setActors] = useState<Map<string, string>>(new Map())
   const [reversing, setReversing] = useState<Movement | null>(null)
   const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
@@ -36,7 +37,8 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
   }, [list.data])
 
   async function reverse() {
-    if (!reversing || !reason.trim()) return
+    if (!reversing || !reason.trim() || busy) return
+    setBusy(true)
     try {
       await stockApi.reverse(restaurantId, reversing.id, reason.trim())
       setMsg({ ok: true, text: `กลับรายการ ${reversing.ingredient_name} แล้ว (รายการเดิมยังอยู่ในประวัติ)` })
@@ -45,6 +47,8 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
       void list.reload()
     } catch (e) {
       setMsg({ ok: false, text: errorText(e) })
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -68,11 +72,11 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
         </label>
         <label>
           <span className="label">ตั้งแต่</span>
-          <input className="input w-full" type="date" max={f.to} value={f.from} onChange={(e) => set({ from: e.target.value })} />
+          <input className="input w-full" type="date" max={f.to} value={f.from} onChange={(e) => e.target.value && set({ from: e.target.value })} />
         </label>
         <label>
           <span className="label">ถึง</span>
-          <input className="input w-full" type="date" min={f.from} max={todayIso()} value={f.to} onChange={(e) => set({ to: e.target.value })} />
+          <input className="input w-full" type="date" min={f.from} max={todayIso()} value={f.to} onChange={(e) => e.target.value && set({ to: e.target.value })} />
         </label>
         <label>
           <span className="label">ผู้ทำรายการ</span>
@@ -155,8 +159,8 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
               <input className="input w-full" autoFocus maxLength={180} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="เช่น คีย์ผิดวัตถุดิบ" />
             </label>
             <div className="flex justify-end gap-2">
-              <button className="btn btn-secondary" onClick={() => setReversing(null)}>ยกเลิก</button>
-              <button className="btn btn-danger" disabled={!reason.trim()} onClick={() => void reverse()}>กลับรายการ</button>
+              <button className="btn btn-secondary" disabled={busy} onClick={() => setReversing(null)}>ยกเลิก</button>
+              <button className="btn btn-danger" disabled={!reason.trim() || busy} onClick={() => void reverse()}>{busy ? 'กำลังบันทึก...' : 'กลับรายการ'}</button>
             </div>
           </div>
         </div>

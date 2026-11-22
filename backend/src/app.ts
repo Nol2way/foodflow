@@ -86,7 +86,7 @@ export function createApp() {
     return cors({
       origin: (o) => (origins.includes(o) ? o : null),
       allowHeaders: ['Content-Type', 'Authorization'],
-      allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       maxAge: 600,
     })(c, next)
   })
@@ -105,7 +105,7 @@ export function createApp() {
       // บัญชี (0026): ข้อความไทยจากรหัสข้อผิดพลาดของฐานข้อมูล · สถานะชนกันตอบ 409
       const acct = accountingErrorCode(msg)
       if (acct && (err.code === 'P0001' || err.code === '')) {
-        const conflict = ['day_closed', 'already_closed', 'already_reversed', 'expense_posted_use_void', 'order_posted_use_cancel', 'journal_immutable']
+        const conflict = ['day_closed', 'already_closed', 'already_reversed', 'expense_posted_use_void', 'order_posted_use_cancel', 'journal_immutable', 'tax_doc_confirmed_use_cn']
         return fail(c, conflict.includes(acct) ? 409 : 400, acct, { message: ACCOUNTING_ERRORS[acct] })
       }
       // เอกสารภาษี / กะแคชเชียร์ / หัก ณ ที่จ่าย (0031)
@@ -116,7 +116,7 @@ export function createApp() {
       if (err.code === '23505') return fail(c, 409, 'duplicate')
       if (err.code === '42501') return fail(c, 403, 'forbidden')
       if (err.status === 401 || err.code === 'PGRST301') return fail(c, 401, 'unauthorized')
-      if (err.code === 'P0001' || err.code === '22P02' || err.code === '22007' || err.code === '22008') {
+      if (err.code === 'P0001' || err.code === '22P02' || err.code === '22007' || err.code === '22008' || err.code === '23514' || err.code === '23503') {
         return fail(c, 400, 'invalid_request', { message: msg })
       }
     }

@@ -80,7 +80,8 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
     setSaving(true)
     try {
       const r = await stockApi.submitCount(restaurantId, { count_type: kind, note, lines })
-      setEntries({})
+      const submittedIds = new Set(lines.map((l) => l.ingredient_id))
+      setEntries((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !submittedIds.has(id))))
       setError(null)
       onDone(r.count_id)
     } catch (e) {

@@ -32,6 +32,7 @@ import {
   normalizeSummary,
   stockCheck,
   taxDeductionCompare,
+  thaiTaxIdValid,
   toCsv,
   toExcelXml,
   vatThreshold,
@@ -329,6 +330,14 @@ export type WhtType = (typeof WHT_TYPES)[number]
 export const whtTypeFor = (taxId: string): WhtType => (taxId.startsWith('0') ? 'pnd53' : 'pnd3')
 const TAX_ID = /^[0-9]{13}$/
 
+const ACCOUNT_GROUPS: Record<string, readonly string[]> = {
+  asset: ['cash', 'bank', 'stock', 'claim', 'vat_in', 'other_asset'],
+  liability: ['ap', 'vat_out', 'other_liability'],
+  equity: ['equity'],
+  revenue: ['sales', 'discount', 'other_income'],
+  expense: ['food_cost', 'labor', 'opex'],
+}
+
 export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
   const { auth, requireRole, fail, body } = h
   const db = (c: Ctx) => asUser(c.env, c.var.token)
@@ -410,8 +419,11 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
     if (typeof rid !== 'string') return rid
     const code = String(b.code ?? '')
     const name = String(b.name ?? '').trim()
+    const type = String(b.type ?? '')
+    const grp = String(b.grp ?? '')
     if (!/^[0-9]{4}$/.test(code) || !name || name.length > 80) return fail(c, 400, 'invalid_request', { message: 'รหัสบัญชี 4 หลัก และชื่อ 1-80 ตัวอักษร' })
-    const [row] = await db(c).insert('accounts', { restaurant_id: rid, code, name, type: b.type, grp: b.grp })
+    if (!ACCOUNT_GROUPS[type]?.includes(grp)) return fail(c, 400, 'invalid_account_type', { message: 'ประเภทหรือหมวดบัญชีไม่ถูกต้อง' })
+    const [row] = await db(c).insert('accounts', { restaurant_id: rid, code, name, type, grp })
     return c.json({ account: row }, 201)
   })
 
@@ -452,7 +464,9 @@ export function registerAccounting(app: Hono<AppEnv>, h: Helpers) {
       wht_rate: b.wht_rate ?? null,
       wht_type: b.wht_type ?? null,
     }
-    if (tax.supplier_tax_id && !TAX_ID.test(tax.supplier_tax_id)) return fail(c, 400, 'invalid_supplier_tax_id', { message: 'เลขผู้เสียภาษี 13 หลัก' })
+    if (tax.supplier_tax_id && (!TAX_ID.test(tax.supplier_tax_id) || !thaiTaxIdValid(tax.supplier_tax_id))) {
+      return fail(c, 400, 'invalid_supplier_tax_id', { message: 'เลขผู้เสียภาษี 13 หลักไม่ถูกต้อง' })
+    }
     if (tax.supplier_branch_code && !/^[0-9]{5}$/.test(tax.supplier_branch_code)) return fail(c, 400, 'invalid_supplier_branch_code')
     if (tax.tax_invoice_date !== null && !validDate(tax.tax_invoice_date)) return fail(c, 400, 'invalid_date')
     if ((tax.tax_invoice_no === null) !== (tax.tax_invoice_date === null) || (tax.tax_invoice_no && (!tax.supplier_name || !tax.supplier_tax_id))) {

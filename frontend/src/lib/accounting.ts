@@ -348,6 +348,7 @@ export const ACCOUNTING_ERRORS: Record<string, string> = {
   invalid_amount: 'จำนวนเงินไม่ถูกต้อง',
   invalid_date: 'วันที่ไม่ถูกต้อง',
   invalid_status_change: 'เปลี่ยนสถานะบิลนี้ไม่ได้',
+  tax_doc_confirmed_use_cn: 'บิลนี้มีใบกำกับภาษีที่ยืนยันแล้ว ต้องออกใบลดหนี้ (CN) ให้ครบก่อนยกเลิกบิล',
 }
 
 export function accountingErrorCode(message: string): string | null {

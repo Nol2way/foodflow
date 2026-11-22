@@ -318,6 +318,8 @@ function ReceiptSheet({ receipt, canClaim, onBack }: { receipt: Receipt; canClai
         .order('ingredient_name'),
       supabase.from('stock_receipts').select('claim_total').eq('id', receipt.id).single(),
     ])
+    if (ls.error || h.error) return setError((ls.error ?? h.error)!.message)
+    setError(null)
     setLines((ls.data ?? []) as ReceiptLine[])
     if (h.data) setHead((prev) => ({ ...prev, claim_total: Number(h.data.claim_total) }))
   }, [receipt.id])
@@ -524,11 +526,17 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
   const settings = useReceiveSettings(restaurantId)
 
   useEffect(() => {
+    if (!from || !to) return
+    let cancelled = false
     void supabase.rpc('supplier_receiving_report', { p_restaurant_id: restaurantId, p_from: from, p_to: to }).then(({ data, error: err }) => {
+      if (cancelled) return
       if (err) return setError('โหลดรายงานไม่ได้ (ต้องรัน migration 0025 ก่อน)')
       setError(null)
       setRows((data ?? []) as SupplierRow[])
     })
+    return () => {
+      cancelled = true
+    }
   }, [restaurantId, from, to])
 
   return (
@@ -536,11 +544,11 @@ function SupplierReport({ restaurantId }: { restaurantId: string }) {
       <div className="card mb-4 flex flex-wrap items-end gap-3">
         <label>
           <span className="label">ตั้งแต่</span>
-          <input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input className="input" type="date" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} />
         </label>
         <label>
           <span className="label">ถึง</span>
-          <input className="input" type="date" value={to} max={today()} onChange={(e) => setTo(e.target.value)} />
+          <input className="input" type="date" value={to} max={today()} onChange={(e) => e.target.value && setTo(e.target.value)} />
         </label>
         <p className="hint">เป้าหมาย: ยอดขาด/ตีกลับต่ำกว่า 1% ของยอดบิล · น้ำแข็งไม่เกิน {settings.glazeMax}%</p>
       </div>
