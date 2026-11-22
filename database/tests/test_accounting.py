@@ -82,9 +82,11 @@ def summary(frm=None, to=None):
 
 
 # ---------- 1) ผังบัญชีเริ่มต้น ----------
-check('ผังบัญชี: สร้างให้ร้านเดิมและร้านใหม่อัตโนมัติ (24 บัญชี)',
-      one("select count(*) from accounts where restaurant_id=%s", (r1,)) == 24
-      and one("select count(*) from accounts where restaurant_id=%s", (r2,)) == 24)
+seeded_accounts = q('su', """select count(*), count(*) filter (
+                             where system_key='wht_payable' and type='liability' and grp='other_liability')
+                             from accounts where restaurant_id in (%s, %s) group by restaurant_id""", (r1, r2))[1]
+check('ผังบัญชี: ร้านตัวอย่างและร้านใหม่มี 25 บัญชีรวมภาษีหัก ณ ที่จ่ายค้างจ่าย',
+      seeded_accounts == [(25, 1), (25, 1)], seeded_accounts)
 check('ผังบัญชี: มีบัญชีที่ระบบต้องใช้ครบ',
       one("""select count(*) from accounts where restaurant_id=%s and system_key = any(array[
              'cash','bank','stock','ap','rev_food','rev_drink','cogs','variance','labor','rent','utilities',

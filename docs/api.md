@@ -4,19 +4,21 @@ Backend อยู่ที่ [`backend/`](../backend) เขียนด้ว�
 
 | แบบ | ใช้เมื่อ | ที่อยู่ API |
 |-----|---------|-------------|
-| **Cloudflare Pages Functions** (แนะนำ) | หน้าเว็บกับ API อยู่โดเมนเดียวกัน ไม่ต้องตั้ง CORS | `https://<เว็บ>/api/...` ผ่าน [`frontend/functions/api/[[path]].ts`](../frontend/functions/api/[[path]].ts) |
+| **Cloudflare Pages Functions** (ทางเลือก ไม่มี Cron) | หน้าเว็บกับ API อยู่โดเมนเดียวกัน ไม่ต้องตั้ง CORS | `https://<เว็บ>/api/...` ผ่าน [`frontend/functions/api/[[path]].ts`](../frontend/functions/api/[[path]].ts) |
 | Cloudflare Worker แยก | อยากแยก deploy หรือใช้ Rate Limiting binding | `https://foodflow-api.<บัญชี>.workers.dev/api/...` (ตั้ง `VITE_API_URL` ให้หน้าเว็บ) |
+
+แบบ Worker รวมเว็บ + API + Cron ใช้ `wrangler.jsonc` ที่ราก repo และเป็นรูปแบบที่ต้นฉบับตั้งไว้ ยังไม่ได้ deploy fork นี้
 
 ## Swagger
 
-- **Swagger UI:** `/api/docs` (เครื่องตัวเอง: <http://localhost:8787/api/docs>) ทดลองเรียก API ได้ กดปุ่ม **Authorize** แล้วใส่ `access_token` ของ Supabase
+- **Swagger UI:** `/api/docs` (เครื่องตัวเอง: <http://localhost:8787/api/docs>) ทดลองเรียก API ได้ กดปุ่ม **Authorize** แล้วใส่ `access_token` จาก `POST /api/auth/login`
 - **OpenAPI 3.1 JSON:** `/api/openapi.json` หรือไฟล์ [`openapi.json`](openapi.json) ในโฟลเดอร์นี้ (นำเข้า Postman / Insomnia ได้)
 - ต้นฉบับอยู่ที่ [`backend/src/openapi.ts`](../backend/src/openapi.ts) แก้แล้วรัน `npm run openapi`
 
 ## หลักการ
 
-- **ฐานข้อมูลเป็นด่านสุดท้ายเสมอ** backend เรียก Supabase ด้วย JWT ของผู้ใช้ (RLS และ `has_role` ทำงาน) ใช้ service role เฉพาะ 2 กรณี: อ่านอีเมลพนักงาน และเชิญผู้ใช้ใหม่ ทั้งหมดตรวจสิทธิ์ใน backend ก่อน
-- **ความลับอยู่ฝั่ง backend เท่านั้น** `SUPABASE_SERVICE_ROLE_KEY`, `GEMINI_API_KEY`
+- **ฐานข้อมูลเป็นด่านสุดท้ายเสมอ** backend เรียก Supabase ด้วย JWT ของผู้ใช้ (RLS และ `has_role` ทำงาน) ใช้ service role ใน custom auth/profile/password, จัดการบัญชีพนักงาน และงานรายงาน Cron ตาม source โดย endpoint ที่มีสิทธิ์ต้องตรวจผู้เรียกก่อน ไม่ใช้ service role แทน RLS ในงานร้านทั่วไป
+- **ความลับอยู่ฝั่ง backend เท่านั้น** `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `GEMINI_API_KEY`
 - **เมนูและโปรโมชันไม่ผ่าน backend** หน้า `/menu` และ `/promotions` เขียนตาราง Supabase โดยตรงภายใต้ RLS (เจ้าของ/ผู้จัดการ) ส่วนลดคำนวณใน `staff_place_order` ตอนรับออเดอร์
 - **การรับออเดอร์ไม่ผ่าน backend** พนักงานที่ล็อกอินเรียกฟังก์ชัน `staff_place_order` ของ Supabase โดยตรง (ตรวจบทบาท owner/staff และคิดราคาในฐานข้อมูล) ออเดอร์จึงขึ้นหน้าจอครัวผ่าน Realtime ทันที
 - **AI ไม่เดาตัวเลข** backend ดึงตัวเลขที่ฐานข้อมูลคำนวณแล้ว ส่งให้ Gemini อธิบาย และส่งตัวเลขชุดเดียวกันกลับให้หน้าเว็บแสดงเพื่อตรวจสอบ
@@ -24,7 +26,7 @@ Backend อยู่ที่ [`backend/`](../backend) เขียนด้ว�
 
 ## การยืนยันตัวตน
 
-endpoint ที่ต้องล็อกอิน ส่ง header `Authorization: Bearer <access_token ของ Supabase>` (หน้าเว็บทำให้ใน [`frontend/src/lib/api.ts`](../frontend/src/lib/api.ts))
+endpoint ที่ต้องล็อกอิน ส่ง header `Authorization: Bearer <access_token จาก /api/auth/login>` (หน้าเว็บทำให้ใน [`frontend/src/lib/api.ts`](../frontend/src/lib/api.ts))
 
 | สถานะ | ความหมาย |
 |:-----:|----------|
@@ -35,7 +37,7 @@ endpoint ที่ต้องล็อกอิน ส่ง header `Authorizat
 ## Endpoints
 
 ### `GET /api/health`
-ตรวจว่า backend ทำงาน และเปิดฟีเจอร์อะไรไว้ → `{ "ok": true, "ai": true }`
+ตรวจว่า backend ทำงาน และเปิดฟีเจอร์อะไรไว้ → `{ "ok": true, "ai": false, "line": false }` เมื่อไม่ได้ตั้งบริการเสริม สถานะนี้ยืนยัน HTTP server เท่านั้น ไม่ได้ query ฐานข้อมูล
 
 ### `POST /api/import/sales` — นำเข้ายอดขาย CSV (เจ้าของ, ผู้จัดการ)
 ```json
@@ -68,14 +70,14 @@ endpoint ที่ต้องล็อกอิน ส่ง header `Authorizat
 
 | Method | Path | Body | ผล |
 |--------|------|------|----|
-| GET | `/api/staff?restaurant_id=` | – | `{ staff: [{ user_id, email, role }] }` |
-| POST | `/api/staff` | `{ restaurant_id, email, role }` | 201 `{ user_id, email, role, invited }` ถ้ายังไม่มีบัญชีจะส่งอีเมลเชิญ · 409 `duplicate` |
-| PATCH | `/api/staff/:user_id` | `{ restaurant_id, role }` | เปลี่ยนบทบาท · 409 `last_owner` |
+| GET | `/api/staff?restaurant_id=` | – | `{ staff: [...] }` รายคนมี `roles[]` |
+| POST | `/api/staff` | `{ restaurant_id, email, roles: [role], display_name? }` | 201 `{ user_id, email, roles, created, temp_password }` บัญชีใหม่ได้รหัสชั่วคราว (บัญชีเดิมไม่มี temp_password) ไม่ส่งอีเมลเชิญ · 409 `duplicate` |
+| PATCH | `/api/staff/:user_id` | `{ restaurant_id, roles: [role] }` | เปลี่ยนบทบาท · 409 `last_owner` |
 | DELETE | `/api/staff/:user_id?restaurant_id=` | – | นำออกจากร้าน · 409 `last_owner` |
 
-`role`: `owner`, `manager`, `staff`, `kitchen`, `accountant`, `stock` · ร้านต้องมีเจ้าของอย่างน้อย 1 คน (บังคับด้วย trigger ในฐานข้อมูล)
+รองรับ `roles[]` และ legacy `role` ค่าเดียว · `role`: `owner`, `manager`, `staff`, `kitchen`, `accountant`, `stock` · ร้านต้องมีเจ้าของอย่างน้อย 1 คน (บังคับด้วย trigger ในฐานข้อมูล)
 
-### บัญชี (0026) — `/api/accounting/*`
+### บัญชี (0004; เดิม 0026) — `/api/accounting/*`
 
 รายละเอียดเต็มและลองเรียกได้ที่ Swagger (`/api/docs` แท็ก "บัญชี") · หลักการบัญชีดู [accounting.md](accounting.md) · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ (RLS ตรวจซ้ำ) · ช่วงวันที่ `from`/`to` = `YYYY-MM-DD` ตามเวลาร้าน ไม่เกิน 10 ปี
 
@@ -96,7 +98,7 @@ endpoint ที่ต้องล็อกอิน ส่ง header `Authorizat
 
 ข้อผิดพลาดบัญชีตอบเป็นภาษาไทย เช่น `409 day_closed` (วันนั้นปิดวันแล้ว), `409 expense_posted_use_void`, `409 already_reversed`, `400 reverse_not_allowed`
 
-### สต็อกวัตถุดิบ (0027-0030) — `/api/stock/*`
+### สต็อกวัตถุดิบ (0005; เดิม 0027–0030) — `/api/stock/*`
 
 หลักการและสูตรดู [stock.md](stock.md) · Swagger แท็ก "สต็อกวัตถุดิบ" · ทุก endpoint เรียกฐานข้อมูลด้วย JWT ของผู้ใช้ · ตัวเลขทุกตัวเป็นหน่วยฐานของวัตถุดิบ (g / ml / pcs) · อ่าน = เจ้าของ ผู้จัดการ สต็อก บัญชี · เขียน = เจ้าของ ผู้จัดการ สต็อก
 
@@ -125,8 +127,27 @@ endpoint ที่ต้องล็อกอิน ส่ง header `Authorizat
 |------|:------:|----------|
 | `SUPABASE_URL` | – | |
 | `SUPABASE_ANON_KEY` | – | |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | backend เท่านั้น |
+| `SUPABASE_JWT_SECRET` | ✅ | ลงนามและตรวจ HS256 JWT |
+| `SESSION_HOURS` | – | ค่าเริ่มต้น 12 ชั่วโมง |
 | `GEMINI_API_KEY` | ✅ | ไม่ตั้ง = ปิดฟีเจอร์ AI |
 | `GEMINI_MODEL` | – | ค่าเริ่มต้น `gemini-2.5-flash` |
-| `ALLOWED_ORIGINS` | – | ใช้เมื่อ Worker อยู่คนละโดเมนกับหน้าเว็บ และใช้เป็นลิงก์กลับในอีเมลเชิญ |
-| `AI_LIMITER` | – | Rate Limiting binding (เฉพาะ Worker แยก) ไม่ผูก = นับในหน่วยความจำแทน (แม่นน้อยกว่า) |
+| `ALLOWED_ORIGINS` | – | ใช้เมื่อ Worker อยู่คนละโดเมนกับหน้าเว็บ ไม่เกี่ยวกับอีเมลเชิญใน auth ปัจจุบัน |
+| `AI_LIMITER` | – | Rate Limiting binding (ทั้ง Worker รวมและ Worker แยกที่ตั้ง binding) ไม่ผูก = นับในหน่วยความจำแทน (แม่นน้อยกว่า) |
+
+## Custom auth และขอบเขตเอกสาร
+
+ใช้ `app_users`/bcrypt และ JWT HS256 ของ backend; ไม่ใช่ Supabase Auth session ผู้ใช้หนึ่งคนมีหลายบทบาทได้ หน้าเว็บเก็บ session ใน localStorage และแนบ JWT ให้ PostgREST/Realtime ข้อมูลร้านตรวจ RLS อีกชั้น
+
+| Method | Path | หน้าที่ |
+|---|---|---|
+| POST | `/api/auth/login` | email/password → access_token, expires_at, user |
+| GET/PATCH | `/api/auth/me` | อ่าน/แก้ profile ผู้ใช้ปัจจุบัน |
+| POST | `/api/auth/password` | current_password/new_password; ต้องยืนยันรหัสเดิม |
+| POST | `/api/staff/:userId/reset-password` | เจ้าของ/ผู้จัดการตามสิทธิ์ body `{ restaurant_id }` → `{ user_id, temp_password }`; UI พาไปเปลี่ยนรหัสเมื่อเข้า |
+
+API ใช้ `app_user_active` ตรวจบัญชีหลังตรวจ JWT; การ revoke session ทุกช่องทางและสิทธิ์ direct RPC ต้องทดสอบเพิ่ม ไม่ตีความว่า JWT เดิมถูกเพิกถอนทุกที่ทันที
+
+ตารางในหน้านี้เป็นภาพรวม รายการครบของ tax documents, sales-tax/PP30/WHT, shift open/close/cash movement/Z-report, reports และ promo suggestions อยู่ใน [OpenAPI](openapi.json) ซึ่งสร้างจาก source และมี test ตรวจตรงกับ route
+
+จุด API/UI ที่ยังไม่เปิดครบอยู่ใน [P2-F5](tasks/2-people/person-2-crm-ops.md) สิ่งที่อยู่ใน SQL ไม่ถือว่ามี REST endpoint แล้ว งานความปลอดภัยที่ระบุในใบงานยังเปิดอยู่ รวมผลตอบ staff DELETE และ rate limiter

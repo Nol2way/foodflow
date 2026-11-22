@@ -1,62 +1,67 @@
-# ใบงานคนที่ 1 — สายหน้าร้าน, ออเดอร์, โต๊ะ, เมนู & ครัว (Fullstack)
+# ใบงานคนที่ 1 — หน้าร้าน, ออเดอร์, โต๊ะ, เมนู และครัว
 
-ทำครบทั้ง **Frontend + Backend + SQL** ในโดเมนของตัวเอง · อ่านกติกากลางที่ [README.md](README.md) · ช่วงเลข Migration: **`0009–0019`**
+รับผิดชอบ Frontend, Backend และ SQL ในโดเมนนี้ ใช้ migration ช่วง `0009–0019` ตาม [แผนส่งมอบ](README.md) สถานะด้านล่างอ้างอิงซอร์สปัจจุบัน
 
----
+## บั๊ก 6 งาน · เฟส 1
 
-## ส่วน A: งานแก้บั๊ก (6 งาน — เฟส 1)
+### P0
 
-### 🔴 P0 — ด่วนมาก
-- [ ] **`P1-B1` [SQL Security] ปิดช่องโหว่ `UPDATE orders SET status = 'paid'` ข้าม `counter_pay_bill()`**
-  - **ไฟล์:** `database/migrations/0001_core.sql` (L377–385, L1063), `0007_order_cancel_kitchen.sql` (L156)
-  - **ปัญหา:** พนักงานสามารถยิง PostgREST `PATCH /orders` ตั้ง `status='paid'` ตรงๆ ข้าม `counter_pay_bill()` ทำให้ `payment_method` เป็น `NULL` และข้ามโปรโมชัน/แต้ม
-  - **วิธีแก้:** ตั้ง session flag (`set_config('app.in_pay_bill', '1', true)`) ใน `counter_pay_bill()` และให้ `enforce_order_status()` บล็อกการเปลี่ยนเป็น `paid` จากภายนอก
+- [ ] **`P1-B1` [SQL] ให้การเปลี่ยนออเดอร์เป็น `paid` ผ่านขั้นตอนรับชำระ**
+  - ปัจจุบัน policy ของ `orders` และ `enforce_order_status()` ยังอนุญาตให้หน้าร้านเปลี่ยนสถานะเป็น `paid` โดยตรง จึงข้ามการบันทึกวิธีชำระ โปรโมชัน และแต้มใน `counter_pay_bill()` ได้
+  - บังคับให้การรับชำระผ่าน RPC และทดสอบสิทธิ์ของเจ้าของ หน้าร้าน และครัว รักษาการเสิร์ฟและการยกเลิกที่อนุญาต รวมงานแก้ฟังก์ชันรับชำระกับ `P1-B4`
+  - ซอร์ส `database/migrations/0001_core.sql`, `database/migrations/0002_display_payment_reports.sql`, `database/migrations/0007_order_cancel_kitchen.sql`
 
-- [ ] **`P1-B2` [FE] แก้ส่งออเดอร์ซ้ำได้ในหน้า POS**
-  - **ไฟล์:** `frontend/src/pages/Pos.tsx` (L143–187)
-  - **ปัญหา:** เรียก `setSending(false)` (L156) ก่อน `await` รอบที่สอง (L175) และก่อนล้างตะกร้า `setCart({})` (L184) ทำให้กดซ้ำแล้วเกิดออเดอร์เบิ้ล
-  - **วิธีแก้:** ย้าย `setSending(false)` ไปไว้ใน `finally` หลังล้างตะกร้าเสร็จ
+- [ ] **`P1-B2` [FE] กันส่งออเดอร์ซ้ำใน POS**
+  - `send()` มี `sending` guard แล้ว แต่ปลดก่อนอ่านยอดที่บันทึกและล้างตะกร้า ล็อกการส่งตลอดขั้นตอนและคืนสถานะใน `finally` ทดสอบกดซ้ำระหว่างรออ่านยอดและเมื่อ RPC ล้มเหลว
+  - ซอร์ส `frontend/src/pages/Pos.tsx`
 
-- [ ] **`P1-B3` [FE] แก้ `cleanStorage()` ลบสื่อจริงทั้งหมด + กันกดซ้ำใน MenuAdmin**
-  - **ไฟล์:** `frontend/src/pages/MenuAdmin.tsx` (L83, L114, L153–166, L183, L204)
-  - **ปัญหา:** ถ้า `display_media` โหลดพัง โค้ดตั้ง `media = []` เงียบๆ พอกดล้างไฟล์จะลบไฟล์จริงทั้งหมดใน Storage ที่เก่ากว่า 24 ชม. + ปุ่มเพิ่มเมนู/หมวด/โต๊ะไม่มี `saving` guard
-  - **วิธีแก้:** แสดง error และปิดปุ่มล้าง Storage เมื่อโหลดพัง + เพิ่ม `saving` guard ให้ปุ่มบันทึกทั้งหมด
+- [ ] **`P1-B3` [FE] ตรวจรายการสื่อก่อนล้าง Storage และกันกดบันทึกซ้ำ**
+  - เมื่ออ่าน `display_media` ล้มเหลว หน้าใช้รายการว่างและการล้างไฟล์อาจลบสื่อที่ยังใช้งานอยู่ ให้ล้างได้เมื่ออ่านข้อมูลอ้างอิงครบและเป็นปัจจุบันเท่านั้น แสดงข้อผิดพลาดและกันกดล้างซ้ำ
+  - เพิ่มสถานะบันทึกสำหรับฟอร์มเมนู หมวด และโต๊ะ ทดสอบทั้งโหลดสื่อล้มเหลวและร้านที่ไม่มีสื่อจริง
+  - ซอร์ส `frontend/src/pages/MenuAdmin.tsx`, `frontend/src/lib/media.ts`
 
-### 🟠 P1 — สำคัญ
-- [ ] **`P1-B4` [SQL] แก้ยอดบิลติดลบใน `counter_pay_bill()` และ `cancel_order_items()` ล้างโปรทั้งหมด**
-  - **ไฟล์:** `database/migrations/0002_display_payment_reports.sql` (L593–605), `0007_order_cancel_kitchen.sql` (L99–111)
-  - **ปัญหา:** (1) ปันส่วนลดแต้มข้ามหลายบิล บิลสุดท้ายไม่ cap ด้วย `o.total` ทำให้ยอดติดลบได้ (2) ยกเลิกรายการ 1 จานแล้วมี 1 โปรหลุดเงื่อนไข ระบบเหมารวมล้างโปรอื่นที่ยังใช้ได้ทิ้งหมด
-  - **วิธีแก้:** Cap `v_share <= o.total` + เกลี่ยเศษใหม่ (เพิ่ม `CHECK (total >= 0)`) และใน `cancel_order_items()` ให้กรองเฉพาะโปรที่ยังเข้าเงื่อนไขมาคำนวณใหม่
+### P1
 
-### 🟡 P2 — เสถียรภาพและ UI
-- [ ] **`P1-B5` [FE] แก้ error ค้าง/race condition ใน `useOrders`, `cache` และ `.catch()` ใน `PromptPayQR`**
-  - **ไฟล์:** `frontend/src/lib/useOrders.ts` (L14–27), `frontend/src/lib/cache.ts` (L22–62), `frontend/src/components/PromptPayQR.tsx` (L11–24)
-  - **วิธีแก้:** ล้าง `setError(null)` เมื่อ `reload()` สำเร็จ + เพิ่ม sequence guard, เพิ่ม invalidation epoch ใน `cache.ts`, และเพิ่ม `.catch()` ให้ `QRCode.toString()`
+- [ ] **`P1-B4` [SQL] รักษายอดต่อออเดอร์และโปรที่ยังเข้าเงื่อนไข**
+  - `counter_pay_bill()` จำกัดส่วนแบ่งส่วนลดจากแต้มสำหรับแถวก่อนหน้าแล้ว แต่แถวสุดท้ายยังรับเศษทั้งหมด ให้กระจายเศษภายในยอดคงเหลือและรักษาผลรวมส่วนลดตามยอดแลกจริง ตรวจข้อมูลเดิมก่อนเพิ่ม constraint ยอดไม่ติดลบ
+  - `cancel_order_items()` คำนวณโปรใหม่ทั้งชุดแล้วล้างทั้งหมดเมื่อเกิดข้อผิดพลาด ให้ประเมินและเก็บโปรที่ยังเข้าเงื่อนไข และปล่อยข้อผิดพลาดอื่นให้ยกเลิกธุรกรรม
+  - ซอร์ส `database/migrations/0002_display_payment_reports.sql`, `database/migrations/0007_order_cancel_kitchen.sql`, `database/migrations/0001_core.sql` (`apply_promotions`)
 
-- [ ] **`P1-B6` [FE + SQL] แก้จอแสดงผลลูกค้าไม่แสดง `/กก.` และ multi-touch timer รั่ว**
-  - **ไฟล์:** `frontend/src/pages/Display.tsx` (L185, L488–510), `database/migrations/0002_display_payment_reports.sql` (L290)
-  - **วิธีแก้:** เพิ่ม `sold_by_weight` ใน `display_content` เพื่อแสดง `/กก.` สำหรับของชั่งน้ำหนัก + เคลียร์ `press.current.timer` ตอน multi-touch และ unmount
+### P2
 
----
+- [ ] **`P1-B5` [FE] จัดการข้อผิดพลาดและผลตอบกลับเก่าในออเดอร์ แคช และ QR**
+  - ใน `useOrders` ล้าง error เมื่อโหลดสำเร็จและรับเฉพาะผลของคำขอล่าสุดสำหรับ key ปัจจุบัน
+  - `cache` มีการเทียบ Promise ระหว่างคำขอที่ค้างอยู่แล้ว แต่ผลเก่ายังเขียนแคชได้เมื่อคำขอใหม่จบก่อน หรือหลัง invalidate/clear ให้ผูกสิทธิ์เขียนกับคำขอและรุ่นแคชที่ยังใช้งานอยู่
+  - ใน `PromptPayQR` จัดการ Promise rejection ของ `QRCode.toString()` และซ่อน QR เก่าเมื่อสร้าง QR สำหรับยอดใหม่ไม่สำเร็จ
+  - ซอร์ส `frontend/src/lib/useOrders.ts`, `frontend/src/lib/cache.ts`, `frontend/src/components/PromptPayQR.tsx`
 
-## ส่วน B: งานฟีเจอร์ใหม่ (5 งาน Fullstack — เฟส 2–3)
+- [ ] **`P1-B6` [FE + SQL] แสดงราคาต่อกิโลกรัมบนจอลูกค้าและเก็บกวาดตัวจับเวลาการกด**
+  - เมนูมี `sold_by_weight` อยู่แล้ว แต่ `display_content` ยังไม่ส่งค่า ให้เพิ่มในผล RPC และแสดง `/กก.` เฉพาะของชั่งน้ำหนัก
+  - หน้าจอล้าง timer ที่อ้างอยู่เมื่อ pointer up/cancel แล้ว ให้ป้องกัน pointer ที่สองเขียนทับ timer และเก็บกวาดเมื่อ unmount
+  - ซอร์ส `database/migrations/0002_display_payment_reports.sql`, `frontend/src/pages/Display.tsx`, `frontend/src/lib/display.ts`
 
-- [ ] **`P1-F1` ตัวเลือกเมนูมีราคา (Add-ons) + รูปเมนู** *(เฟส 2)*
-  - **DB:** ตาราง `menu_option_groups`, `menu_options`, `order_item_options` + อัปเดต `staff_place_order` และ `bill_receipt`
-  - **UI:** ตั้งตัวเลือกและอัปโหลดรูปใน `MenuAdmin.tsx`, Modal เลือกตัวเลือกใน `Pos.tsx`, แสดงตัวเลือกใน `Kitchen.tsx` และ `Receipt.tsx`
+## ฟีเจอร์ 5 งาน · เฟส 2–3
 
-- [ ] **`P1-F2` ผังโต๊ะ (`/tables`) + ย้าย/รวมโต๊ะ + ตัวจับเวลาโต๊ะ + ปุ่ม "ขอเช็คบิล"** *(เฟส 2)*
-  - **DB:** เพิ่มคอลัมน์ `dining_tables.(pos_x, pos_y, seats, zone, bill_requested_at)` + RPC `staff_move_table`, `staff_set_bill_requested`
-  - **UI:** สร้าง `pages/TableMap.tsx` + `lib/tableStatus.ts` (พร้อมเทสต์), จัดตำแหน่งโต๊ะใน `MenuAdmin.tsx`, ปุ่มขอเช็คบิลใน `Serve.tsx` ให้เด่นใน `Counter.tsx`
+- [ ] **`P1-F1` ตัวเลือกเมนูมีราคา (Add-ons) และรูปเมนู** · เฟส 2
+  - มีอัปโหลดรูปและวิดีโอผูกกับเมนูแล้วใน `MenuAdmin.tsx` ผ่าน `MediaManager.tsx` ใช้สื่อเดิมสำหรับแสดงรูปใน POS
+  - เพิ่ม `menu_option_groups`, `menu_options`, `order_item_options` แล้วต่อ `staff_place_order` และ `bill_receipt` ให้บันทึกตัวเลือกและราคาจากฐานข้อมูล เพิ่มการตั้งค่าใน MenuAdmin การเลือกใน POS และการแสดงในครัวกับใบเสร็จ
+  - ซอร์ส `database/migrations/0002_display_payment_reports.sql`, `database/migrations/0003_users_inventory.sql`, `frontend/src/pages/MenuAdmin.tsx`, `frontend/src/components/MediaManager.tsx`, `frontend/src/pages/Pos.tsx`
 
-- [ ] **`P1-F3` แก้ออเดอร์ก่อนครัวเริ่ม + แยกบิล + ประวัติบิล (`/bills`) + ค่าบริการ/ทิป** *(เฟส 3)*
-  - **DB:** RPC `staff_edit_order` (เฉพาะ `received`), `staff_split_order`, เพิ่ม `service_charge_pct`/`service_charge`/`tip` ใน `shop_settings`/`orders`/`counter_pay_bill`
-  - **UI:** ปุ่มแก้ออเดอร์ (เปิด `Pos.tsx` โหมดแก้), ปุ่มแยกบิล + หารเท่ากันใน `Counter.tsx`, หน้า `pages/Bills.tsx` พิมพ์ซ้ำ/ยกเลิกบิล (เฉพาะเจ้าของ)
+- [ ] **`P1-F2` ผังโต๊ะ (`/tables`), ย้าย/รวมโต๊ะ, ตัวจับเวลา และปุ่มขอเช็คบิล** · เฟส 2
+  - มีการจัดการรายชื่อโต๊ะและเลือกโต๊ะตอนสั่งแล้ว เพิ่ม `pos_x`, `pos_y`, `seats`, `zone`, `bill_requested_at` ใน `dining_tables` พร้อม RPC `staff_move_table` และ `staff_set_bill_requested`
+  - สร้าง `TableMap.tsx` และ `tableStatus.ts` พร้อมเทสต์ ตั้งตำแหน่งจาก MenuAdmin เพิ่มปุ่มใน Serve และสถานะเด่นใน Counter
+  - ซอร์ส `database/migrations/0001_core.sql`, `frontend/src/pages/MenuAdmin.tsx`, `frontend/src/pages/Pos.tsx`, `frontend/src/pages/Serve.tsx`, `frontend/src/pages/Counter.tsx`
 
-- [ ] **`P1-F4` พิมพ์ใบสั่งครัว/ใบเสร็จ 80 มม. + เสียงแจ้งเตือน/เตือนออเดอร์ช้าในครัว** *(เฟส 2)*
-  - **DB:** เพิ่ม `shop_settings.auto_print_kitchen` และ `shop_settings.late_order_minutes`
-  - **UI:** สร้าง `components/KitchenTicket.tsx` + CSS `@media print` 80 มม., เล่นเสียงเมื่อมีออเดอร์เข้าใหม่ใน `Kitchen.tsx` + ไฮไลต์แดงเมื่อเกินเวลา
+- [ ] **`P1-F3` แก้ออเดอร์ก่อนครัวเริ่ม, แยกบิล, ประวัติบิล (`/bills`), ค่าบริการ และทิป** · เฟส 3
+  - มีการยกเลิกรายการในออเดอร์สถานะ `received` การพิมพ์หลังชำระ และการยกเลิกบิลผ่านหน้าปิดวันแล้ว ใช้ทางเดินเดิมเรื่องสิทธิ์และเอกสารภาษี
+  - เพิ่ม `staff_edit_order` สำหรับ `received`, `staff_split_order` และฟิลด์ค่าบริการ/ทิปใน `shop_settings`, `orders` และ `counter_pay_bill` ต่อโหมดแก้ใน POS แยกบิล/หารเท่ากันใน Counter และหน้า Bills สำหรับค้น พิมพ์ซ้ำ และให้เจ้าของยกเลิก
+  - ซอร์ส `database/migrations/0002_display_payment_reports.sql`, `database/migrations/0007_order_cancel_kitchen.sql`, `frontend/src/pages/Counter.tsx`, `frontend/src/components/Receipt.tsx`, `frontend/src/components/accounting/AcctDayClose.tsx`
 
-- [ ] **`P1-F5` ระบบ Audit Log (`/audit`) + PWA คิวออเดอร์ออฟไลน์ (`client_ref`)** *(เฟส 3)*
-  - **DB:** ตาราง `audit_log` (immutable) + `audit_trigger()`, เพิ่ม `orders.client_ref` + unique `(restaurant_id, client_ref)` ใน `staff_place_order`
-  - **UI:** หน้า `pages/AuditLog.tsx` (owner/manager), `manifest.webmanifest` + `lib/offlineQueue.ts` (IndexedDB) รับออเดอร์ได้ตอนเน็ตหลุด
+- [ ] **`P1-F4` ใบสั่งครัว 80 มม. เสียงแจ้งเตือน และเวลาเตือนออเดอร์ช้า** · เฟส 2
+  - ใบเสร็จมีรูปแบบสำหรับกระดาษ 80 มม. แล้ว ครัวมีตัวจับเวลาและไฮไลต์เมื่อถึง 15 นาที เพิ่ม `KitchenTicket.tsx` และงานพิมพ์ใบสั่งครัว เสียงแจ้งเมื่อมีออเดอร์ใหม่ และค่า `shop_settings.auto_print_kitchen` / `late_order_minutes`
+  - ซอร์ส `frontend/src/components/Receipt.tsx`, `frontend/src/index.css`, `frontend/src/pages/Kitchen.tsx`, `database/migrations/0002_display_payment_reports.sql`
+
+- [ ] **`P1-F5` Audit Log (`/audit`) และ PWA คิวออเดอร์ออฟไลน์ (`client_ref`)** · เฟส 3
+  - มีประวัติยกเลิกรายการเฉพาะทางแล้ว เพิ่ม `audit_log` แบบแก้ย้อนหลังไม่ได้และ `audit_trigger()` พร้อมหน้าสำหรับ owner/manager
+  - เพิ่ม `orders.client_ref` พร้อม unique `(restaurant_id, client_ref)` และจัดการส่งซ้ำใน `staff_place_order` ต่อ manifest, service worker และคิว IndexedDB สำหรับ POS ทดสอบการส่งซ้ำและการเชื่อมต่อกลับหลังออฟไลน์
+  - ซอร์ส `database/migrations/0003_users_inventory.sql`, `database/migrations/0007_order_cancel_kitchen.sql`, `frontend/src/pages/Pos.tsx`, `frontend/src/main.tsx`
