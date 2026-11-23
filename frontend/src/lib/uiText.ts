@@ -2,6 +2,8 @@ import translations from './ui-translations'
 import { getLanguage } from './preferences'
 
 const common: Record<string, string> = {
+  'ยืนยันรายการ': 'Confirm action', 'ยืนยัน': 'Confirm', 'สำเร็จ': 'Done', 'เกิดข้อผิดพลาด': 'Something went wrong', 'ตกลง': 'OK',
+  'กำลังโหลดออเดอร์': 'Loading orders', 'กำลังโหลดเมนูและโต๊ะ': 'Loading menu and tables', 'กำลังตรวจสถานะ': 'Checking status', 'โหลดสถานะโต๊ะไม่สำเร็จ': 'Unable to load table status',
   'แยกชำระรายออเดอร์ (คงส่วนลดเดิม)': 'Pay orders separately (keep allocated discounts)',
   'ใช้ส่วนลดที่แบ่งไว้ในออเดอร์นี้ ไม่คำนวณโปรซ้ำ': 'Keep the discount allocated to this order without applying the promotion again.',
   'ออเดอร์ใหม่': 'New orders', 'เริ่มทำ': 'Start preparing', 'ทำเสร็จ': 'Ready', 'พร้อมชำระ': 'Ready to pay',

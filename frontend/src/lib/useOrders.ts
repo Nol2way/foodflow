@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { getToken } from './session'
-import { peek, put } from './cache'
+import { has, peek, put } from './cache'
 import type { KitchenOrder, OrderStatus } from './types'
 
 // ดึงออเดอร์ของร้านตามสถานะ และรีเฟรชอัตโนมัติเมื่อมีการเปลี่ยนแปลง (Supabase Realtime)
@@ -10,7 +10,7 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
   const cacheKey = `orders:${restaurantId}:${statusKey}`
   // เปิดหน้าครัว/เสิร์ฟ/รับชำระซ้ำ: แสดงออเดอร์ชุดล่าสุดทันที แล้ว Realtime/โหลดใหม่จะอัปเดตตาม
   const [orders, setOrders] = useState<KitchenOrder[]>(() => peek<KitchenOrder[]>(cacheKey) ?? [])
-  const [loaded, setLoaded] = useState(false)
+  const [loadedKey, setLoadedKey] = useState(() => has(cacheKey) ? cacheKey : '')
   const sequence = useRef(0)
   const owner = useRef(cacheKey)
   owner.current = cacheKey
@@ -28,10 +28,11 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
       .eq('restaurant_id', restaurantId)
       .in('status', statusKey.split(','))
       .order('created_at')
+      .abortSignal(AbortSignal.timeout(10000))
     if (seq !== sequence.current || owner.current !== cacheKey || getToken() !== token) return
     if (err) return setReadError(err.message)
     setReadError(null)
-    setLoaded(true)
+    setLoadedKey(cacheKey)
     const next = data as unknown as KitchenOrder[]
     put(cacheKey, next)
     setOrders(next)
@@ -57,5 +58,5 @@ export function useOrders(restaurantId: string, statuses: OrderStatus[]) {
     }
   }, [restaurantId, statusKey, reload])
 
-  return { orders, error: error ?? readError, setError, reload, loaded }
+  return { orders: loadedKey === cacheKey ? orders : (peek<KitchenOrder[]>(cacheKey) ?? []), error: error ?? readError, setError, reload, loaded: loadedKey === cacheKey }
 }

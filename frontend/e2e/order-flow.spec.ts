@@ -39,6 +39,7 @@ test('รับชำระ: จ่ายเงินสด แล้วเป�
   await page.goto('/counter')
   page.once('dialog', (d) => void d.accept())
   await card(page).getByRole('button', { name: /^รับชำระ ฿/ }).click()
+  await page.locator('.swal2-confirm').click()
   // จ่ายแล้วบิลต้องหายจากรายการค้างชำระ
   await expect(card(page)).toHaveCount(0)
   const receipt = page.getByRole('dialog', { name: 'ใบเสร็จ' })

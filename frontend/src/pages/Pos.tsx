@@ -1,5 +1,6 @@
 import { translateUi } from "../lib/uiText"
 import Modal from '../components/Modal'
+import LoadingState from '../components/LoadingState'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { rolesFor } from '../lib/roles'
@@ -40,9 +41,9 @@ const STATUS_LABEL: Partial<Record<OrderStatus, string>> = {
 }
 
 function Board({ restaurantId }: { restaurantId: string }) {
-  const [categories, setCategories] = useCachedState<MenuCategory[]>(`menu.categories:${restaurantId}`, [])
-  const [items, setItems] = useCachedState<MenuItem[]>(`pos.items:${restaurantId}`, [])
-  const [tables, setTables] = useCachedState<DiningTable[]>(`menu.tables:${restaurantId}`, [])
+  const [categories, setCategories, categoriesLoaded] = useCachedState<MenuCategory[]>(`menu.categories:${restaurantId}`, [])
+  const [items, setItems, itemsLoaded] = useCachedState<MenuItem[]>(`pos.items:${restaurantId}`, [])
+  const [tables, setTables, tablesLoaded] = useCachedState<DiningTable[]>(`menu.tables:${restaurantId}`, [])
   const [images, setImages] = useState<Record<string, string>>({})
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -59,7 +60,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
   const [sending, setSending] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const { orders } = useOrders(restaurantId, OPEN)
+  const { orders, loaded: ordersLoaded, error: ordersError } = useOrders(restaurantId, OPEN)
   const promotions = usePromotions(restaurantId)
   const tax = useTaxSetup(restaurantId)
   const current = useCurrentShift(restaurantId)
@@ -78,11 +79,12 @@ function Board({ restaurantId }: { restaurantId: string }) {
       setLoadError('ไม่มีเมนูออฟไลน์ที่ยังใช้ได้ กรุณาเชื่อมต่อเพื่อโหลดเมนู')
       return
     }
+    const signal = AbortSignal.timeout(10000)
     const [c, m, t, media] = await Promise.all([
-      supabase.from('menu_categories').select('id,name,sort_order').eq('restaurant_id', restaurantId).order('sort_order'),
-      supabase.from('menu_items').select('id,category_id,name,price,is_available,sold_by_weight,option_choices').eq('restaurant_id', restaurantId).order('name'),
-      supabase.from('dining_tables').select('id,label').eq('restaurant_id', restaurantId).order('label'),
-      supabase.from('display_media').select('menu_item_id,storage_path,url').eq('restaurant_id', restaurantId).eq('kind', 'image').eq('is_active', true).order('sort_order'),
+      supabase.from('menu_categories').select('id,name,sort_order').eq('restaurant_id', restaurantId).order('sort_order').abortSignal(signal),
+      supabase.from('menu_items').select('id,category_id,name,price,is_available,sold_by_weight,option_choices').eq('restaurant_id', restaurantId).order('name').abortSignal(signal),
+      supabase.from('dining_tables').select('id,label').eq('restaurant_id', restaurantId).order('label').abortSignal(signal),
+      supabase.from('display_media').select('menu_item_id,storage_path,url').eq('restaurant_id', restaurantId).eq('kind', 'image').eq('is_active', true).order('sort_order').abortSignal(signal),
     ])
     if (c.error || m.error || t.error) {
       setLoadError('โหลดเมนูหรือโต๊ะไม่สำเร็จ')
@@ -227,13 +229,14 @@ function Board({ restaurantId }: { restaurantId: string }) {
   }
 
   return (
-    <div className="page grid max-w-7xl gap-5 lg:grid-cols-[1fr_380px]">
+    <div className="page grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div>
         <div className="mb-4 toolbar justify-between">
           <h1 className="page-title">{translateUi("รับออเดอร์")}</h1>
           <TaxShiftBar restaurantId={restaurantId} setup={tax} current={current} />
         </div>
-        {loadError && <p className="alert-error">{loadError}</p>}
+        {loadError && <p role="alert" className="alert-error">{loadError} <button className="underline" onClick={() => void loadMenu()}>{translateUi('ลองใหม่')}</button></p>}
+        {ordersError && <p role="alert" className="alert-warn">{translateUi('โหลดสถานะโต๊ะไม่สำเร็จ')}: {ordersError}</p>}
 
         {/* 1) ทานที่ร้าน / กลับบ้าน */}
         <div className="mb-4 inline-flex rounded-xl border bg-white p-1 shadow-xs">
@@ -251,7 +254,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
         </div>
 
         {orderType === 'dine_in' ? (
-          <div className="mb-5 grid grid-cols-3 gap-2 sm:grid-cols-5 xl:grid-cols-6">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4 2xl:grid-cols-5">
             {tables.map((t) => {
               const open = openByTable.get(t.id) ?? 0
               return (
@@ -262,11 +265,12 @@ function Board({ restaurantId }: { restaurantId: string }) {
                   className={`rounded-xl border-2 bg-white px-2 py-3 text-sm font-medium shadow-xs transition ${tableId === t.id ? 'border-brand-500 bg-brand-50 text-brand-700' : open > 0 ? 'border-blue-200 hover:border-blue-300' : 'border-transparent hover:border-gray-300'}`}
                 >
                   {t.label}
+                  {!ordersLoaded && !ordersError && <span className="block text-xs text-gray-600">{translateUi('กำลังตรวจสถานะ')}</span>}
                   {open > 0 && <div className="mt-0.5 text-xs font-normal text-blue-600">{"" + translateUi("มี") + " "}{open}{" " + translateUi("ออเดอร์") + ""}</div>}
                 </button>
               )
             })}
-            {tables.length === 0 && <p className="empty col-span-full">{translateUi("ยังไม่มีโต๊ะในระบบ")}</p>}
+            {tablesLoaded && tables.length === 0 && <p className="empty col-span-full">{translateUi("ยังไม่มีโต๊ะในระบบ")}</p>}
           </div>
         ) : (
           <input
@@ -317,12 +321,13 @@ function Board({ restaurantId }: { restaurantId: string }) {
               </button>
             )
           })}
-          {visible.length === 0 && <p className="empty col-span-full">{translateUi("ไม่พบเมนู")}</p>}
+          {!(categoriesLoaded && itemsLoaded && tablesLoaded) && !loadError && <div className="col-span-full"><LoadingState label={translateUi('กำลังโหลดเมนูและโต๊ะ')} /></div>}
+          {itemsLoaded && visible.length === 0 && <p className="empty col-span-full">{translateUi("ไม่พบเมนู")}</p>}
         </div>
       </div>
 
       {/* 3) ตะกร้า + ส่งเข้าครัว */}
-      <aside className="card h-fit p-5 lg:sticky lg:top-6">
+      <aside className="card h-fit min-w-0 p-5 xl:sticky xl:top-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg strong-text">{target ?? translateUi('เลือกโต๊ะก่อน')}</h2>
           {count > 0 && <span className="badge badge-brand">{count}{" " + translateUi("รายการ") + ""}</span>}

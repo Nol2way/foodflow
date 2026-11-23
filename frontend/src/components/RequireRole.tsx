@@ -8,6 +8,9 @@ import { preloadPage, preloadPages } from '../pages/loaders'
 import OfflineOrders from './OfflineOrders'
 import Modal from './Modal'
 import { useText } from '../lib/preferences'
+import LoadingState from './LoadingState'
+import WorkNotifications from './WorkNotifications'
+import { useWorkNotifications } from '../lib/useWorkNotifications'
 
 export interface StaffContext {
   restaurantId: string
@@ -17,7 +20,7 @@ export interface StaffContext {
 export function Logo({ className = '' }: { className?: string }) {
   return (
     <span className={`flex items-center gap-2 font-bold tracking-tight ${className || 'text-gray-900'}`}>
-      <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-md shadow-brand-500/30">
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-600 text-white">
         <Icon name="kitchen" className="h-4.5 w-4.5" />
       </span>
       Plato
@@ -26,17 +29,11 @@ export function Logo({ className = '' }: { className?: string }) {
 }
 
 export function FullPageMessage({ children }: { children: ReactNode }) {
-  const loading = children === 'กำลังโหลด...'
+  const loading = children === translateUi('กำลังโหลด...')
+  if (loading) return <div className="page"><LoadingState label={String(children)} /></div>
   return (
     <div className="grid min-h-screen place-items-center p-6 text-center text-sm text-gray-500">
-      {loading ? (
-        <div className="flex flex-col items-center gap-3" role="status">
-          <span className="spinner" />
-          {children}
-        </div>
-      ) : (
-        children
-      )}
+      {children}
     </div>
   )
 }
@@ -54,6 +51,7 @@ export default function RequireRole({
   const { pathname } = useLocation()
   const [drawer, setDrawer] = useState(false)
   const t = useText()
+  const work = useWorkNotifications(session && !staff.loading && !session.user.must_change_password ? staff.restaurantId : null, staff.roles)
 
   useEffect(() => setDrawer(false), [pathname])
 
@@ -106,7 +104,8 @@ export default function RequireRole({
                   name={p.icon}
                   className="h-5 w-5 shrink-0 text-white/85"
                 />
-                {translateUi(p.title)}
+                <span className="min-w-0 flex-1">{translateUi(p.title)}</span>
+                {work.loaded && !work.error && (work.items.find(item => item.path === p.path)?.count ?? 0) > 0 && <span className="work-badge" aria-label={t('งานรอดำเนินการ', 'Pending tasks')}>{Math.min(work.items.find(item => item.path === p.path)!.count, 99)}{work.items.find(item => item.path === p.path)!.count > 99 ? '+' : ''}</span>}
               </Link>
             )
           })}
@@ -144,9 +143,9 @@ export default function RequireRole({
       <a href="#main-content" className="skip-link">{t('ข้ามไปเนื้อหา', 'Skip to content')}</a>
       {/* แถบด้านข้าง (จอใหญ่) */}
       <aside className="app-sidebar fixed inset-y-0 left-0 hidden w-64 flex-col gap-6 p-4 lg:flex">
-        <Link to="/" className="px-2 pt-1">
+        <div className="flex items-center justify-between gap-2 px-2 pt-1"><Link to="/">
           <Logo className="text-white" />
-        </Link>
+        </Link><WorkNotifications work={work} onNavigate={() => setDrawer(false)} /></div>
         <div className="min-h-0 flex-1 overflow-y-auto">{nav}</div>
         {account}
       </aside>
@@ -157,7 +156,7 @@ export default function RequireRole({
           <Icon name="bars" />
         </button>
         <span className="strong-text">{translateUi(current?.title ?? 'Plato')}</span>
-        <span className="badge badge-gray ml-auto max-w-[45%] truncate">{roleLabels(mine).split(' / ').map(translateUi).join(' / ')}</span>
+        <div className="ml-auto"><WorkNotifications work={work} onNavigate={() => setDrawer(false)} /></div>
       </header>
 
       {drawer && (

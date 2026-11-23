@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useRef, useState, type ChangeEvent } from 'react'
 import { rolesFor } from '../lib/roles'
@@ -107,7 +108,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
 
   async function undo() {
     if (!done?.batch_id || running.current) return
-    if (!window.confirm(`ลบออเดอร์ที่นำเข้ารอบนี้ทั้งหมด ${done.orders} ออเดอร์?`)) return
+    if (!await confirmAction(`ลบออเดอร์ที่นำเข้ารอบนี้ทั้งหมด ${done.orders} ออเดอร์?`)) return
     running.current = true
     setBusy(true)
     try {

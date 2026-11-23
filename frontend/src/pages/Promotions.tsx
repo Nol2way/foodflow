@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
@@ -153,7 +154,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
   }
 
   async function remove(p: Promotion) {
-    if (!window.confirm(`ลบโปร "${p.name}"?`)) return
+    if (!await confirmAction(`ลบโปร "${p.name}"?`)) return
     const { error } = await supabase.from('promotions').delete().eq('id', p.id)
     setMessage(
       error

@@ -6,6 +6,7 @@ import { rolesFor } from '../lib/roles'
 import { orderLabel, itemQty } from '../lib/format'
 import RequireRole from '../components/RequireRole'
 import Icon from '../components/Icon'
+import LoadingState from '../components/LoadingState'
 import KitchenTicket from '../components/KitchenTicket'
 import { useShopSettings } from '../lib/shop'
 import type { Role } from '../lib/roles'
@@ -113,7 +114,7 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
           <Icon name="serve" className="h-4 w-4 shrink-0 text-emerald-600" />{"" + translateUi("โหมดหน้าร้าน: ดูความคืบหน้าของครัวได้ กดได้เฉพาะออเดอร์ที่พร้อมเสิร์ฟ") + " "}</p>
       )}
 
-      <div className="grid items-start gap-4 md:grid-cols-3">
+      {!loaded && !error ? <LoadingState label={translateUi('กำลังโหลดออเดอร์')} rows={3} /> : <div className="grid items-start gap-4 md:grid-cols-3">
         {COLUMNS.map((col) => {
           const list = orders.filter((o) => o.status === col.status)
           return (
@@ -185,12 +186,12 @@ function Board({ restaurantId, roles }: { restaurantId: string; roles: Role[] })
                     </article>
                   )
                 })}
-                {list.length === 0 && <p className="empty">{translateUi("ไม่มีออเดอร์")}</p>}
+                {loaded && !error && list.length === 0 && <p className="empty">{translateUi("ไม่มีออเดอร์")}</p>}
               </div>
             </section>
           )
         })}
-      </div>
+      </div>}
     </div>
   )
 }
