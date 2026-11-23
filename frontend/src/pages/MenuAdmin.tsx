@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useLocalPagination } from '../components/Pagination'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
@@ -147,13 +148,13 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function rotateDisplay() {
-    if (displayToken && !window.confirm('สร้างลิงก์ใหม่? จอที่เปิดลิงก์เดิมอยู่จะใช้ไม่ได้ ต้องเปิดลิงก์ใหม่')) return
+    if (displayToken && !await confirmAction('สร้างลิงก์ใหม่? จอที่เปิดลิงก์เดิมอยู่จะใช้ไม่ได้ ต้องเปิดลิงก์ใหม่')) return
     const { error } = await supabase.rpc('display_rotate_token', { p_restaurant_id: restaurantId })
     result(error, 'สร้างลิงก์จอแสดงผลแล้ว')
   }
 
   async function disableDisplay() {
-    if (!window.confirm('ปิดลิงก์จอแสดงผล? จอที่เปิดอยู่จะหยุดแสดงภายใน 60 วินาที')) return
+    if (!await confirmAction('ปิดลิงก์จอแสดงผล? จอที่เปิดอยู่จะหยุดแสดงภายใน 60 วินาที')) return
     const { error } = await supabase.rpc('display_disable', { p_restaurant_id: restaurantId })
     result(error, 'ปิดลิงก์จอแสดงผลแล้ว')
   }
@@ -173,7 +174,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function removeItem(item: MenuItem) {
-    if (!window.confirm(`ลบเมนู ${item.name}?`)) return
+    if (!await confirmAction(`ลบเมนู ${item.name}?`)) return
     const { error } = await supabase.from('menu_items').delete().eq('id', item.id)
     result(error, `ลบ ${item.name} แล้ว`)
   }
@@ -196,7 +197,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function removeCategory(c: MenuCategory) {
-    if (!window.confirm(`ลบหมวด ${c.name}? เมนูในหมวดนี้จะกลายเป็น "ไม่มีหมวด"`)) return
+    if (!await confirmAction(`ลบหมวด ${c.name}? เมนูในหมวดนี้จะกลายเป็น "ไม่มีหมวด"`)) return
     const { error } = await supabase.from('menu_categories').delete().eq('id', c.id)
     result(error, `ลบหมวด ${c.name} แล้ว`)
   }
@@ -211,7 +212,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function removeTable(t: DiningTable) {
-    if (!window.confirm(`ลบ ${t.label}?`)) return
+    if (!await confirmAction(`ลบ ${t.label}?`)) return
     const { error } = await supabase.from('dining_tables').delete().eq('id', t.id)
     result(error, `ลบ ${t.label} แล้ว`)
   }

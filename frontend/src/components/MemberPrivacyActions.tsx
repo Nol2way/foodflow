@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useText } from '../lib/preferences'
@@ -8,7 +9,7 @@ export default function MemberPrivacyActions({ restaurantId, memberId, onDeleted
   const lock = useRef(false)
   const [error, setError] = useState('')
   async function act(remove: boolean) {
-    if (lock.current || (remove && !window.confirm(text('ลบข้อมูลระบุตัวสมาชิก? ประวัติทางบัญชีที่จำเป็นจะยังคงอยู่โดยไม่ผูกกับสมาชิก และย้อนกลับไม่ได้', 'Delete this members identifying data? Required financial records remain unlinked. This cannot be undone.')))) return
+    if (lock.current || (remove && !await confirmAction(text('ลบข้อมูลระบุตัวสมาชิก? ประวัติทางบัญชีที่จำเป็นจะยังคงอยู่โดยไม่ผูกกับสมาชิก และย้อนกลับไม่ได้', 'Delete this members identifying data? Required financial records remain unlinked. This cannot be undone.')))) return
     lock.current = true
     setBusy(true); setError('')
     try {

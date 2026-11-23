@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useLocalPagination } from '../components/Pagination'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
@@ -117,7 +118,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function resetPassword(m: Member) {
-    if (!window.confirm(`รีเซ็ตรหัสผ่านของ ${m.email}? รหัสเดิมจะใช้ไม่ได้ทันที`)) return
+    if (!await confirmAction(`รีเซ็ตรหัสผ่านของ ${m.email}? รหัสเดิมจะใช้ไม่ได้ทันที`)) return
     setMessage(null)
     try {
       const r = await api<{ temp_password: string }>(`/staff/${m.user_id}/reset-password`, { body: { restaurant_id: restaurantId } })
@@ -128,7 +129,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function setActive(m: Member) {
-    if (saving || !window.confirm(m.is_active === false ? 'เปิดบัญชีนี้อีกครั้ง?' : 'ปิดบัญชีนี้และยกเลิกเซสชันเดิม?')) return
+    if (saving || !await confirmAction(m.is_active === false ? 'เปิดบัญชีนี้อีกครั้ง?' : 'ปิดบัญชีนี้และยกเลิกเซสชันเดิม?')) return
     setSaving(m.user_id); setMessage(null)
     try {
       await api(`/staff/${m.user_id}/active`, { body: { restaurant_id: restaurantId, is_active: m.is_active === false } })
@@ -138,7 +139,7 @@ function Board({ restaurantId, myRoles }: { restaurantId: string; myRoles: Role[
   }
 
   async function remove(m: Member) {
-    if (!window.confirm(`นำ ${m.email} ออกจากร้าน?`)) return
+    if (!await confirmAction(`นำ ${m.email} ออกจากร้าน?`)) return
     setMessage(null)
     try {
       await api(`/staff/${m.user_id}?restaurant_id=${restaurantId}`, { method: 'DELETE' })

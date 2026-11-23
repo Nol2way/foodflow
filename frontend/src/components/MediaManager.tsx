@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
@@ -90,7 +91,7 @@ export default function MediaManager({
   }
 
   async function remove(m: DisplayMediaRow) {
-    if (!window.confirm(`ลบ${KIND_LABEL[m.kind]}นี้?`)) return
+    if (!await confirmAction(`ลบ${KIND_LABEL[m.kind]}นี้?`)) return
     const { error } = await supabase.from('display_media').delete().eq('id', m.id)
     if (!error && m.storage_path) await supabase.storage.from(MEDIA_BUCKET).remove([m.storage_path])
     done(error, 'ลบแล้ว')

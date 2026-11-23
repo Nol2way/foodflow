@@ -2,6 +2,7 @@ import { translateUi } from "../lib/uiText"
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useOrders } from '../lib/useOrders'
+import LoadingState from '../components/LoadingState'
 import { rolesFor } from '../lib/roles'
 import { orderLabel, itemQty } from '../lib/format'
 import RequireRole from '../components/RequireRole'
@@ -31,7 +32,7 @@ function groupByDestination(orders: KitchenOrder[]): Destination[] {
 }
 
 function Board({ restaurantId }: { restaurantId: string }) {
-  const { orders, error, setError, reload } = useOrders(restaurantId, STATUSES)
+  const { orders, error, setError, reload, loaded } = useOrders(restaurantId, STATUSES)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -61,7 +62,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       </div>
       {error && <p className="alert-error">{error}</p>}
 
-      <h2 className="section-title flex items-center gap-2">
+      {!loaded && !error ? <LoadingState /> : <><h2 className="section-title flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full bg-brand-500" />{"" + translateUi("รอเสิร์ฟ") + " "}<span className="badge badge-brand">{waiting.reduce((n, d) => n + d.orders.length, 0)}{" " + translateUi("ออเดอร์") + ""}</span>
       </h2>
       <div className="space-y-3">
@@ -116,7 +117,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
             })}
           </article>
         ))}
-        {waiting.length === 0 && <p className="empty">{translateUi("ไม่มีอาหารรอเสิร์ฟ")}</p>}
+        {loaded && !error && waiting.length === 0 && <p className="empty">{translateUi("ไม่มีอาหารรอเสิร์ฟ")}</p>}
       </div>
 
       <h2 className="section-title mt-8 flex items-center gap-2">
@@ -140,8 +141,8 @@ function Board({ restaurantId }: { restaurantId: string }) {
             </ul>
           </article>
         ))}
-        {served.length === 0 && <p className="empty sm:col-span-2">{translateUi("ไม่มี")}</p>}
-      </div>
+        {served.length === 0 && !error && <p className="empty sm:col-span-2">{translateUi("ไม่มี")}</p>}
+      </div></>}
     </div>
   )
 }

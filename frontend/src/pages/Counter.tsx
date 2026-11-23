@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import CancelOrderDialog from '../components/CancelOrderDialog'
 import { useOrders } from '../lib/useOrders'
+import LoadingState from '../components/LoadingState'
+import { confirmAction } from '../lib/alerts'
 import { rolesFor } from '../lib/roles'
 import { baht, orderLabel, itemQty } from '../lib/format'
 import { promotionError } from '../lib/promotions'
@@ -56,7 +58,7 @@ interface Bill {
 }
 
 function Board({ restaurantId }: { restaurantId: string }) {
-  const { orders, error, setError, reload } = useOrders(restaurantId, OPEN)
+  const { orders, error, setError, reload, loaded } = useOrders(restaurantId, OPEN)
   const promotions = usePromotions(restaurantId)
   const shop = useShopSettings(restaurantId)
   const [receiptIds, setReceiptIds] = useState<string[] | null>(null)
@@ -126,7 +128,7 @@ function Board({ restaurantId }: { restaurantId: string }) {
       )}
 
       <label className="mb-4 flex gap-2 text-sm"><input type="checkbox" checked={separate} onChange={(e) => setSeparate(e.target.checked)} />{translateUi('แยกชำระรายออเดอร์ (คงส่วนลดเดิม)')}</label>
-      <div className="space-y-3">
+      {!loaded && !error ? <LoadingState /> : <div className="space-y-3">
         {bills.map((b) => (
           <BillCard
             key={b.key}
@@ -144,11 +146,12 @@ function Board({ restaurantId }: { restaurantId: string }) {
             onError={setError}
           />
         ))}
-        {bills.length === 0 && (
+        {loaded && !error && bills.length === 0 && (
           <div className="empty">
             <Icon name="counter" className="mx-auto mb-2 h-8 w-8 text-gray-300" />{"" + translateUi("ไม่มีบิลค้างชำระ") + " "}</div>
         )}
       </div>
+      }
       {cancelling && (
         <CancelOrderDialog
           order={cancelling}
@@ -211,12 +214,12 @@ function BillCard({
   const net = Math.round((Math.max(0, afterPromo - fromPoints) + charges) * 100) / 100
   const canPromptPay = Boolean(settings?.promptpay_id)
 
-  function start() {
+  async function start() {
     if (!settings || !promotions.ready || lock.current) return
     const q = { ids: b.orders.map((o) => o.id), promos: preservePromotions ? null : selection.selectedIds, method, memberId: member?.id ?? null, points: usedPoints, total: net, promptpayId: settings.promptpay_id ?? '' }
     setQuote(q)
     if (method === 'promptpay') return setShowQR(true)
-    if (window.confirm(`รับชำระ ${b.label} ยอด ${baht(net)} (${METHODS.find((m) => m.key === method)?.label})?`)) void pay(q)
+    if (await confirmAction(`รับชำระ ${b.label} ยอด ${baht(net)} (${METHODS.find((m) => m.key === method)?.label})?`, translateUi('รับชำระเงิน'))) void pay(q)
   }
 
   async function pay(q = quote) {

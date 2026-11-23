@@ -1,3 +1,4 @@
+import { confirmAction } from '../../lib/alerts'
 import Modal from '../Modal'
 import { translateUi } from "../../lib/uiText"
 // แก้สูตร (สูตรเมนู + สูตรย่อย/สูตรซ้อน) / บันทึกทั้งสูตรในธุรกรรมเดียว (stock_save_recipe ใน 0029)
@@ -92,7 +93,7 @@ export default function RecipeEditor({
   }
 
   async function remove(r: Recipe) {
-    if (!window.confirm(`ลบสูตร ${r.name}?`)) return
+    if (!await confirmAction(`ลบสูตร ${r.name}?`)) return
     try {
       await stockApi.deleteRecipe(restaurantId, r.id)
       onSaved(`ลบสูตร ${r.name} แล้ว`)

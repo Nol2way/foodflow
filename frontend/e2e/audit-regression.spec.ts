@@ -289,6 +289,7 @@ async function partialAbb(browser) {
     await page.goto(origin + '/counter');
     await expect(page.getByRole('radio', { name: 'เงินสด' })).toBeVisible();
     await page.getByRole('button', { name: /^รับชำระ ฿/ }).click();
+    await page.locator('.swal2-confirm').click();
     const receipt = page.getByRole('dialog', { name: 'ใบเสร็จ' });
     await expect(receipt).toContainText('MOCK-ABB-0001');
     await expect(receipt.locator('[data-abb]')).not.toContainText('Item outside ABB');
@@ -390,17 +391,22 @@ test('table move and bill request use selected table identities', async ({ brows
   let moved, requested;
   const { page, context } = await pageFor(browser, async ({ path, body, fulfill }) => {
     if (path.endsWith('/dining_tables')) return fulfill([{ id: 'a', label: 'Table A', floor_x: 5, floor_y: 5, zone: 'Main' }, { id: 'b', label: 'Table B', floor_x: 40, floor_y: 5, zone: 'Main' }]);
+    if (path.endsWith('/orders')) return fulfill([{ ...order('table-active'), table_id: 'a' }]);
     if (path.endsWith('/table_move_orders')) { moved = body(); return fulfill(1); }
     if (path.endsWith('/table_request_bill')) { requested = body(); return fulfill(null); }
   });
   try {
     await page.goto(origin + '/tables');
     await page.getByRole('button', { name: /Table A/ }).click();
+    await page.locator('summary').filter({ hasText: 'ย้าย / รวมออเดอร์' }).click();
     await page.getByLabel('โต๊ะปลายทาง').selectOption('b');
-    await page.getByRole('button', { name: 'ย้าย / รวมออเดอร์' }).click();
+    await page.getByRole('button', { name: 'ย้าย / รวมออเดอร์', exact: true }).click();
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => moved?.p_target_table_id).toBe('b');
     assert.equal(moved.p_source_table_id, 'a');
-    await page.getByRole('button', { name: 'ขอเช็คบิล' }).click();
+    await page.locator('.swal2-confirm').click();
+    await page.getByRole('button', { name: 'ขอเช็คบิล', exact: true }).click();
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => requested?.p_table_id).toBe('a');
   } finally { await context.close(); }
 });
@@ -552,6 +558,7 @@ test('a table with 51 tickets is payable in batches within the RPC cap', async (
     const buttons = page.getByRole('button', { name: /^รับชำระ ฿/ });
     await expect(buttons).toHaveCount(2);
     await buttons.first().click();
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => paid?.p_order_ids.length).toBe(50);
     assert.equal(paid.p_expected_total, 5000);
   } finally { await context.close(); }
@@ -579,6 +586,7 @@ test('coupon is excluded from auto selection and replaces conflicting promotions
     await expect(page.getByRole('button', { name: /Secret coupon/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: /Automatic discount/ })).toBeDisabled();
     await page.getByRole('button', { name: /^รับชำระ ฿/ }).click();
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => paid?.p_promotion_ids).toEqual(['coupon']);
     assert.equal(paid.p_expected_total, 70);
   } finally { await context.close(); }
@@ -627,6 +635,7 @@ test('member export and deletion are offered only to the owner', async ({ browse
     await download;
     assert.equal(exported.p_member_id, members[0].id);
     await page.getByRole('button', { name: 'ลบข้อมูลสมาชิก' }).click();
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => deleted?.p_member_id).toBe(members[0].id);
     await expect(page.getByRole('heading', { name: 'Mock Alice' })).toHaveCount(0);
   } finally { await context.close(); }
@@ -678,6 +687,7 @@ test('feedback guards duplicate clicks and retries the same intent and rating', 
     page.on('dialog', (dialog) => dialog.accept());
     await page.goto(origin + '/counter');
     await page.getByRole('button', { name: /^รับชำระ ฿/ }).click();
+    await page.locator('.swal2-confirm').click();
     await page.getByRole('dialog', { name: 'ใบเสร็จ' }).getByRole('button', { name: 'ปิด', exact: true }).click();
     await page.getByRole('button', { name: '5 ดาว', exact: true }).evaluate((button) => { button.click(); button.click(); });
     await expect(page.getByText('ส่งคะแนนไม่สำเร็จ ลองอีกครั้งได้')).toBeVisible();
@@ -758,6 +768,7 @@ test('split orders can be paid separately without applying allocated discounts t
     const pay = page.getByRole('button', { name: 'รับชำระ ฿80', exact: true });
     await expect(pay).toHaveCount(2);
     await pay.first().click();
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => paid?.p_order_ids.length).toBe(1);
     assert.equal(paid.p_expected_total, 80);
     assert.equal(paid.p_promotion_ids, null);
@@ -827,14 +838,17 @@ test('table map preserves zero coordinates and guards same-frame duplicate bill 
       { id: 'a', label: 'Table A', floor_x: 40, floor_y: 0, zone: 'Main', seats: 4 },
       { id: 'b', label: 'Table B', floor_x: 0, floor_y: 40, zone: 'Main', seats: 4 },
     ]);
+    if (path.endsWith('/orders')) return fulfill([{ ...order('table-active'), table_id: 'b' }]);
     if (path.endsWith('/table_request_bill')) { requests++; await pause(300); return fulfill(null); }
   });
   try {
     await page.goto(origin + '/tables');
     const table = page.getByRole('button', { name: /Table B/ });
-    await expect(table).toHaveCSS('left', '0px');
+    await page.getByRole('button', { name: 'ผังร้าน', exact: true }).click();
+    await expect(table).toHaveCSS('grid-column-start', '1');
     await table.click();
     await page.getByRole('button', { name: 'ขอเช็คบิล', exact: true }).evaluate((button) => { button.click(); button.click(); });
+    await page.locator('.swal2-confirm').click();
     await expect.poll(() => requests).toBe(1);
     await pause(400);
     assert.equal(requests, 1);

@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useLocalPagination } from '../components/Pagination'
 import { useEffect, useMemo, useState } from 'react'
@@ -78,7 +79,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
       })
     if (!lines.length) return setError('ยังไม่ได้กรอกยอดนับ')
     if (lines.some((l) => !(l.counted_qty >= 0))) return setError('ยอดนับต้องไม่ติดลบ')
-    if (!window.confirm(`บันทึกใบนับ ${lines.length} รายการ? ระบบจะปรับยอดเป็นยอดนับจริงทันที (แก้ได้ด้วยการกลับรายการเท่านั้น)`)) return
+    if (!await confirmAction(`บันทึกใบนับ ${lines.length} รายการ? ระบบจะปรับยอดเป็นยอดนับจริงทันที (แก้ได้ด้วยการกลับรายการเท่านั้น)`)) return
     setSaving(true)
     try {
       const r = await stockApi.submitCount(restaurantId, { count_type: kind, note, lines })
@@ -165,7 +166,7 @@ function CountSheet({ restaurantId, onDone }: { restaurantId: string; onDone: (i
       {items.length > 0 && (
         <div className="sticky bottom-0 mt-4 -mx-4 toolbar border-t bg-surface/95 px-4 py-3 backdrop-blur">
           <input className="input min-w-40 flex-1" maxLength={300} placeholder={translateUi("หมายเหตุใบนับ")} value={note} onChange={(e) => setNote(e.target.value)} />
-          {done > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.confirm('ล้างยอดที่กรอกทั้งหมด?') && setEntries({})}>{translateUi("ล้าง")}</button>}
+          {done > 0 && <button type="button" className="btn btn-ghost btn-sm" onClick={async () => { if (await confirmAction('ล้างยอดที่กรอกทั้งหมด?')) setEntries({}) }}>{translateUi("ล้าง")}</button>}
           <button type="button" className="btn btn-primary" disabled={saving || done === 0} onClick={() => void submit()}>
             {saving ? 'กำลังบันทึก...' : `บันทึกใบนับ (${done})`}
           </button>

@@ -1,6 +1,48 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Front-of-house workspace: stable targets, status in text as well as color. */
+.table-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--color-gray-200); border-radius: 14px; background: white; }
+.table-summary > div { min-width: 0; padding: 16px 20px; }
+.table-workspace { display: grid; gap: 24px; align-items: start; }
+.table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 156px), 1fr)); gap: 12px; }
+.table-card { display: flex; min-width: 0; min-height: 160px; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; text-align: left; border: 1px solid var(--color-gray-300); border-radius: 12px; background: white; transition: border-color 150ms, background-color 150ms; }
+.table-card:hover { border-color: var(--color-brand-600); }
+.table-card.is-selected { outline: 2px solid var(--color-brand-600); outline-offset: -2px; background: var(--color-brand-50); }
+.table-card:disabled { opacity: .65; }
+.table-card > :last-child { margin-top: auto; }
+.table-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+.table-status > span { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.status-available { color: var(--color-emerald-700); }
+.status-occupied { color: var(--color-amber-800); }
+.status-bill { color: var(--color-brand-700); }
+.table-floor-scroll { max-width: 100%; overflow: auto; padding: 4px; border: 1px solid var(--color-gray-200); border-radius: 14px; background: var(--color-gray-50); }
+.table-floor { display: grid; min-width: 960px; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: minmax(160px, auto); gap: 12px; padding: 12px; }
+.segmented-control { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--color-gray-300); border-radius: 12px; background: white; }
+.segmented-control button { min-height: 44px; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+.segmented-control button[aria-pressed="true"] { background: var(--color-gray-900); color: white; font-weight: 600; }
+.notification-trigger { position: relative; display: grid; width: 44px; height: 44px; flex: none; place-items: center; border-radius: 10px; color: inherit; }
+.notification-trigger:hover { background: rgb(128 128 128 / .15); }
+.notification-count { position: absolute; top: 0; right: -2px; display: grid; min-width: 20px; height: 20px; padding: 0 4px; place-items: center; border: 2px solid white; border-radius: 12px; background: #b42318; color: white; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.app-sidebar .notification-count { border-color: #252738; }
+.work-badge { display: inline-flex; min-width: 24px; min-height: 24px; flex: none; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 6px; background: #b42318; color: white; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.notification-item { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 16px 0; }
+.notification-item:hover { color: var(--color-brand-700); }
+.plato-alert.swal2-popup { padding: 24px; border-radius: 14px; font-family: inherit; color: var(--color-gray-900); background: white; }
+.plato-alert .swal2-title { padding: 8px 0; font-size: 22px; font-weight: 600; }
+.plato-alert .swal2-html-container { margin: 8px 0 0; padding: 0; font-size: 16px; line-height: 1.6; overflow-wrap: anywhere; }
+.plato-alert-actions { gap: 12px; }
+dialog.app-dialog .swal2-container { position: fixed; }
+@media (min-width: 640px) { .table-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } .table-summary > div + div { border-left: 1px solid var(--color-gray-200); } }
+@media (min-width: 1280px) { .table-workspace { grid-template-columns: minmax(0, 1fr) 300px; } .table-details { position: sticky; top: 24px; } }
+@media screen {
+  html.dark :is(.table-card, .table-summary, .segmented-control, .plato-alert.swal2-popup) { background: #242735; color: #e3e8f2; }
+  html.dark .table-card.is-selected { background: #393442; outline-color: #e7a38a; }
+  html.dark .status-available { color: #b8e3bf; }
+  html.dark .status-occupied { color: #f6d58f; }
+  html.dark .status-bill { color: #f0c6a6; }
+}
+
 @media screen {
   html.dark { color-scheme: dark; --color-surface: #171923; --color-gray-50: #242735; --color-gray-100: #2b3040; --color-gray-200: #41475a; --color-gray-300: #586078; --color-gray-400: #9aa5bc; --color-gray-500: #aab3c5; --color-gray-600: #bcc4d5; --color-gray-700: #d1d8e6; --color-gray-800: #e3e8f2; --color-gray-900: #f4f6fb; }
   html.dark body { background: #171923; color: #e3e8f2; }

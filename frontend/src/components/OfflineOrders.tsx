@@ -1,3 +1,4 @@
+import { confirmAction } from '../lib/alerts'
 import { translateUi } from "../lib/uiText"
 import { useEffect, useState } from 'react'
 import { onQueueChange, queuedOrders, removeQueuedOrder, sendQueuedOrder, type QueuedOrder } from '../lib/orderQueue'
@@ -32,7 +33,7 @@ export default function OfflineOrders({ userId, restaurantId }: { userId: string
     {rows.length > 0 && <button className="btn btn-secondary mt-2" disabled={!online || busy} onClick={() => void retry()}>{busy ? 'กำลังส่ง...' : 'ส่งรายการที่ค้าง'}</button>}
     {rows.map(row => <div key={row.id} className="mt-2 flex flex-wrap items-center gap-2">
       <span>{new Date(row.createdAt).toLocaleString('th-TH')} / {row.id.slice(0, 8)}{row.error ? ' / ต้องลองใหม่' : ''}</span>
-      <button className="btn btn-ghost" disabled={busy} onClick={() => { if (window.confirm('ลบรายการรอส่งนี้? หากเคยส่งแล้วให้ตรวจประวัติบิลก่อนเพื่อไม่สั่งซ้ำ')) void removeQueuedOrder(row.id).catch(() => setError('ลบคิวไม่สำเร็จ')) }}>{translateUi("ลบจากเครื่อง")}</button>
+      <button className="btn btn-ghost" disabled={busy} onClick={async () => { if (await confirmAction('ลบรายการรอส่งนี้? หากเคยส่งแล้วให้ตรวจประวัติบิลก่อนเพื่อไม่สั่งซ้ำ')) void removeQueuedOrder(row.id).catch(() => setError('ลบคิวไม่สำเร็จ')) }}>{translateUi("ลบจากเครื่อง")}</button>
     </div>)}
   </section>
 }
